@@ -1,0 +1,61 @@
+name: vie_lich
+description: Ứng dụng Âm lịch Việt Nam
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+   sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # Quản lý trạng thái
+  provider: ^6.1.2
+
+  # Tính toán âm lịch
+  tyme: ^1.5.0
+
+  # Lưu trữ cục bộ
+  hive_ce: ^2.5.0+1
+  hive_ce_flutter: ^2.0.0
+
+  # Lịch dạng lưới
+  table_calendar: ^3.1.2
+
+  # Chọn ảnh
+  image_picker: ^1.1.2
+  path_provider: ^2.1.5
+  file_picker: ^13.0.0
+
+  # Xuất sự kiện sang lịch hệ thống
+  add_2_calendar: ^3.0.0
+
+  # Thông báo cục bộ
+  flutter_local_notifications: ^22.3.0
+
+  # Quyền
+  permission_handler: ^13.0.2
+
+  # Định dạng ngày giờ
+  intl: ^0.20.3
+  timezone: ^0.11.1
+  android_alarm_manager_plus: ^5.1.0
+  
+  package_info_plus: ^10.2.1
+  url_launcher: ^6.3.1
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  hive_ce_generator: ^1.8.0
+  build_runner: ^2.16.1
+
+flutter:
+  uses-material-design: true
