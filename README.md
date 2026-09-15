@@ -1,17 +1,27 @@
-# vie_lich
+# Ứng dụng Âm lịch Việt Nam
 
-A new Flutter project.
+Ứng dụng xem lịch âm, dương và nhắc ngày giỗ, lễ theo âm lịch.
 
-## Getting Started
+## Tính năng
 
-This project is a starting point for a Flutter application.
+- 📅 **Lịch ngày**: hiển thị ngày âm, dương, can chi, tiết khí, sao tốt/xấu
+- 📆 **Lịch tháng**: lưới lịch có cả âm và dương lịch
+- 🔔 **Nhắc lễ**: tạo sự kiện âm lịch, xuất sang lịch hệ thống, thông báo local
+- ⚙️ **Cài đặt**: chọn âm thanh thông báo, quản lý quyền
 
-A few resources to get you started if this is your first Flutter project:
+## Công nghệ
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter
+- Hive CE (lưu trữ local)
+- android_alarm_manager_plus (báo thức)
+- flutter_local_notifications (thông báo)
+- Thuật toán âm lịch Hồ Ngọc Đức (UTC+7)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Tác giả
+
+- **ToanBB**
+- Email: toanbb.dev@gmail.com
+
+## Giấy phép
+
+GPL v3
