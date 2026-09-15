@@ -302,15 +302,15 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           _ItemCaiDat(
             icon: Icons.email_outlined,
             title: 'Gửi email góp ý',
-            subtitle: 'your-email@example.com',
+            subtitle: 'toanbb.dev@gmail.com',
             onTap: () => _moUrl(
-                'mailto:your-email@example.com?subject=Góp ý ứng dụng Âm lịch'),
+                'mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng Âm lịch'),
           ),
           _ItemCaiDat(
             icon: Icons.code,
             title: 'Mã nguồn',
-            subtitle: 'github.com/your-username/vie_lich',
-            onTap: () => _moUrl('https://github.com/your-username/vie_lich'),
+            subtitle: 'github.com/toanbbpro/vie_lich',
+            onTap: () => _moUrl('https://github.com/toanbbpro/vie_lich'),
           ),
 
           const SizedBox(height: 24),
@@ -327,7 +327,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Ứng dụng Âm lịch Việt Nam',
+                    'VIE Lịch - Ứng dụng Âm lịch Việt Nam',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
@@ -336,9 +336,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Dùng thuật toán Hồ Ngọc Đức (UTC+7)',
+                    'Dùng thuật toán Hồ Ngọc Đức',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 10,
                       color: Colors.grey.shade600,
                     ),
                   ),
