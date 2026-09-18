@@ -1,0 +1,11 @@
+Copyright (C) 2026 ToànBB - All Rights Reserved.
+
+Các tài nguyên (hình ảnh, âm thanh, logo) trong thư mục này thuộc bản quyền của tác giả. 
+Chúng không được phát hành dưới giấy phép mã nguồn mở (GPL v3) của dự án gốc. 
+Nghiêm cấm sao chép, tái sử dụng hoặc phân phối dưới mọi hình thức khi chưa được phép.
+===========================================================================================
+Copyright (C) 2026 ToànBB - All Rights Reserved.
+
+The assets (images, audio, logos) in this directory are copyrighted by the author.
+They are not released under the open-source license (GPL v3) of the original project.
+Unauthorized copying, reuse, or distribution in any form is strictly prohibited.
