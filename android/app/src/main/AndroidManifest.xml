@@ -37,7 +37,7 @@
     </queries>
 
     <application
-        android:label="vie_lich"
+        android:label="VIE Lịch"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:requestLegacyExternalStorage="true">
