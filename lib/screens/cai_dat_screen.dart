@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 import '../models/su_kien.dart';
 import '../services/notification_service.dart';
@@ -22,12 +24,40 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   SoundType _soundType = SoundType.system;
   String? _customFileName;
   bool _loadingSound = true;
+  bool _dangPhat = false;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
+    _cauHinhAudioPlayer();
     _loadVersion();
     _loadSoundSetting();
+  }
+
+  void _cauHinhAudioPlayer() {
+    _audioPlayer.setAudioContext(
+      AudioContext(
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: false,
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.media,
+          audioFocus: AndroidAudioFocus.gain,
+        ),
+      ),
+    );
+
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _dangPhat = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadVersion() async {
@@ -52,29 +82,122 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     });
   }
 
-  /// ===== CHỌN FILE ÂM THANH =====
-  Future<void> _chonFileAmThanh() async {
+  /// ===== PHÁT / DỪNG ÂM THANH TÙY CHỈNH =====
+  Future<void> _togglePhatThu() async {
+    if (_dangPhat) {
+      await _audioPlayer.stop();
+      if (mounted) setState(() => _dangPhat = false);
+      return;
+    }
+
     try {
-      // file_picker v13: dùng static method, không có .platform
-      // Trả về List<PlatformFile> trực tiếp
+      // Phát từ file local trong app (không cần permission)
+      final localPath = await SoundSettings.getCustomSoundLocalPath();
+      if (localPath == null) {
+        _thongBao('Chưa có file âm thanh');
+        return;
+      }
+
+      final file = File(localPath);
+      if (!file.existsSync()) {
+        _thongBao('File âm thanh không tồn tại');
+        return;
+      }
+
+      await _audioPlayer.stop();
+      await _audioPlayer.play(DeviceFileSource(localPath));
+      if (mounted) setState(() => _dangPhat = true);
+    } catch (e) {
+      if (mounted) setState(() => _dangPhat = false);
+      _thongBao('Không phát được âm thanh: $e');
+    }
+  }
+
+  Future<void> _dungAudio() async {
+    if (_dangPhat) {
+      await _audioPlayer.stop();
+      if (mounted) setState(() => _dangPhat = false);
+    }
+  }
+
+  /// ===== TAP RADIO "ÂM TÙY CHỈNH" =====
+  Future<void> _xuLyChonAmTuChinh() async {
+    // Đang ở custom + có file → toggle phát/dừng
+    if (_soundType == SoundType.custom && _customFileName != null) {
+      await _togglePhatThu();
+      return;
+    }
+
+    // Có file sẵn → chuyển sang custom + phát
+    if (_customFileName != null) {
+      await SoundSettings.setType(SoundType.custom);
+
+      final box = Hive.box<SuKien>('suKienBox');
+      await NotificationService.khoiPhucSauDoiAm(box.values.toList());
+
+      if (!mounted) return;
+      setState(() => _soundType = SoundType.custom);
+
+      await _togglePhatThu();
+      return;
+    }
+
+    // Chưa có file → mở picker
+    final daChon = await _chonFileAmThanh();
+    if (!mounted) return;
+    if (!daChon) {
+      setState(() => _soundType = SoundType.system);
+    } else {
+      await _togglePhatThu();
+    }
+  }
+
+  /// ===== CHỌN FILE ÂM THANH (dùng MediaStore) =====
+  Future<bool> _chonFileAmThanh() async {
+    await _dungAudio();
+
+    try {
+      // Xin quyền đọc audio trên Android 13+
+      if (Platform.isAndroid) {
+        final status = await Permission.audio.status;
+        if (!status.isGranted) {
+          final req = await Permission.audio.request();
+          if (!req.isGranted) {
+            if (!mounted) return false;
+            _thongBao('Cần quyền truy cập âm thanh để chọn file');
+            return false;
+          }
+        }
+      }
+
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['mp3', 'm4a', 'wav', 'ogg', 'aac'],
         dialogTitle: 'Chọn file âm thanh thông báo',
       );
 
-      if (files.isEmpty) return;
+      if (files.isEmpty) return false;
       final sourcePath = files.first.path;
       if (sourcePath == null) {
-        if (!mounted) return;
+        if (!mounted) return false;
         _thongBao('Không đọc được đường dẫn file');
-        return;
+        return false;
       }
 
-      await SoundSettings.copySoundFile(sourcePath);
+      final originalName = sourcePath.split('/').last;
+
+      // Lưu vào MediaStore qua SoundSettings
+      final success =
+          await SoundSettings.saveCustomSound(sourcePath, originalName);
+      if (!success) {
+        if (!mounted) return false;
+        _thongBao('Lỗi lưu file âm thanh vào MediaStore');
+        return false;
+      }
+
       await SoundSettings.setType(SoundType.custom);
 
-      // Tạo lại channel custom với âm mới
+      // Tạo lại channel custom với URI mới
       await NotificationService.recreateCustomChannel();
 
       // Khôi phục lịch để dùng âm mới
@@ -82,32 +205,33 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       await NotificationService.khoiPhucSauDoiAm(box.values.toList());
 
       final name = await SoundSettings.getCustomFileName();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _soundType = SoundType.custom;
         _customFileName = name;
       });
       _thongBao('Đã chọn file: $name');
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       _thongBao('Lỗi chọn file: $e');
+      return false;
     }
   }
 
-  /// ===== ĐỔI SANG ÂM HỆ THỐNG =====
+  /// ===== CHUYỂN SANG ÂM HỆ THỐNG =====
   Future<void> _dungAmHeThong() async {
+    await _dungAudio();
+
     await SoundSettings.setType(SoundType.system);
-    await SoundSettings.deleteCustomSound();
+    // KHÔNG xóa file custom — giữ lại để dùng sau
 
     final box = Hive.box<SuKien>('suKienBox');
     await NotificationService.khoiPhucSauDoiAm(box.values.toList());
 
     if (!mounted) return;
-    setState(() {
-      _soundType = SoundType.system;
-      _customFileName = null;
-    });
-    _thongBao('Đã chuyển sang âm hệ thống');
+    setState(() => _soundType = SoundType.system);
+    _thongBao('Đã chuyển sang âm hệ thống (file tùy chỉnh vẫn được giữ)');
   }
 
   /// ===== XIN QUYỀN THÔNG BÁO =====
@@ -195,11 +319,12 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                 if (v == SoundType.system) {
                   if (_soundType != SoundType.system) _dungAmHeThong();
                 } else if (v == SoundType.custom) {
-                  _chonFileAmThanh();
+                  _xuLyChonAmTuChinh();
                 }
               },
               child: Column(
                 children: [
+                  // ====== ÂM HỆ THỐNG ======
                   RadioListTile<SoundType>(
                     value: SoundType.system,
                     title: const Text('Âm hệ thống'),
@@ -213,50 +338,33 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                           : null,
                     ),
                   ),
-                  RadioListTile<SoundType>(
-                    value: SoundType.custom,
-                    title: const Text('Âm tùy chỉnh'),
-                    subtitle: Text(
-                      _customFileName ?? 'Chưa chọn file',
-                      style: TextStyle(
-                        color: _customFileName != null
-                            ? theme.colorScheme.primary
-                            : Colors.grey.shade600,
-                      ),
-                    ),
-                    secondary: Icon(
-                      _soundType == SoundType.custom
-                          ? Icons.music_note
-                          : Icons.music_off_outlined,
-                      color: _soundType == SoundType.custom
-                          ? theme.colorScheme.primary
-                          : null,
-                    ),
+
+                  // ====== ÂM TÙY CHỈNH ======
+                  _OCaiDatAmTuChinh(
+                    theme: theme,
+                    laChon: _soundType == SoundType.custom,
+                    dangPhat: _dangPhat,
+                    tenFile: _customFileName,
+                    onChonRadio: _xuLyChonAmTuChinh,
+                    onChonFile: () async {
+                      final daChon = await _chonFileAmThanh();
+                      if (daChon && mounted) {
+                        await _togglePhatThu();
+                      }
+                    },
+                    onTogglePhat:
+                        _customFileName != null ? _togglePhatThu : null,
                   ),
                 ],
-              ),
-            ),
-          if (!_loadingSound && _soundType == SoundType.custom)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: OutlinedButton.icon(
-                onPressed: _chonFileAmThanh,
-                icon: const Icon(Icons.folder_open),
-                label: Text(
-                  _customFileName == null
-                      ? 'Chọn file âm thanh'
-                      : 'Đổi file âm thanh',
-                ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(44),
-                ),
               ),
             ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Lưu ý: File âm thanh nên là MP3, WAV, OGG hoặc M4A. '
-              'Thông báo đã lên lịch sẽ được tạo lại với âm mới.',
+              'Nhấn vào "Âm tùy chỉnh" để nghe thử hoặc dừng. '
+              'Khi chuyển sang "Âm hệ thống", file tùy chỉnh vẫn được giữ lại. '
+              'File âm thanh được lưu trữ an toàn để thông báo hoạt động ngay cả khi '
+              'ứng dụng bị tắt.',
               style: TextStyle(
                 fontSize: 12,
                 fontStyle: FontStyle.italic,
@@ -285,7 +393,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
             title: 'Phiên bản',
             subtitle: _buildNumber.isEmpty
                 ? _version
-                : '$_version (build $_buildNumber)',
+                : '$_version build $_buildNumber',
             onTap: null,
           ),
           _ItemCaiDat(
@@ -320,10 +428,10 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.calendar_month,
-                    size: 40,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  Image.asset(
+                    'assets/icon/vie_lich_logo_v1.png',
+                    width: 40,
+                    height: 40,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -336,7 +444,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Dùng thuật toán Hồ Ngọc Đức',
+                    'Dùng thuật toán Hồ Ngọc Đức (UTC+7)',
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey.shade600,
@@ -348,6 +456,107 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           ),
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+}
+
+/// ===== TILE "ÂM TÙY CHỈNH" =====
+class _OCaiDatAmTuChinh extends StatelessWidget {
+  final ThemeData theme;
+  final bool laChon;
+  final bool dangPhat;
+  final String? tenFile;
+  final VoidCallback onChonRadio;
+  final VoidCallback onChonFile;
+  final VoidCallback? onTogglePhat;
+
+  const _OCaiDatAmTuChinh({
+    required this.theme,
+    required this.laChon,
+    required this.dangPhat,
+    required this.tenFile,
+    required this.onChonRadio,
+    required this.onChonFile,
+    required this.onTogglePhat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final coFile = tenFile != null;
+
+    return SizedBox(
+      height: 72,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onChonRadio,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              IgnorePointer(
+                child: Radio<SoundType>(value: SoundType.custom),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Âm tùy chỉnh',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tenFile ?? (dangPhat ? 'Đang phát...' : 'Chưa chọn file'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: coFile
+                            ? theme.colorScheme.primary
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 52,
+                height: double.infinity,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onChonFile,
+                    child: Icon(
+                      Icons.folder_open,
+                      size: 24,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 52,
+                height: double.infinity,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onTogglePhat,
+                    child: Icon(
+                      dangPhat ? Icons.stop_circle : Icons.play_circle_outline,
+                      size: 30,
+                      color: coFile
+                          ? (dangPhat ? Colors.red : theme.colorScheme.primary)
+                          : Colors.grey.shade400,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+          ),
+        ),
       ),
     );
   }

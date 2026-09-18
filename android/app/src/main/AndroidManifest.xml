@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Quyền đánh thức thiết bị -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Quyền cho API 32 trở xuống -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <!-- Quyền cho API 33 trở lên -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <queries>
         <intent>
@@ -34,7 +39,8 @@
     <application
         android:label="vie_lich"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon"
+        android:requestLegacyExternalStorage="true">
 
         <activity
             android:name=".MainActivity"

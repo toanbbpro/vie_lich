@@ -15,7 +15,7 @@ class NhacSuKienScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nhắc lễ'),
+        title: const Text('Nhắc lịch'),
         centerTitle: true,
       ),
       body: Consumer<SuKienProvider>(
@@ -121,7 +121,13 @@ class _ItemSuKien extends StatelessWidget {
       ngayText += '  •  ${fmt.format(ngaySuKien)}';
     }
 
-    String baoText = 'Báo trước ${suKien.baoTruoc} ngày';
+    final gio = suKien.gioNhac.toString().padLeft(2, '0');
+    final phut = suKien.phutNhac.toString().padLeft(2, '0');
+    final gioText = 'Nhắc lúc $gio:$phut';
+
+    String baoText = suKien.baoTruoc == 0
+        ? 'Không báo trước'
+        : 'Báo trước ${suKien.baoTruoc} ngày';
     if (ngayBao != null) {
       final fmt = DateFormat('dd/MM', 'vi');
       baoText += '  •  ${fmt.format(ngayBao)}';
@@ -167,7 +173,7 @@ class _ItemSuKien extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                baoText,
+                '$gioText  •  $baoText',
                 style: TextStyle(
                   fontSize: 12,
                   color: theme.colorScheme.primary,

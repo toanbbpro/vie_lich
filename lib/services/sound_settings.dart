@@ -2,113 +2,121 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Loại âm thanh thông báo
+import 'media_store_service.dart';
+
 enum SoundType { system, custom }
 
 class SoundSettings {
   static const String _keyType = 'sound_type';
-  static const String _keyCustomPath = 'custom_sound_path';
+  static const String _keyCustomUri = 'custom_sound_uri';
+  static const String _keyCustomLocalPath = 'custom_sound_local_path';
+  static const String _keyCustomOriginalName = 'custom_sound_original_name';
 
-  /// Tên file âm thanh custom (không có phần mở rộng)
-  static const String customFileName = 'custom_sound';
-
-  /// Channel ID cho âm hệ thống
-  static const String channelIdSystem = 'nhac_su_kien_system';
-
-  /// Channel ID cho âm tùy chỉnh
-  static const String channelIdCustom = 'nhac_su_kien_custom';
-
+  static const String channelIdSystem = 'nhac_su_kien_system_v2';
+  static const String channelIdCustom = 'nhac_su_kien_custom_v2';
   static const String channelNameSystem = 'Nhắc sự kiện - Âm hệ thống';
   static const String channelNameCustom = 'Nhắc sự kiện - Âm tùy chỉnh';
 
-  /// Lấy loại âm thanh hiện tại
+  // Tự động sinh Channel ID động dựa trên URI để ép Android làm mới cấu hình âm thanh
+  static Future<String> getCustomChannelId() async {
+    final uri = await getCustomSoundUri();
+    if (uri == null || uri.isEmpty) return channelIdCustom;
+    return '${channelIdCustom}_${uri.hashCode}';
+  }
+
   static Future<SoundType> getType() async {
     final prefs = await SharedPreferences.getInstance();
     final s = prefs.getString(_keyType) ?? 'system';
     return s == 'custom' ? SoundType.custom : SoundType.system;
   }
 
-  /// Đặt loại âm thanh
   static Future<void> setType(SoundType type) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
         _keyType, type == SoundType.custom ? 'custom' : 'system');
   }
 
-  /// Lấy đường dẫn file âm thanh custom (null nếu chưa có)
-  static Future<String?> getCustomPath() async {
+  /// URI trong MediaStore — dùng cho notification channel
+  static Future<String?> getCustomSoundUri() async {
     final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_keyCustomPath);
-    if (path == null) return null;
-    if (!File(path).existsSync()) return null;
-    return path;
+    return prefs.getString(_keyCustomUri);
   }
 
-  /// Lấy tên file custom (để hiển thị)
+  /// Đường dẫn file trong app — dùng cho preview playback
+  static Future<String?> getCustomSoundLocalPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyCustomLocalPath);
+  }
+
   static Future<String?> getCustomFileName() async {
-    final path = await getCustomPath();
-    if (path == null) return null;
-    return path.split('/').last;
-  }
-
-  /// Copy file âm thanh từ đường dẫn bất kỳ vào thư mục app.
-  /// Trả về đường dẫn mới trong app.
-  static Future<String> copySoundFile(String sourcePath) async {
-    final dir = await _getSoundsDir();
-
-    // Xóa file cũ (nếu có) để giải phóng tên
-    for (final f in dir.listSync()) {
-      if (f is File) {
-        try {
-          await f.delete();
-        } catch (_) {}
-      }
-    }
-
-    final ext = sourcePath.split('.').last.toLowerCase();
-    final destPath = '${dir.path}/$customFileName.$ext';
-    await File(sourcePath).copy(destPath);
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyCustomPath, destPath);
-
-    return destPath;
+    return prefs.getString(_keyCustomOriginalName);
   }
 
-  /// Xóa file custom
+  static Future<bool> saveCustomSound(
+    String sourcePath,
+    String originalName,
+  ) async {
+    try {
+      final ext = sourcePath.split('.').last.toLowerCase();
+
+      // === 1. Lưu bản copy trong app (cho preview) ===
+      final appDir = await getApplicationSupportDirectory();
+      final soundsDir = Directory('${appDir.path}/sounds');
+      if (!soundsDir.existsSync()) {
+        await soundsDir.create(recursive: true);
+      }
+      final localFile = File('${soundsDir.path}/preview.$ext');
+      if (localFile.existsSync()) {
+        await localFile.delete();
+      }
+      await File(sourcePath).copy(localFile.path);
+
+      // === 2. Lưu vào MediaStore (cho notification) ===
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/vie_lich_temp.mp3');
+      if (tempFile.existsSync()) {
+        await tempFile.delete();
+      }
+      await File(sourcePath).copy(tempFile.path);
+
+      final uri = await MediaStoreService.saveSound(tempFile.path);
+
+      try {
+        if (tempFile.existsSync()) await tempFile.delete();
+      } catch (_) {}
+
+      if (uri == null) return false;
+
+      // === 3. Lưu metadata ===
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyCustomUri, uri);
+      await prefs.setString(_keyCustomLocalPath, localFile.path);
+      await prefs.setString(_keyCustomOriginalName, originalName);
+      return true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('❌ Lỗi saveCustomSound: $e');
+      return false;
+    }
+  }
+
   static Future<void> deleteCustomSound() async {
-    final dir = await _getSoundsDir();
-    for (final f in dir.listSync()) {
-      if (f is File) {
-        try {
-          await f.delete();
-        } catch (_) {}
-      }
-    }
+    try {
+      await MediaStoreService.deleteSound();
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyCustomPath);
-  }
-
-  /// Lấy content URI của file custom để dùng cho notification channel.
-  /// Trả về null nếu chưa có file.
-  static Future<Uri?> getCustomSoundUri(String packageName) async {
-    final path = await getCustomPath();
-    if (path == null) return null;
-    final fileName = path.split('/').last;
-    // FileProvider authority: <packageName>.fileprovider
-    // File nằm trong <filesDir>/sounds/<fileName> → content://<authority>/sounds/<fileName>
-    return Uri.parse('content://$packageName.fileprovider/sounds/$fileName');
-  }
-
-  /// Thư mục chứa file âm thanh trong app
-  static Future<Directory> _getSoundsDir() async {
-    // getApplicationSupportDirectory() trên Android trả về context.getFilesDir()
-    // tức là /data/user/0/<package>/files
-    final base = await getApplicationSupportDirectory();
-    final dir = Directory('${base.path}/sounds');
-    if (!dir.existsSync()) {
-      await dir.create(recursive: true);
+    final localPath = prefs.getString(_keyCustomLocalPath);
+    if (localPath != null) {
+      try {
+        final f = File(localPath);
+        if (f.existsSync()) await f.delete();
+      } catch (_) {}
     }
-    return dir;
+
+    await prefs.remove(_keyCustomUri);
+    await prefs.remove(_keyCustomLocalPath);
+    await prefs.remove(_keyCustomOriginalName);
   }
 }

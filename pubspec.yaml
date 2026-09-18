@@ -27,10 +27,11 @@ dependencies:
   # Lịch dạng lưới
   table_calendar: ^3.1.2
 
-  # Chọn ảnh
+  # Media
   image_picker: ^1.1.2
   path_provider: ^2.1.5
   file_picker: ^13.0.0
+  audioplayers: ^6.1.0
 
   # Xuất sự kiện sang lịch hệ thống
   add_2_calendar: ^3.0.0
@@ -56,6 +57,18 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   hive_ce_generator: ^1.8.0
   build_runner: ^2.16.1
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/vie_lich_logo_v1.png"
+  
+  # Cấu hình chuẩn cho Adaptive Icon trên Android 8.0+
+  adaptive_icon_background: "#FFFFFF" # Có thể thay bằng mã màu hex của bạn
+  adaptive_icon_foreground: "assets/icon/vie_lich_logo_v1.png"

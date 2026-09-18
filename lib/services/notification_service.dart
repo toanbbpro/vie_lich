@@ -2,19 +2,15 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 import '../models/su_kien.dart';
 import '../utils/lunar_vn.dart';
 import 'sound_settings.dart';
 
-// ============================================================
-// HẰNG SỐ TOP-LEVEL
-// ============================================================
 const String _channelDesc = 'Thông báo nhắc trước ngày giỗ, lễ theo âm lịch';
 
 // ============================================================
-// CALLBACK CHẠY TRONG ISOLATE
+// CALLBACK CHẠY TRONG ISOLATE TỪ BACKGROUND
 // ============================================================
 @pragma('vm:entry-point')
 Future<void> _showScheduledNotification(
@@ -33,8 +29,8 @@ Future<void> _showScheduledNotification(
 
   final channelId = params['channelId'] as String;
   final channelName = params['channelName'] as String;
-  final soundUriStr = params['soundUri'] as String?;
 
+  // Gọi trực tiếp plugin show. Việc phát âm thanh OS đã tự lo qua thiết lập Channel.
   await plugin.show(
     id: id,
     title: params['title'] as String?,
@@ -42,19 +38,14 @@ Future<void> _showScheduledNotification(
     notificationDetails: _buildNotificationDetails(
       channelId: channelId,
       channelName: channelName,
-      soundUri: soundUriStr != null ? Uri.parse(soundUriStr) : null,
     ),
     payload: params['payload'] as String?,
   );
 }
 
-// ============================================================
-// HELPER BUILD NOTIFICATION DETAILS
-// ============================================================
 NotificationDetails _buildNotificationDetails({
   required String channelId,
   required String channelName,
-  Uri? soundUri,
 }) {
   final androidDetails = AndroidNotificationDetails(
     channelId,
@@ -69,9 +60,6 @@ NotificationDetails _buildNotificationDetails({
     visibility: NotificationVisibility.public,
     styleInformation: const BigTextStyleInformation(''),
     ticker: 'Nhắc nhở sự kiện',
-    sound: soundUri != null
-        ? UriAndroidNotificationSound(soundUri.toString())
-        : null,
   );
   const iosDetails = DarwinNotificationDetails(
     presentAlert: true,
@@ -91,13 +79,6 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
-  static const int _gioNhac = 13;
-  static const int _phutNhac = 45;
-
-  static const int _gioNhacLai = 19;
-  static const int _phutNhacLai = 0;
-
-  /// ===== KHỞI TẠO =====
   static Future<void> init() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings(
@@ -117,29 +98,38 @@ class NotificationService {
       },
     );
 
-    // Xóa kênh cũ để đảm bảo cài đặt mới được áp dụng
     await _xoaTatCaKenhCu();
     await _taoTatCaKenh();
     await _xinQuyen();
   }
 
-  /// Xóa cả 2 kênh cũ để luôn tạo mới với cài đặt đúng
   static Future<void> _xoaTatCaKenhCu() async {
     if (!Platform.isAndroid) return;
     try {
       final androidImpl = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
+
+      // Xóa kênh cũ mặc định
       await androidImpl?.deleteNotificationChannel(
           channelId: SoundSettings.channelIdSystem);
       await androidImpl?.deleteNotificationChannel(
           channelId: SoundSettings.channelIdCustom);
-      debugPrint('🗑️ Đã xóa kênh cũ (nếu có)');
+
+      // Xóa tất cả các kênh custom được tạo tự động (tránh rác OS)
+      final channels = await androidImpl?.getNotificationChannels();
+      if (channels != null) {
+        for (final c in channels) {
+          if (c.id.startsWith(SoundSettings.channelIdCustom)) {
+            await androidImpl?.deleteNotificationChannel(channelId: c.id);
+          }
+        }
+      }
+      debugPrint('🗑️ Đã xóa dọn dẹp các kênh thông báo cũ');
     } catch (e) {
       debugPrint('Lỗi xóa kênh cũ: $e');
     }
   }
 
-  /// Tạo 2 kênh: một cho âm hệ thống, một cho âm tùy chỉnh
   static Future<void> _taoTatCaKenh() async {
     if (!Platform.isAndroid) return;
 
@@ -147,7 +137,7 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
     if (androidImpl == null) return;
 
-    // Kênh âm hệ thống
+    // Kênh system — dùng âm hệ thống
     const channelSystem = AndroidNotificationChannel(
       SoundSettings.channelIdSystem,
       SoundSettings.channelNameSystem,
@@ -157,101 +147,66 @@ class NotificationService {
       enableVibration: true,
       enableLights: true,
       showBadge: true,
+      sound: null,
     );
     await androidImpl.createNotificationChannel(channelSystem);
 
-    // Kênh âm tùy chỉnh (URI sẽ được gắn khi user chọn file, tạm thời null)
-    final packageInfo = await PackageInfo.fromPlatform();
-    final customUri =
-        await SoundSettings.getCustomSoundUri(packageInfo.packageName);
+    // Kênh custom — Giao phó hoàn toàn âm thanh cho Android OS xử lý
+    final dynamicCustomId = await SoundSettings.getCustomChannelId();
+    final customUri = await SoundSettings.getCustomSoundUri();
+
+    AndroidNotificationSound? customSound;
+    if (customUri != null && customUri.isNotEmpty) {
+      customSound = UriAndroidNotificationSound(customUri);
+    }
 
     final channelCustom = AndroidNotificationChannel(
-      SoundSettings.channelIdCustom,
+      dynamicCustomId,
       SoundSettings.channelNameCustom,
       description: _channelDesc,
       importance: Importance.max,
-      playSound: true,
+      playSound: true, // OS sẽ TỰ PHÁT NHẠC, không cần code ngoài
+      sound: customSound, // Truyền trực tiếp content:// URI vào đây
       enableVibration: true,
       enableLights: true,
       showBadge: true,
-      sound: customUri != null
-          ? UriAndroidNotificationSound(customUri.toString())
-          : null,
     );
     await androidImpl.createNotificationChannel(channelCustom);
 
-    debugPrint('✅ Đã tạo 2 kênh: system + custom');
-  }
-
-  /// Xóa và tạo lại kênh custom với âm thanh mới
-  static Future<void> recreateCustomChannel() async {
-    if (!Platform.isAndroid) return;
-    final androidImpl = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImpl == null) return;
-
-    await androidImpl.deleteNotificationChannel(
-        channelId: SoundSettings.channelIdCustom);
-
-    final packageInfo = await PackageInfo.fromPlatform();
-    final customUri =
-        await SoundSettings.getCustomSoundUri(packageInfo.packageName);
-
-    final channelCustom = AndroidNotificationChannel(
-      SoundSettings.channelIdCustom,
-      SoundSettings.channelNameCustom,
-      description: _channelDesc,
-      importance: Importance.max,
-      playSound: true,
-      enableVibration: true,
-      enableLights: true,
-      showBadge: true,
-      sound: customUri != null
-          ? UriAndroidNotificationSound(customUri.toString())
-          : null,
-    );
-    await androidImpl.createNotificationChannel(channelCustom);
-    debugPrint('✅ Đã tạo lại kênh custom');
+    debugPrint('✅ Đã tạo kênh: system + custom ($dynamicCustomId)');
   }
 
   static Future<void> _xinQuyen() async {
     if (!Platform.isAndroid) return;
     final androidImpl = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    // Chỉ xin quyền notification. Với alarmClock: true, không cần
-    // SCHEDULE_EXACT_ALARM nữa.
     await androidImpl?.requestNotificationsPermission();
   }
 
-  /// ===== TẠO ID THÔNG BÁO =====
-  static int _idChinh(String suKienId) => suKienId.hashCode & 0x7FFFFFFF;
-  static int _idNhacLai(String suKienId) =>
-      (_idChinh(suKienId) + 1000000) & 0x7FFFFFFF;
+  /// Tái tạo kênh (khi user đổi nhạc)
+  static Future<void> recreateCustomChannel() async {
+    await _xoaTatCaKenhCu();
+    await _taoTatCaKenh();
+  }
 
-  /// ===== LÊN LỊCH CHO 1 SỰ KIỆN =====
+  static int _idChinh(String suKienId) => suKienId.hashCode & 0x7FFFFFFF;
+
   static Future<void> lenLichSuKien(SuKien suKien) async {
     try {
       await huyLichSuKien(suKien.id);
 
-      // Đọc setting âm thanh
       final soundType = await SoundSettings.getType();
-      final packageInfo = await PackageInfo.fromPlatform();
-      final customUri =
-          await SoundSettings.getCustomSoundUri(packageInfo.packageName);
+      final bool dungCustom = soundType == SoundType.custom;
 
-      // Chọn channel tương ứng
+      // Lấy channel ID tương ứng (động cho custom, tĩnh cho system)
       final String channelId;
       final String channelName;
-      final String? soundUriStr;
-
-      if (soundType == SoundType.custom && customUri != null) {
-        channelId = SoundSettings.channelIdCustom;
+      if (dungCustom) {
+        channelId = await SoundSettings.getCustomChannelId();
         channelName = SoundSettings.channelNameCustom;
-        soundUriStr = customUri.toString();
       } else {
         channelId = SoundSettings.channelIdSystem;
         channelName = SoundSettings.channelNameSystem;
-        soundUriStr = null;
       }
 
       final now = DateTime.now();
@@ -268,13 +223,12 @@ class NotificationService {
         ngayBaoNamNay.year,
         ngayBaoNamNay.month,
         ngayBaoNamNay.day,
-        _gioNhac,
-        _phutNhac,
+        suKien.gioNhac,
+        suKien.phutNhac,
       );
 
       DateTime ngaySuKien;
       DateTime thoiDiemChinh;
-      DateTime thoiDiemNhacLai;
 
       if (thoiDiemChinhNamNay.isBefore(now)) {
         ngaySuKien = ngaySuKienNamSau;
@@ -284,29 +238,14 @@ class NotificationService {
           ngayBaoNamSau.year,
           ngayBaoNamSau.month,
           ngayBaoNamSau.day,
-          _gioNhac,
-          _phutNhac,
-        );
-        thoiDiemNhacLai = DateTime(
-          ngayBaoNamSau.year,
-          ngayBaoNamSau.month,
-          ngayBaoNamSau.day,
-          _gioNhacLai,
-          _phutNhacLai,
+          suKien.gioNhac,
+          suKien.phutNhac,
         );
       } else {
         ngaySuKien = ngaySuKienNamNay;
         thoiDiemChinh = thoiDiemChinhNamNay;
-        thoiDiemNhacLai = DateTime(
-          ngayBaoNamNay.year,
-          ngayBaoNamNay.month,
-          ngayBaoNamNay.day,
-          _gioNhacLai,
-          _phutNhacLai,
-        );
       }
 
-      // === LÊN LỊCH CHÍNH ===
       if (thoiDiemChinh.isAfter(now)) {
         await AndroidAlarmManager.oneShotAt(
           thoiDiemChinh,
@@ -316,39 +255,17 @@ class NotificationService {
             'title': '📅 Sắp đến: ${suKien.ten}',
             'body': _taoNoiDung(suKien, ngaySuKien),
             'payload': suKien.id,
-            'channelId': channelId,
+            'channelId': channelId, // Gửi đúng channelId tới Isolate
             'channelName': channelName,
-            'soundUri': soundUriStr,
           },
           exact: true,
           wakeup: true,
           alarmClock: true,
-          rescheduleOnReboot: false,
+          rescheduleOnReboot:
+              true, // Sửa thành true để hệ thống tự cấp lại Alarm sau khi restart
         );
-        debugPrint('✅ ĐÃ LÊN LỊCH CHÍNH: ${suKien.ten} → $thoiDiemChinh '
-            '(âm: ${soundType.name})');
-      }
-
-      // === LÊN LỊCH NHẮC LẠI ===
-      if (thoiDiemNhacLai.isAfter(now)) {
-        await AndroidAlarmManager.oneShotAt(
-          thoiDiemNhacLai,
-          _idNhacLai(suKien.id),
-          _showScheduledNotification,
-          params: {
-            'title': '🔔 Nhắc lại: ${suKien.ten}',
-            'body': _taoNoiDungNhacLai(suKien, ngaySuKien),
-            'payload': suKien.id,
-            'channelId': channelId,
-            'channelName': channelName,
-            'soundUri': soundUriStr,
-          },
-          exact: true,
-          wakeup: true,
-          alarmClock: true,
-          rescheduleOnReboot: false,
-        );
-        debugPrint('✅ ĐÃ LÊN LỊCH NHẮC LẠI: ${suKien.ten} → $thoiDiemNhacLai');
+        debugPrint(
+            '✅ ĐÃ LÊN LỊCH: ${suKien.ten} → $thoiDiemChinh (Kênh: $channelId)');
       }
     } catch (e) {
       debugPrint('❌ LỖI lên lịch thông báo: $e');
@@ -358,7 +275,6 @@ class NotificationService {
   static Future<void> huyLichSuKien(String suKienId) async {
     try {
       await AndroidAlarmManager.cancel(_idChinh(suKienId));
-      await AndroidAlarmManager.cancel(_idNhacLai(suKienId));
     } catch (e) {
       debugPrint('Lỗi hủy lịch: $e');
     }
@@ -371,18 +287,12 @@ class NotificationService {
     debugPrint('Đã khôi phục ${danhSach.length} lịch thông báo');
   }
 
-  /// Khôi phục lại tất cả lịch sau khi đổi âm thanh
   static Future<void> khoiPhucSauDoiAm(List<SuKien> danhSach) async {
     for (final sk in danhSach) {
       await AndroidAlarmManager.cancel(_idChinh(sk.id));
-      await AndroidAlarmManager.cancel(_idNhacLai(sk.id));
     }
     await khoiPhucLich(danhSach);
   }
-
-  // ============================================================
-  // HÀM PHỤ
-  // ============================================================
 
   static DateTime? _tinhNgaySuKien(SuKien sk, int nam) {
     try {
@@ -401,15 +311,5 @@ class NotificationService {
     }
     return 'Còn ${sk.baoTruoc} ngày nữa là đến "${sk.ten}" '
         '(ngày $ngayText).$ghiChu';
-  }
-
-  static String _taoNoiDungNhacLai(SuKien sk, DateTime ngaySuKien) {
-    final ngayText = '${ngaySuKien.day}/${ngaySuKien.month}/${ngaySuKien.year}';
-    final ghiChu =
-        sk.ghiChu != null && sk.ghiChu!.isNotEmpty ? ' — ${sk.ghiChu}' : '';
-    if (sk.baoTruoc == 0) {
-      return 'Hôm nay là "${sk.ten}" ($ngayText).$ghiChu';
-    }
-    return 'Ngày mai là "${sk.ten}" ($ngayText).$ghiChu';
   }
 }

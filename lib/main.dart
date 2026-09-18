@@ -111,7 +111,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.notifications),
-            label: 'Nhắc lễ',
+            label: 'Nhắc lịch',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),

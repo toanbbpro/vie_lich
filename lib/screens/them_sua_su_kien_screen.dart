@@ -28,6 +28,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   int _ngayAm = 1;
   int _thangAm = 1;
   int _baoTruoc = 3;
+  int _gioNhac = 11;
+  int _phutNhac = 30;
   String? _duongDanAnh;
   bool _daXuatLich = false;
 
@@ -43,6 +45,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       _ngayAm = s.ngayAm;
       _thangAm = s.thangAm;
       _baoTruoc = s.baoTruoc;
+      _gioNhac = s.gioNhac;
+      _phutNhac = s.phutNhac;
       _duongDanAnh = s.duongDanAnh;
       _daXuatLich = s.daXuatLich;
     }
@@ -53,6 +57,28 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     _tenController.dispose();
     _ghiChuController.dispose();
     super.dispose();
+  }
+
+  /// ===== CHỌN GIỜ NHẮC =====
+  Future<void> _chonGioNhac() async {
+    final chon = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _gioNhac, minute: _phutNhac),
+      helpText: 'Chọn giờ nhắc',
+      hourLabelText: 'Giờ',
+      minuteLabelText: 'Phút',
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+    if (chon == null) return;
+    setState(() {
+      _gioNhac = chon.hour;
+      _phutNhac = chon.minute;
+    });
   }
 
   /// ===== CHỌN ẢNH =====
@@ -66,7 +92,6 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       );
       if (picked == null) return;
 
-      // Copy vào thư mục riêng của app để persist
       final appDir = await getApplicationDocumentsDirectory();
       final imgDir = Directory('${appDir.path}/images');
       if (!imgDir.existsSync()) {
@@ -87,7 +112,6 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     }
   }
 
-  /// ===== XÓA ẢNH =====
   void _xoaAnh() {
     setState(() => _duongDanAnh = null);
   }
@@ -111,6 +135,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
         duongDanAnh: _duongDanAnh,
         baoTruoc: _baoTruoc,
         daXuatLich: _daXuatLich,
+        gioNhac: _gioNhac,
+        phutNhac: _phutNhac,
       );
       await provider.capNhatSuKien(updated);
     } else {
@@ -125,6 +151,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
         duongDanAnh: _duongDanAnh,
         baoTruoc: _baoTruoc,
         daXuatLich: false,
+        gioNhac: _gioNhac,
+        phutNhac: _phutNhac,
       );
       await provider.themSuKien(moi);
     }
@@ -154,7 +182,6 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       ),
     );
 
-    // Kiểm tra mounted sau await showDialog
     if (!mounted) return;
     if (xacNhan != true) return;
 
@@ -178,17 +205,17 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
           ? null
           : _ghiChuController.text.trim(),
       baoTruoc: _baoTruoc,
+      gioNhac: _gioNhac,
+      phutNhac: _phutNhac,
     );
 
     final ok = await CalendarExport.xuatSuKien(tam);
 
-    // Kiểm tra mounted sau await
     if (!mounted) return;
 
     if (ok) {
       setState(() => _daXuatLich = true);
 
-      // Nếu đang sửa, cập nhật cờ trong DB
       if (_isEditing) {
         final provider = Provider.of<SuKienProvider>(context, listen: false);
         final updated = SuKien(
@@ -203,6 +230,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
           duongDanAnh: _duongDanAnh,
           baoTruoc: _baoTruoc,
           daXuatLich: true,
+          gioNhac: _gioNhac,
+          phutNhac: _phutNhac,
         );
         await provider.capNhatSuKien(updated);
         if (!mounted) return;
@@ -232,6 +261,13 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     } catch (e) {
       return 'Ngày âm không hợp lệ';
     }
+  }
+
+  /// ===== CHUỖI GIỜ NHẮC =====
+  String get _chuoiGioNhac {
+    final gio = _gioNhac.toString().padLeft(2, '0');
+    final phut = _phutNhac.toString().padLeft(2, '0');
+    return '$gio:$phut';
   }
 
   @override
@@ -363,6 +399,25 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                         ))
                     .toList(),
                 onChanged: (v) => setState(() => _baoTruoc = v!),
+              ),
+              const SizedBox(height: 16),
+
+              // === GIỜ NHẮC ===
+              InkWell(
+                onTap: _chonGioNhac,
+                borderRadius: BorderRadius.circular(4),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Giờ nhắc',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.access_time),
+                    suffixIcon: Icon(Icons.keyboard_arrow_down),
+                  ),
+                  child: Text(
+                    _chuoiGioNhac,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
 
