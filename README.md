@@ -48,13 +48,8 @@ flutter pub get
 
 # 4. Build file APK với format version code ngày tháng (Ví dụ: 1.0.0 build 20260918)
 flutter build apk --build-number=$(date +'%Y%m%d')
+```
 
-👨‍💻 Tác giả
-ToànBB (Lê Thanh Toàn)
-
-📧 Email: toanbb.dev@gmail.com
-
-🌐 GitHub: @toanbbpro
-
-📄 Giấy phép
-Dự án này được phát hành dưới giấy phép GPL v3. Xem chi tiết tại file LICENSE
+## **📄 Giấy phép**
+* **Mã nguồn (Source Code):** Được phát hành dưới giấy phép **[GPL v3](LICENSE)**. Bạn có thể tự do xem, sửa đổi và phân phối lại mã nguồn theo điều khoản của giấy phép này.
+* **Tài nguyên (Assets):** Tất cả các tài nguyên hình ảnh, logo (bao gồm `vie_lich_logo_v1.png`), biểu tượng và âm thanh nằm trong thư mục `assets/` đều thuộc bản quyền của tác giả (Copyright © 2026 ToànBB). **KHÔNG** áp dụng giấy phép GPL v3 cho các tài nguyên này. Bạn không được phép sao chép, sử dụng lại hoặc phân phối các tài nguyên này cho mục đích thương mại hay gắn vào dự án khác khi chưa có sự cho phép.
