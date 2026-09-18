@@ -35,6 +35,8 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // THÊM DÒNG NÀY ĐỂ KÍCH HOẠT PROGUARD RULES ĐÃ TẠO Ở BƯỚC 1
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

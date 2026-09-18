@@ -1,27 +1,60 @@
-# Ứng dụng Âm lịch Việt Nam
+<div align="center">
+  <img src="assets/icon/vie_lich_logo_v1.png" alt="VIE Lịch Logo" width="120" height="120">
 
-Ứng dụng xem lịch âm, dương và nhắc ngày giỗ, lễ theo âm lịch.
+  <h1>VIE Lịch - Ứng dụng Âm lịch Việt Nam</h1>
 
-## Tính năng
+  <!-- Badges -->
+  [![Release](https://img.shields.io/github/v/release/toanbbpro/vie_lich?label=version&color=blue)](https://github.com/toanbbpro/vie_lich/releases/latest)
+  [![Flutter](https://img.shields.io/badge/Built_with-Flutter-%2302569B.svg?style=flat&logo=flutter&logoColor=white)](https://flutter.dev)
+  [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-lightgrey.svg)](#)
+  [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
+  [![Author: ToanBB](https://img.shields.io/badge/Author-To%C3%A0nBB-orange.svg)](https://github.com/toanbbpro)
+  
+  > Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, lễ hội truyền thống theo Âm lịch.
+</div>
 
-- 📅 **Lịch ngày**: hiển thị ngày âm, dương, can chi, tiết khí, sao tốt/xấu
-- 📆 **Lịch tháng**: lưới lịch có cả âm và dương lịch
-- 🔔 **Nhắc lễ**: tạo sự kiện âm lịch, xuất sang lịch hệ thống, thông báo local
-- ⚙️ **Cài đặt**: chọn âm thanh thông báo, quản lý quyền
+---
 
-## Công nghệ
+## 🌟 Tính năng nổi bật
 
-- Flutter
-- Hive CE (lưu trữ local)
-- android_alarm_manager_plus (báo thức)
-- flutter_local_notifications (thông báo)
-- Thuật toán âm lịch Hồ Ngọc Đức (UTC+7)
+*   **📅 Lịch ngày:** Hiển thị chi tiết ngày âm/dương, can chi, tiết khí, giờ hoàng đạo và sao tốt/xấu.
+*   **📆 Lịch tháng:** Giao diện lưới lịch trực quan, xem bao quát cả âm lịch và dương lịch.
+*   **🔔 Nhắc lịch & Sự kiện:** Tạo sự kiện theo lịch âm, đồng bộ sang lịch hệ thống và hỗ trợ thông báo cục bộ (local notification).
+*   **⚙️ Tùy chỉnh thông báo:** Hỗ trợ chọn âm thanh thông báo hệ thống hoặc tải lên file âm thanh tùy chỉnh.
+*   **🔒 Quản lý thông minh:** Tự động xin và quản lý quyền thông báo, báo thức chạy ngầm ổn định kể cả khi đóng ứng dụng.
 
-## Tác giả
+## 🛠 Công nghệ sử dụng
 
-- **ToanBB**
-- Email: toanbb.dev@gmail.com
+Ứng dụng được phát triển bằng Dart & framework Flutter, tích hợp các công nghệ:
 
-## Giấy phép
+*   **[Flutter](https://flutter.dev/):** Nền tảng UI đa nền tảng.
+*   **[Hive CE](https://pub.dev/packages/hive_ce):** Cơ sở dữ liệu NoSQL cục bộ, tốc độ cao.
+*   **Thuật toán Hồ Ngọc Đức:** Đảm bảo độ chính xác tuyệt đối cho việc tính toán Âm lịch theo múi giờ UTC+7.
 
-GPL v3
+## 📥 Cài đặt
+
+Bạn có thể tải xuống phiên bản (APK) mới nhất tại mục **[Releases](https://github.com/toanbbpro/vie_lich/releases)**.
+
+**Dành cho nhà phát triển (Build từ mã nguồn):**
+```bash
+# 1. Clone kho lưu trữ
+git clone [https://github.com/toanbbpro/vie_lich.git](https://github.com/toanbbpro/vie_lich.git)
+
+# 2. Di chuyển vào thư mục
+cd vie_lich
+
+# 3. Tải các thư viện phụ thuộc
+flutter pub get
+
+# 4. Build file APK với format version code ngày tháng (Ví dụ: 1.0.0 build 20260918)
+flutter build apk --build-number=$(date +'%Y%m%d')
+
+👨‍💻 Tác giả
+ToànBB (Lê Thanh Toàn)
+
+📧 Email: toanbb.dev@gmail.com
+
+🌐 GitHub: @toanbbpro
+
+📄 Giấy phép
+Dự án này được phát hành dưới giấy phép GPL v3. Xem chi tiết tại file LICENSE
