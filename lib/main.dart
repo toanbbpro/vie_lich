@@ -8,6 +8,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
 import 'providers/su_kien_provider.dart';
+import 'services/github_update_service.dart';
 import 'services/notification_service.dart';
 import 'screens/lich_ngay_screen.dart';
 import 'screens/lich_thang_screen.dart';
@@ -80,6 +81,15 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Đợi frame đầu tiên render xong mới gọi check cập nhật để không làm khựng UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      GithubUpdateService.checkUpdate(context);
+    });
+  }
 
   static const List<Widget> _screens = [
     LichNgayScreen(),

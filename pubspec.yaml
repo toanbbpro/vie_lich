@@ -1,7 +1,7 @@
 name: vie_lich
 description: Ứng dụng Âm lịch Việt Nam
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -50,6 +50,8 @@ dependencies:
   package_info_plus: ^10.2.1
   url_launcher: ^6.3.1
   shared_preferences: ^2.3.2
+  dio: ^5.11.1
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:

@@ -16,6 +16,8 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- Quyền cho API 33 trở lên -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- Quyền yêu cầu cài đặt ứng dụng từ file APK tải về -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
         <intent>

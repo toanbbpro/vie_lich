@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 import '../models/su_kien.dart';
+import '../services/github_update_service.dart';
 import '../services/notification_service.dart';
 import '../services/sound_settings.dart';
 
@@ -401,6 +402,14 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
             title: 'Tác giả',
             subtitle: 'ToanBB',
             onTap: null,
+          ),
+          _ItemCaiDat(
+            icon: Icons.system_update_outlined,
+            title: 'Kiểm tra cập nhật',
+            subtitle: 'Tìm bản cập nhật mới trên GitHub',
+            onTap: () {
+              GithubUpdateService.checkUpdate(context, showNoUpdate: true);
+            },
           ),
 
           const Divider(height: 32),
