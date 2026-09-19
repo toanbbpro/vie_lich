@@ -13,7 +13,6 @@ import '../utils/lunar_vn.dart';
 
 class ThemSuaSuKienScreen extends StatefulWidget {
   final SuKien? suKien;
-
   const ThemSuaSuKienScreen({super.key, this.suKien});
 
   @override
@@ -24,6 +23,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   final _formKey = GlobalKey<FormState>();
   final _tenController = TextEditingController();
   final _ghiChuController = TextEditingController();
+  final _tagController = TextEditingController();
 
   int _ngayAm = 1;
   int _thangAm = 1;
@@ -32,6 +32,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   int _phutNhac = 30;
   String? _duongDanAnh;
   bool _daXuatLich = false;
+
+  List<String> _tags = [];
 
   bool get _isEditing => widget.suKien != null;
 
@@ -49,6 +51,14 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       _phutNhac = s.phutNhac;
       _duongDanAnh = s.duongDanAnh;
       _daXuatLich = s.daXuatLich;
+
+      if (s.tag != null && s.tag!.trim().isNotEmpty) {
+        _tags = s.tag!
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
     }
   }
 
@@ -56,32 +66,43 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   void dispose() {
     _tenController.dispose();
     _ghiChuController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
-  /// ===== CHỌN GIỜ NHẮC =====
+  void _addTag() {
+    final text = _tagController.text;
+    if (text.trim().isEmpty) return;
+
+    final parts = text.split(',');
+    setState(() {
+      for (var p in parts) {
+        final t = p.trim();
+        if (t.isNotEmpty && !_tags.contains(t)) {
+          _tags.add(t);
+        }
+      }
+    });
+    _tagController.clear();
+  }
+
   Future<void> _chonGioNhac() async {
     final chon = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: _gioNhac, minute: _phutNhac),
-      helpText: 'Chọn giờ nhắc',
-      hourLabelText: 'Giờ',
-      minuteLabelText: 'Phút',
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
     );
-    if (chon == null) return;
-    setState(() {
-      _gioNhac = chon.hour;
-      _phutNhac = chon.minute;
-    });
+    if (chon != null) {
+      setState(() {
+        _gioNhac = chon.hour;
+        _phutNhac = chon.minute;
+      });
+    }
   }
 
-  /// ===== CHỌN ẢNH =====
   Future<void> _chonAnh() async {
     try {
       final picker = ImagePicker();
@@ -94,9 +115,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
 
       final appDir = await getApplicationDocumentsDirectory();
       final imgDir = Directory('${appDir.path}/images');
-      if (!imgDir.existsSync()) {
-        await imgDir.create(recursive: true);
-      }
+      if (!imgDir.existsSync()) await imgDir.create(recursive: true);
+
       final ext = picked.path.split('.').last;
       final fileName = 'sk_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final savedPath = '${imgDir.path}/$fileName';
@@ -106,73 +126,59 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       setState(() => _duongDanAnh = savedPath);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi chọn ảnh: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi: $e')));
     }
   }
 
-  void _xoaAnh() {
-    setState(() => _duongDanAnh = null);
-  }
-
-  /// ===== LƯU =====
-  Future<void> _luu() async {
+  Future<void> _luu({bool dongManHinh = true}) async {
     if (!_formKey.currentState!.validate()) return;
+
+    _addTag();
 
     final provider = Provider.of<SuKienProvider>(context, listen: false);
 
+    final hienTai = widget.suKien;
+    final suKien = SuKien(
+      id: hienTai?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      ten: _tenController.text.trim(),
+      ngayAm: _ngayAm,
+      thangAm: _thangAm,
+      namAm: hienTai?.namAm,
+      ghiChu: _ghiChuController.text.trim().isEmpty
+          ? null
+          : _ghiChuController.text.trim(),
+      duongDanAnh: _duongDanAnh,
+      baoTruoc: _baoTruoc,
+      daXuatLich: _isEditing ? _daXuatLich : false,
+      gioNhac: _gioNhac,
+      phutNhac: _phutNhac,
+      tag: _tags.isEmpty ? null : _tags.join(', '),
+    );
+
     if (_isEditing) {
-      final updated = SuKien(
-        id: widget.suKien!.id,
-        ten: _tenController.text.trim(),
-        ngayAm: _ngayAm,
-        thangAm: _thangAm,
-        namAm: widget.suKien!.namAm,
-        ghiChu: _ghiChuController.text.trim().isEmpty
-            ? null
-            : _ghiChuController.text.trim(),
-        duongDanAnh: _duongDanAnh,
-        baoTruoc: _baoTruoc,
-        daXuatLich: _daXuatLich,
-        gioNhac: _gioNhac,
-        phutNhac: _phutNhac,
-      );
-      await provider.capNhatSuKien(updated);
+      await provider.capNhatSuKien(suKien);
     } else {
-      final moi = SuKien(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        ten: _tenController.text.trim(),
-        ngayAm: _ngayAm,
-        thangAm: _thangAm,
-        ghiChu: _ghiChuController.text.trim().isEmpty
-            ? null
-            : _ghiChuController.text.trim(),
-        duongDanAnh: _duongDanAnh,
-        baoTruoc: _baoTruoc,
-        daXuatLich: false,
-        gioNhac: _gioNhac,
-        phutNhac: _phutNhac,
-      );
-      await provider.themSuKien(moi);
+      await provider.themSuKien(suKien);
     }
 
-    if (!mounted) return;
-    Navigator.pop(context);
+    if (dongManHinh) {
+      if (!mounted) return;
+      Navigator.pop(context);
+    }
   }
 
-  /// ===== XÓA SỰ KIỆN =====
   Future<void> _xoa() async {
     final xacNhan = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xóa sự kiện'),
-        content: Text('Bạn có chắc muốn xóa "${widget.suKien!.ten}"?'),
+        content: Text(
+            'Bạn có chắc chắn muốn xóa "${widget.suKien!.ten}" không? Hành động này không thể hoàn tác.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
-          ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -182,17 +188,16 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       ),
     );
 
-    if (!mounted) return;
-    if (xacNhan != true) return;
+    if (xacNhan == true) {
+      if (!mounted) return;
+      await Provider.of<SuKienProvider>(context, listen: false)
+          .xoaSuKien(widget.suKien!.id);
 
-    final provider = Provider.of<SuKienProvider>(context, listen: false);
-    await provider.xoaSuKien(widget.suKien!.id);
-
-    if (!mounted) return;
-    Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
+    }
   }
 
-  /// ===== XUẤT SANG LỊCH HỆ THỐNG =====
   Future<void> _xuatLich() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -215,39 +220,14 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
 
     if (ok) {
       setState(() => _daXuatLich = true);
+      if (_isEditing) await _luu(dongManHinh: false);
 
-      if (_isEditing) {
-        final provider = Provider.of<SuKienProvider>(context, listen: false);
-        final updated = SuKien(
-          id: widget.suKien!.id,
-          ten: _tenController.text.trim(),
-          ngayAm: _ngayAm,
-          thangAm: _thangAm,
-          namAm: widget.suKien!.namAm,
-          ghiChu: _ghiChuController.text.trim().isEmpty
-              ? null
-              : _ghiChuController.text.trim(),
-          duongDanAnh: _duongDanAnh,
-          baoTruoc: _baoTruoc,
-          daXuatLich: true,
-          gioNhac: _gioNhac,
-          phutNhac: _phutNhac,
-        );
-        await provider.capNhatSuKien(updated);
-        if (!mounted) return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã mở ứng dụng lịch hệ thống')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể xuất sự kiện')),
-      );
+          const SnackBar(content: Text('Đã xuất lịch hệ thống thành công')));
     }
   }
 
-  /// ===== PREVIEW NGÀY DƯƠNG =====
   String _previewNgayDuong() {
     try {
       final now = DateTime.now();
@@ -256,36 +236,58 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
         ngay =
             LunarSolarConverter.lunarToSolar(_ngayAm, _thangAm, now.year + 1);
       }
-      final fmt = DateFormat('EEEE, dd/MM/yyyy', 'vi');
-      return fmt.format(ngay);
-    } catch (e) {
+      return DateFormat('EEEE, dd/MM/yyyy', 'vi').format(ngay);
+    } catch (_) {
       return 'Ngày âm không hợp lệ';
     }
-  }
-
-  /// ===== CHUỖI GIỜ NHẮC =====
-  String get _chuoiGioNhac {
-    final gio = _gioNhac.toString().padLeft(2, '0');
-    final phut = _phutNhac.toString().padLeft(2, '0');
-    return '$gio:$phut';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title = _isEditing ? 'Sửa sự kiện' : 'Thêm sự kiện';
+
+    final provider = Provider.of<SuKienProvider>(context, listen: false);
+    final Set<String> allAvailableTags = {
+      'Giỗ',
+      'Bên nội',
+      'Bên ngoại',
+      'Lễ Tết',
+      'Cá nhân'
+    };
+
+    for (var sk in provider.danhSachSuKien) {
+      if (sk.tag != null && sk.tag!.trim().isNotEmpty) {
+        final list = sk.tag!.split(',').map((e) => e.trim());
+        allAvailableTags.addAll(list);
+      }
+    }
+    allAvailableTags.removeWhere((t) => _tags.contains(t) || t.isEmpty);
+    final suggestedTags = allAvailableTags.toList()..sort();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(_isEditing ? 'Sửa sự kiện' : 'Thêm sự kiện'),
         centerTitle: true,
         actions: [
-          if (_isEditing)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Xóa',
-              onPressed: _xoa,
+          // Đã tạo nút bấm rõ ràng với màu xanh da trời, thu gọn padding để vừa vặn trong AppBar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: FilledButton.icon(
+              onPressed: () => _luu(),
+              icon: const Icon(Icons.save, size: 18),
+              label: Text(_isEditing ? 'CẬP NHẬT' : 'LƯU',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.lightBlue, // Màu xanh da trời
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
+          ),
         ],
       ),
       body: Form(
@@ -295,39 +297,27 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // === TÊN SỰ KIỆN ===
               TextFormField(
                 controller: _tenController,
                 decoration: const InputDecoration(
                   labelText: 'Tên sự kiện *',
-                  hintText: 'Ví dụ: Giỗ Ông Nội',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.label_outline),
                 ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Vui lòng nhập tên sự kiện';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Nhập tên sự kiện' : null,
               ),
               const SizedBox(height: 16),
-
-              // === NGÀY ÂM + THÁNG ÂM ===
               Row(
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: _ngayAm,
                       decoration: const InputDecoration(
-                        labelText: 'Ngày âm',
-                        border: OutlineInputBorder(),
-                      ),
+                          labelText: 'Ngày âm', border: OutlineInputBorder()),
                       items: List.generate(30, (i) => i + 1)
-                          .map((e) => DropdownMenuItem(
-                                value: e,
-                                child: Text('$e'),
-                              ))
+                          .map((e) =>
+                              DropdownMenuItem(value: e, child: Text('$e')))
                           .toList(),
                       onChanged: (v) => setState(() => _ngayAm = v!),
                     ),
@@ -338,14 +328,11 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                     child: DropdownButtonFormField<int>(
                       initialValue: _thangAm,
                       decoration: const InputDecoration(
-                        labelText: 'Tháng âm',
-                        border: OutlineInputBorder(),
-                      ),
+                          labelText: 'Tháng âm', border: OutlineInputBorder()),
                       items: List.generate(12, (i) => i + 1)
                           .map((e) => DropdownMenuItem(
-                                value: e,
-                                child: Text(AmLichHelper.layTenThang(e)),
-                              ))
+                              value: e,
+                              child: Text(AmLichHelper.layTenThang(e))))
                           .toList(),
                       onChanged: (v) => setState(() => _thangAm = v!),
                     ),
@@ -353,236 +340,177 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // === PREVIEW NGÀY DƯƠNG ===
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color:
-                      theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    color: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 16,
-                      color: theme.colorScheme.primary,
-                    ),
+                    Icon(Icons.calendar_today,
+                        size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        'Sự kiện năm nay/sau: ${_previewNgayDuong()}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
+                        child: Text('Dương lịch tới: ${_previewNgayDuong()}',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.primary))),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-
-              // === SỐ NGÀY BÁO TRƯỚC ===
+              TextFormField(
+                controller: _tagController,
+                decoration: InputDecoration(
+                  labelText: 'Thẻ (Tags)',
+                  hintText: 'Nhập thẻ và bấm + hoặc phẩy',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.local_offer_outlined),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.add_circle,
+                        color: theme.colorScheme.primary),
+                    onPressed: _addTag,
+                  ),
+                ),
+                onChanged: (val) {
+                  if (val.contains(',')) _addTag();
+                },
+                onFieldSubmitted: (_) => _addTag(),
+              ),
+              if (_tags.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: -8,
+                    children: _tags
+                        .map((t) => Chip(
+                              label: Text(t,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              backgroundColor:
+                                  theme.colorScheme.primaryContainer,
+                              deleteIcon: const Icon(Icons.cancel, size: 18),
+                              onDeleted: () => setState(() => _tags.remove(t)),
+                            ))
+                        .toList(),
+                  ),
+                ),
+              if (suggestedTags.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Gợi ý (Bấm để thêm):',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: -8,
+                        children: suggestedTags
+                            .map((t) => ActionChip(
+                                  label: Text(t,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.colorScheme.primary)),
+                                  backgroundColor: theme
+                                      .colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  side: BorderSide.none,
+                                  onPressed: () => setState(() => _tags.add(t)),
+                                ))
+                            .toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 initialValue: _baoTruoc,
                 decoration: const InputDecoration(
-                  labelText: 'Báo trước',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.notifications_active_outlined),
-                ),
+                    labelText: 'Báo trước',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.notifications_active_outlined)),
                 items: const [0, 1, 2, 3, 5, 7, 10, 15, 30]
                     .map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(e == 0 ? 'Không báo trước' : '$e ngày'),
-                        ))
+                        value: e,
+                        child: Text(e == 0 ? 'Không báo trước' : '$e ngày')))
                     .toList(),
                 onChanged: (v) => setState(() => _baoTruoc = v!),
               ),
               const SizedBox(height: 16),
-
-              // === GIỜ NHẮC ===
               InkWell(
                 onTap: _chonGioNhac,
                 borderRadius: BorderRadius.circular(4),
                 child: InputDecorator(
                   decoration: const InputDecoration(
-                    labelText: 'Giờ nhắc',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.access_time),
-                    suffixIcon: Icon(Icons.keyboard_arrow_down),
-                  ),
+                      labelText: 'Giờ nhắc',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.access_time)),
                   child: Text(
-                    _chuoiGioNhac,
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                      '${_gioNhac.toString().padLeft(2, '0')}:${_phutNhac.toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 16),
-
-              // === GHI CHÚ ===
               TextFormField(
                 controller: _ghiChuController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Ghi chú',
-                  hintText: 'Thông tin thêm về sự kiện...',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.notes),
-                  alignLabelWithHint: true,
-                ),
+                    labelText: 'Ghi chú',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.notes),
+                    alignLabelWithHint: true),
               ),
               const SizedBox(height: 16),
-
-              // === ẢNH ===
-              _KhungAnh(
-                duongDanAnh: _duongDanAnh,
-                onChonAnh: _chonAnh,
-                onXoaAnh: _xoaAnh,
-              ),
-              const SizedBox(height: 24),
-
-              // === NÚT LƯU ===
-              FilledButton.icon(
-                onPressed: _luu,
-                icon: const Icon(Icons.save),
-                label: Text(_isEditing ? 'Cập nhật' : 'Lưu sự kiện'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              if (_duongDanAnh == null)
+                OutlinedButton.icon(
+                    onPressed: _chonAnh,
+                    icon: const Icon(Icons.add_photo_alternate_outlined),
+                    label: const Text('Thêm ảnh minh họa'))
+              else
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Image.file(File(_duongDanAnh!),
+                        height: 150, width: double.infinity, fit: BoxFit.cover),
+                    IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.white),
+                        onPressed: () => setState(() => _duongDanAnh = null)),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-
-              // === NÚT XUẤT LỊCH ===
+              const SizedBox(height: 32),
               OutlinedButton.icon(
                 onPressed: _xuatLich,
-                icon: Icon(
-                  _daXuatLich ? Icons.event_available : Icons.event,
-                  color: _daXuatLich ? Colors.green : null,
-                ),
-                label: Text(
-                  _daXuatLich
-                      ? 'Đã xuất lịch (xuất lại)'
-                      : 'Xuất sang lịch hệ thống',
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  foregroundColor: _daXuatLich ? Colors.green.shade700 : null,
-                ),
+                icon: Icon(_daXuatLich ? Icons.event_available : Icons.event,
+                    color: _daXuatLich ? Colors.green : null),
+                label: Text(_daXuatLich
+                    ? 'Đã xuất lịch hệ thống (Xuất lại)'
+                    : 'Xuất sang lịch hệ thống'),
               ),
-              const SizedBox(height: 16),
+              if (_isEditing) ...[
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _xoa,
+                  icon: const Icon(Icons.delete_forever),
+                  label: const Text('Xóa sự kiện',
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red.shade600, // Đỏ đậm cảnh báo
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-/// ===== KHUNG CHỌN ẢNH =====
-class _KhungAnh extends StatelessWidget {
-  final String? duongDanAnh;
-  final VoidCallback onChonAnh;
-  final VoidCallback onXoaAnh;
-
-  const _KhungAnh({
-    required this.duongDanAnh,
-    required this.onChonAnh,
-    required this.onXoaAnh,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (duongDanAnh == null) {
-      return OutlinedButton.icon(
-        onPressed: onChonAnh,
-        icon: const Icon(Icons.add_photo_alternate_outlined),
-        label: const Text('Chọn ảnh (tùy chọn)'),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Ảnh sự kiện',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.file(
-                  File(duongDanAnh!),
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey.shade200,
-                    child: const Center(
-                      child: Icon(Icons.broken_image, size: 48),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Material(
-                  color: Colors.black54,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: onXoaAnh,
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(Icons.close, color: Colors.white, size: 18),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Material(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: onChonAnh,
-                    child: const Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.edit, color: Colors.white, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            'Đổi ảnh',
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

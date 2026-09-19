@@ -28,13 +28,14 @@ class SuKienAdapter extends TypeAdapter<SuKien> {
       daXuatLich: fields[8] == null ? false : fields[8] as bool,
       gioNhac: fields[9] == null ? 11 : (fields[9] as num).toInt(),
       phutNhac: fields[10] == null ? 30 : (fields[10] as num).toInt(),
+      tag: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, SuKien obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class SuKienAdapter extends TypeAdapter<SuKien> {
       ..writeByte(9)
       ..write(obj.gioNhac)
       ..writeByte(10)
-      ..write(obj.phutNhac);
+      ..write(obj.phutNhac)
+      ..writeByte(11)
+      ..write(obj.tag);
   }
 
   @override
