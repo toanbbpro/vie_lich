@@ -438,7 +438,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
               child: Column(
                 children: [
                   Image.asset(
-                    'assets/icon/vie_lich_logo_v1.png',
+                    'assets/icon/vie_lich_logo.png',
                     width: 40,
                     height: 40,
                   ),

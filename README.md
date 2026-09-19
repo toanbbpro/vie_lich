@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/icon/vie_lich_logo_v1.png" alt="VIE Lịch Logo" width="120" height="120">
+  <img src="assets/icon/vie_lich_logo.png" alt="VIE Lịch Logo" width="120" height="120">
 
   <h1>VIE Lịch - Ứng dụng Âm lịch Việt Nam</h1>
 
@@ -52,4 +52,4 @@ flutter build apk --build-number=$(date +'%Y%m%d')
 
 ## **📄 Giấy phép**
 * **Mã nguồn (Source Code):** Được phát hành dưới giấy phép **[GPL v3](LICENSE)**. Bạn có thể tự do xem, sửa đổi và phân phối lại mã nguồn theo điều khoản của giấy phép này.
-* **Tài nguyên (Assets):** Tất cả các tài nguyên hình ảnh, logo (bao gồm `vie_lich_logo_v1.png`), biểu tượng và âm thanh nằm trong thư mục `assets/` đều thuộc bản quyền của tác giả (Copyright © 2026 ToànBB). **KHÔNG** áp dụng giấy phép GPL v3 cho các tài nguyên này. Bạn không được phép sao chép, sử dụng lại hoặc phân phối các tài nguyên này cho mục đích thương mại hay gắn vào dự án khác khi chưa có sự cho phép.
+* **Tài nguyên (Assets):** Tất cả các tài nguyên hình ảnh, logo (bao gồm `vie_lich_logo.png`), biểu tượng và âm thanh nằm trong thư mục `assets/` đều thuộc bản quyền của tác giả (Copyright © 2026 ToànBB). **KHÔNG** áp dụng giấy phép GPL v3 cho các tài nguyên này. Bạn không được phép sao chép, sử dụng lại hoặc phân phối các tài nguyên này cho mục đích thương mại hay gắn vào dự án khác khi chưa có sự cho phép.
