@@ -6,7 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
-
+import 'package:provider/provider.dart';
+import '../providers/su_kien_provider.dart';
+import '../services/backup_service.dart';
 import '../models/su_kien.dart';
 import '../services/github_update_service.dart';
 import '../services/notification_service.dart';
@@ -386,7 +388,59 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           ),
 
           const Divider(height: 32),
+          // KHỐI SAO LƯU VÀ KHÔI PHỤC (NẰM TRÊN THÔNG TIN ỨNG DỤNG)
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
+                  title: const Text('Sao lưu dữ liệu'),
+                  subtitle: const Text('Đóng gói toàn bộ nhắc lịch và cấu hình cài đặt'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final provider = Provider.of<SuKienProvider>(context, listen: false);
+                    final ok = await BackupService.taoBanSaoLuu(provider.danhSachSuKien);
+                    if (ok && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã tạo bản sao lưu hoàn tất')),
+                      );
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.cloud_download_outlined, color: Colors.green),
+                  title: const Text('Khôi phục dữ liệu'),
+                  subtitle: const Text('Phục hồi dữ liệu từ file sao lưu JSON'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final data = await BackupService.khoiPhucSaoLuu();
+                    if (data == null) {
+                      return;
+                    }
 
+                    if (data.containsKey('events') && context.mounted) {
+                      final provider = Provider.of<SuKienProvider>(context, listen: false);
+                      final List<dynamic> eventsRaw = data['events'];
+                      int count = 0;
+                      for (var item in eventsRaw) {
+                        final sk = SuKien.fromJson(item as Map<String, dynamic>);
+                        await provider.capNhatSuKien(sk);
+                        count++;
+                      }
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Đã khôi phục thành công $count nhắc lịch và cài đặt!')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
           // ===== PHẦN: THÔNG TIN =====
           const _TieuDeSection(text: 'Thông tin ứng dụng'),
           _ItemCaiDat(

@@ -11,19 +11,18 @@ class DataTransferService {
   /// Đóng gói sự kiện thành file JSON và kích hoạt bảng Chia sẻ của hệ thống
   static Future<bool> exportAndShare(List<SuKien> dsSuKien) async {
     try {
-      final List<Map<String, dynamic>> jsonList =
-          dsSuKien.map((e) => e.toJson()).toList();
+      final List<Map<String, dynamic>> jsonList = dsSuKien.map((e) => e.toJson()).toList();
       final String jsonString = jsonEncode(jsonList);
 
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/vie_lich_backup.json');
+      final file = File('${directory.path}/nhac_lich.vielich');
       await file.writeAsString(jsonString);
 
-      // Dùng lại API quen thuộc và tắt cảnh báo vàng (cách an toàn nhất)
+      // GÁN Mimetype ĐỘC QUYỀN ĐỂ ĐÁNH DẤU CHỦ QUYỀN FILE
       // ignore: deprecated_member_use
       await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Sao lưu nhắc sự kiện - Âm lịch Việt Nam',
+        [XFile(file.path, mimeType: 'application/vnd.vielich')], 
+        text: 'Chia sẻ nhắc lịch - Ứng dụng Vie Lịch',
       );
       return true;
     } catch (e) {

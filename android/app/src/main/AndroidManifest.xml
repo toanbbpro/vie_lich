@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- Quyền yêu cầu cài đặt ứng dụng từ file APK tải về -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Thêm dòng này để xin quyền quét QR -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <queries>
         <intent>
