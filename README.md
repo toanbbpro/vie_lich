@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/icon/vie_lich_logo.png" alt="VIE Lịch Logo" width="120" height="120">
 
-  <h1>VIE Lịch - Ứng dụng Âm lịch Việt Nam</h1>
+  <h1>VIE Lịch - App lịch Việt của người Việt</h1>
 
   <!-- Badges -->
   [![Release](https://img.shields.io/github/v/release/toanbbpro/vie_lich?label=version&color=blue)](https://github.com/toanbbpro/vie_lich/releases/latest)
@@ -10,7 +10,7 @@
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Author: ToanBB](https://img.shields.io/badge/Author-To%C3%A0nBB-orange.svg)](https://github.com/toanbbpro)
   
-  > Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, lễ hội truyền thống theo Âm lịch.
+  > Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, họp họ, lễ hôị truyền thống theo Âm lịch.
 </div>
 
 ---
