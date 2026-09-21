@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Bổ sung thư viện này để dùng Clipboard
 import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -296,6 +297,110 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
+  /// ===== HIỂN THỊ DIALOG ỦNG HỘ (BUY ME A COFFEE) =====
+  void _hienThiDialogUngHo() {
+    const bankId = 'tpbank';
+    const accountNo = '91196797979';
+    const accountName = 'LE THANH TOAN';
+    const content = 'VIE Lich supporter';
+
+    final qrUrl =
+        'https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?&addInfo=${Uri.encodeComponent(content)}&accountName=${Uri.encodeComponent(accountName)}';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.coffee, size: 28, color: Colors.brown),
+                const SizedBox(width: 8),
+                const Text(
+                  'Ủng hộ tác giả',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé! Cảm ơn bạn rất nhiều.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+
+            // Mã QR Code
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                    color: Colors
+                        .grey.shade200), // Làm viền nhạt đi cho tiệp màu nền
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  qrUrl,
+                  height: 250,
+                  width: 250,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const SizedBox(
+                      height: 250,
+                      width: 250,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => const SizedBox(
+                    height: 250,
+                    width: 250,
+                    child: Center(
+                      child: Text('Lỗi tải mã QR.\nVui lòng kiểm tra mạng.',
+                          textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Nút Copy Số tài khoản
+            OutlinedButton.icon(
+              onPressed: () {
+                Clipboard.setData(const ClipboardData(text: accountNo));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Đã sao chép số tài khoản')),
+                );
+              },
+              icon: const Icon(Icons.copy, size: 14),
+              label: const Text('Copy STK: $accountNo'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFFF5EBE1),
+                minimumSize: const Size(double.infinity, 30),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -388,29 +493,35 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           ),
 
           const Divider(height: 32),
-          // KHỐI SAO LƯU VÀ KHÔI PHỤC (NẰM TRÊN THÔNG TIN ỨNG DỤNG)
+          // KHỐI SAO LƯU VÀ KHÔI PHỤC
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
+                  leading: const Icon(Icons.cloud_upload_outlined,
+                      color: Colors.blue),
                   title: const Text('Sao lưu dữ liệu'),
-                  subtitle: const Text('Đóng gói toàn bộ nhắc lịch và cấu hình cài đặt'),
+                  subtitle: const Text(
+                      'Đóng gói toàn bộ nhắc lịch và cấu hình cài đặt'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
-                    final provider = Provider.of<SuKienProvider>(context, listen: false);
-                    final ok = await BackupService.taoBanSaoLuu(provider.danhSachSuKien);
+                    final provider =
+                        Provider.of<SuKienProvider>(context, listen: false);
+                    final ok = await BackupService.taoBanSaoLuu(
+                        provider.danhSachSuKien);
                     if (ok && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã tạo bản sao lưu hoàn tất')),
+                        const SnackBar(
+                            content: Text('Đã tạo bản sao lưu hoàn tất')),
                       );
                     }
                   },
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: const Icon(Icons.cloud_download_outlined, color: Colors.green),
+                  leading: const Icon(Icons.cloud_download_outlined,
+                      color: Colors.green),
                   title: const Text('Khôi phục dữ liệu'),
                   subtitle: const Text('Phục hồi dữ liệu từ file sao lưu JSON'),
                   trailing: const Icon(Icons.chevron_right),
@@ -421,18 +532,22 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                     }
 
                     if (data.containsKey('events') && context.mounted) {
-                      final provider = Provider.of<SuKienProvider>(context, listen: false);
+                      final provider =
+                          Provider.of<SuKienProvider>(context, listen: false);
                       final List<dynamic> eventsRaw = data['events'];
                       int count = 0;
                       for (var item in eventsRaw) {
-                        final sk = SuKien.fromJson(item as Map<String, dynamic>);
+                        final sk =
+                            SuKien.fromJson(item as Map<String, dynamic>);
                         await provider.capNhatSuKien(sk);
                         count++;
                       }
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Đã khôi phục thành công $count nhắc lịch và cài đặt!')),
+                          SnackBar(
+                              content: Text(
+                                  'Đã khôi phục thành công $count nhắc lịch và cài đặt!')),
                         );
                       }
                     }
@@ -482,6 +597,27 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
             title: 'Mã nguồn',
             subtitle: 'github.com/toanbbpro/vie_lich',
             onTap: () => _moUrl('https://github.com/toanbbpro/vie_lich'),
+          ),
+
+          const Divider(height: 1),
+          // NÚT BUY ME A COFFEE
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.brown.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.coffee, color: Colors.brown),
+            ),
+            title: const Text(
+              'Buy me a coffee',
+              style:
+                  TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
+            ),
+            subtitle: const Text('Mời mình một ly cà phê nhé'),
+            trailing: const Icon(Icons.favorite, color: Colors.red),
+            onTap: _hienThiDialogUngHo,
           ),
 
           const SizedBox(height: 24),
