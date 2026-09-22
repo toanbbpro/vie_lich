@@ -14,6 +14,7 @@ import 'screens/lich_ngay_screen.dart';
 import 'screens/lich_thang_screen.dart';
 import 'screens/nhac_su_kien_screen.dart';
 import 'screens/cai_dat_screen.dart';
+import 'services/widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,8 @@ void main() async {
   // Khôi phục lịch thông báo
   final dsSuKien = box.values.toList();
   await NotificationService.khoiPhucLich(dsSuKien);
-
+// GỌI HÀM CẬP NHẬT WIDGET
+  await WidgetService.capNhatWidget();
   runApp(const MyApp());
 }
 
