@@ -10,7 +10,7 @@
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Author: ToanBB](https://img.shields.io/badge/Author-To%C3%A0nBB-orange.svg)](https://github.com/toanbbpro)
   
-  > Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, họp họ, lễ hôị truyền thống theo Âm lịch.
+   Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, họp họ, lễ hôị truyền thống theo Âm lịch.
 </div>
 
 ---
