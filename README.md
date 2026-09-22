@@ -23,6 +23,21 @@
 *   **⚙️ Tùy chỉnh thông báo:** Hỗ trợ chọn âm thanh thông báo hệ thống hoặc tải lên file âm thanh tùy chỉnh.
 *   **🔒 Quản lý thông minh:** Tự động xin và quản lý quyền thông báo, báo thức chạy ngầm ổn định kể cả khi đóng ứng dụng.
 
+## 📱 Screenshot
+
+<details>
+<summary><b>Bấm vào đây để xem ảnh</b></summary>
+
+<img width="1440" height="3168" alt="chup_man_hinh1" src="https://github.com/user-attachments/assets/9ffd5359-5c26-404e-9ba8-0c92a6efbfd6" />
+<img width="1440" height="3168" alt="chup_man_hinh2" src="https://github.com/user-attachments/assets/60a400ca-21f3-4fff-ae17-bffd6841ea53" />
+<img width="1440" height="3168" alt="chup_man_hinh3" src="https://github.com/user-attachments/assets/b5a6b8a1-7f1c-4b4c-8f21-a266439c0816" />
+<img width="1440" height="3168" alt="chup_man_hinh4" src="https://github.com/user-attachments/assets/695b26e3-5ac7-42bb-88e4-d7b92cb32fdd" />
+<img width="1440" height="3168" alt="chup_man_hinh5" src="https://github.com/user-attachments/assets/6642c74a-5cf7-4e44-a4bb-a64fb9f130d3" />
+
+</details>
+
+
+
 ## 🛠 Công nghệ sử dụng
 
 Ứng dụng được phát triển bằng Dart & framework Flutter, tích hợp các công nghệ:
@@ -36,6 +51,10 @@
 Bạn có thể tải xuống phiên bản (APK) mới nhất tại mục **[Releases](https://github.com/toanbbpro/vie_lich/releases)**.
 
 **Dành cho nhà phát triển (Build từ mã nguồn):**
+
+<details>
+<summary><b>Bấm vào đây để xem</b></summary>
+
 ```bash
 # 1. Clone kho lưu trữ
 git clone [https://github.com/toanbbpro/vie_lich.git](https://github.com/toanbbpro/vie_lich.git)
@@ -49,6 +68,9 @@ flutter pub get
 # 4. Build file APK với format version code ngày tháng (Ví dụ: 1.0.0 build 20260918)
 flutter build apk --build-number=$(date +'%Y%m%d')
 ```
+
+</details>
+
 
 ## **📄 Giấy phép**
 * **Mã nguồn (Source Code):** Được phát hành dưới giấy phép **[GPL v3](LICENSE)**. Bạn có thể tự do xem, sửa đổi và phân phối lại mã nguồn theo điều khoản của giấy phép này.
