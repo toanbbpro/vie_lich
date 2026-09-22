@@ -33,9 +33,9 @@
 <img width="240" height="528" alt="chup_man_hinh3" src="https://github.com/user-attachments/assets/b5a6b8a1-7f1c-4b4c-8f21-a266439c0816" />
 <img width="240" height="528" alt="chup_man_hinh4" src="https://github.com/user-attachments/assets/695b26e3-5ac7-42bb-88e4-d7b92cb32fdd" />
 <img width="240" height="528" alt="chup_man_hinh6" src="https://github.com/user-attachments/assets/7ee90435-af65-41b3-8666-231273956c54" />
-<img width="240" height="528" alt="chup_man_hinh8" src="https://github.com/user-attachments/assets/a65aec95-7284-41c9-816c-5e2faf31c6b8" />
 <img width="240" height="528" alt="chup_man_hinh7" src="https://github.com/user-attachments/assets/a045277a-20a5-4e63-9629-108872f7110e" />
-<img width="240" height="528" alt="chup_man_hinh5" src="https://github.com/user-attachments/assets/6642c74a-5cf7-4e44-a4bb-a64fb9f130d3" />
+<img width="240" height="528" alt="chup_man_hinh8" src="https://github.com/user-attachments/assets/a65aec95-7284-41c9-816c-5e2faf31c6b8" />
+<img width="240" height="528" alt="chup_man_hinh0" src="https://github.com/user-attachments/assets/1486733a-7537-456a-bc39-f564dbaf9ecc" />
 <img width="240" height="528" alt="chup_man_hinh_update" src="https://github.com/user-attachments/assets/2eb75b1e-4e77-4dc0-b58a-179691a431e8" />
 
 </details>
