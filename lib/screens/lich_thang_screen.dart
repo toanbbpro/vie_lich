@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/lich_provider.dart';
+import '../providers/su_kien_provider.dart'; // Đã thêm import SuKienProvider
 import '../utils/am_lich_helper.dart';
 import '../utils/lunar_vn.dart';
 
@@ -73,6 +74,12 @@ class _LichThangScreenState extends State<LichThangScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<LichProvider>(context);
     final selectedDate = provider.selectedDate;
+
+    // --- Lắng nghe danh sách sự kiện từ SuKienProvider ---
+    final suKienProvider = Provider.of<SuKienProvider>(context);
+    final cacNgayCoSuKien = suKienProvider.cacNgayCoSuKienDuongLich;
+    // -------------------------------------------------------------
+
     final listNgay = _layNgayTrongThang();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -109,7 +116,7 @@ class _LichThangScreenState extends State<LichThangScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 7,
-                childAspectRatio: 1.0, // ← tăng từ 0.78 lên 1.0 để ô thấp hơn
+                childAspectRatio: 1.0,
                 crossAxisSpacing: 2,
                 mainAxisSpacing: 2,
               ),
@@ -126,12 +133,18 @@ class _LichThangScreenState extends State<LichThangScreen> {
                     date.month == selectedDate.month &&
                     date.day == selectedDate.day;
 
+                // --- Kiểm tra xem ngày đang vẽ có sự kiện hay không ---
+                final dateOnly = DateTime(date.year, date.month, date.day);
+                final hasEvent = cacNgayCoSuKien.contains(dateOnly);
+                // -------------------------------------------------------------
+
                 return _ONgay(
                   date: date,
                   amLich: amLich,
                   isCurrentMonth: isCurrentMonth,
                   isToday: isToday,
                   isSelected: isSelected,
+                  hasEvent: hasEvent,
                   onTap: () {
                     provider.chonNgay(date);
                   },
@@ -241,6 +254,7 @@ class _ONgay extends StatelessWidget {
   final bool isCurrentMonth;
   final bool isToday;
   final bool isSelected;
+  final bool hasEvent; // Nhận biến trạng thái sự kiện
   final VoidCallback onTap;
 
   const _ONgay({
@@ -249,6 +263,7 @@ class _ONgay extends StatelessWidget {
     required this.isCurrentMonth,
     required this.isToday,
     required this.isSelected,
+    this.hasEvent = false, // Mặc định là false
     required this.onTap,
   });
 
@@ -321,6 +336,7 @@ class _ONgay extends StatelessWidget {
                 ),
               ),
             ),
+            // Chấm mùng 1 / ngày rằm (mặc định)
             if (isDauThangAm || isRam)
               Positioned(
                 bottom: 4,
@@ -330,6 +346,21 @@ class _ONgay extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     color: isRam ? Colors.orange : Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+
+            // Chấm màu xanh thông báo sự kiện (Góc trên phải)
+            if (hasEvent)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade700,
                     shape: BoxShape.circle,
                   ),
                 ),
