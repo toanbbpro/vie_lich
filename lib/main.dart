@@ -87,9 +87,15 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Đợi frame đầu tiên render xong mới gọi check cập nhật để không làm khựng UI
+    // Đọc biến môi trường từ lệnh build. Mặc định là false (bản ngoài Store)
+    const bool isPlayStore =
+        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      GithubUpdateService.checkUpdate(context);
+      // Nếu không phải bản Play Store thì mới chạy check cập nhật GitHub
+      if (!isPlayStore) {
+        GithubUpdateService.checkUpdate(context);
+      }
     });
   }
 
