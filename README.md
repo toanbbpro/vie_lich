@@ -10,18 +10,19 @@
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Author: ToanBB](https://img.shields.io/badge/Author-To%C3%A0nBB-orange.svg)](https://github.com/toanbbpro)
   
-   Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, họp họ, lễ hôị truyền thống theo Âm lịch.
+   Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, họp họ, lễ hội truyền thống theo Âm lịch.
 </div>
 
 ---
 
-## 🌟 Tính năng nổi bật
+## 🌟 Tính năng
 
 *   **📅 Lịch ngày:** Hiển thị chi tiết ngày âm/dương, can chi, tiết khí, giờ hoàng đạo và sao tốt/xấu.
-*   **📆 Lịch tháng:** Giao diện lưới lịch trực quan, xem bao quát cả âm lịch và dương lịch.
-*   **🔔 Nhắc lịch & Sự kiện:** Tạo sự kiện theo lịch âm, đồng bộ sang lịch hệ thống và hỗ trợ thông báo cục bộ (local notification).
-*   **⚙️ Tùy chỉnh thông báo:** Hỗ trợ chọn âm thanh thông báo hệ thống hoặc tải lên file âm thanh tùy chỉnh.
-*   **🔒 Quản lý thông minh:** Tự động xin và quản lý quyền thông báo, báo thức chạy ngầm ổn định kể cả khi đóng ứng dụng.
+*   **📆 Lịch tháng:** Giao diện lưới lịch trực quan, xem bao quát cả âm lịch, dương lịch và các lịch được tạo trong nhắc lịch .
+*   **🔔 Nhắc lịch & Sự kiện:** Tạo sự kiện theo lịch âm, đồng bộ sang lịch hệ thống và hỗ trợ thông báo cục bộ. Chia sẻ nhắc lịch cho người khác với tạo mã QR.
+*   **⚙️ Tùy chỉnh thông báo:** Hỗ trợ chọn âm thanh thông báo hệ thống hoặc tải lên file âm thanh tùy chỉnh. Sao lưu/khôi phục cài đặt app qua file JSON.
+*   **🔒 Quản lý thông minh:** Tự động xin và quản lý quyền thông báo.
+*   **📆 Widget lịch tháng:** Widget lịch tháng 4x3 ngoài homescreen trên Android, hỗ trợ hiện cả nhắc lịch đã tạo. Widget đi kèm dòng nhắc nhở sự kiện tiếp theo gần nhất.
 
 ## 📱 Screenshot
 
@@ -40,7 +41,7 @@
 
 </details>
 
-## 🛠 Công nghệ sử dụng
+## 🛠 Công nghệ
 
 Ứng dụng được phát triển bằng Dart & framework Flutter, tích hợp các công nghệ:
 
@@ -51,6 +52,7 @@
 ## 📥 Cài đặt
 
 Bạn có thể tải xuống phiên bản (APK) mới nhất tại mục **[Releases](https://github.com/toanbbpro/vie_lich/releases)**.
+Nếu bạn đã cài bản cũ từ v1.2.1 trở đi sẽ được thông báo cập nhật, ấn cập nhật để app tự tải về và cập nhật.
 
 **Dành cho nhà phát triển (Build từ mã nguồn):**
 
@@ -73,6 +75,15 @@ flutter build apk --build-number=$(date +'%Y%m%d')
 
 </details>
 
+---
+
+## 🚩 Roadmap
+
+*   Publish app lên Google Play Store.
+*   App cho Windows, chú trọng desktop widget và notification icon vì sẽ là giao diện thường xuyên nhìn vào nhất.
+*   App cho MacOS, chú trọng menubar và widget desktop nếu khả thi.
+*   App cho Linux, cụ thể ZorinOS, chú trọng menubar và widget desktop nếu khả thi.
+*   App cho iOS, nhưng ko đưa lên Appstore, chỉ hỗ trợ sideload.
 
 ## **📄 Giấy phép**
 * **Mã nguồn (Source Code):** Được phát hành dưới giấy phép **[GPL v3](LICENSE)**. Bạn có thể tự do xem, sửa đổi và phân phối lại mã nguồn theo điều khoản của giấy phép này.
