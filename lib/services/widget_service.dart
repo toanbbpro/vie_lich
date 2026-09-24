@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:home_widget/home_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart'; // Đã đổi sang bản CE theo đúng cấu hình của bạn
@@ -92,22 +93,47 @@ class WidgetService {
     }
 
     // --- CHỤP ẢNH UI & ĐẨY LÊN WIDGET ---
-    await HomeWidget.renderFlutterWidget(
-      HomeScreenWidgetUI(
-        thangDuyet: now.month, 
-        namDuyet: now.year,
-        tenSuKien: tenSuKienGanNhat, 
-        thoiGianSuaKien: thoiGianSuKienGanNhat,
-        loaiSuKien: loaiSuKienGanNhat, 
-        ngayCoSuKien: ngayCoSuKienHienTai.toSet().toList(), // Lọc trùng lặp bằng toSet()
-      ),
-      key: 'widget_image', 
-      logicalSize: const Size(500, 375), 
-    );
+    if (Platform.isAndroid) {
+      // --- CHỤP ẢNH UI & ĐẨY LÊN WIDGET ANDROID ---
+      await HomeWidget.renderFlutterWidget(
+        HomeScreenWidgetUI(
+          thangDuyet: now.month, 
+          namDuyet: now.year,
+          tenSuKien: tenSuKienGanNhat, 
+          thoiGianSuaKien: thoiGianSuKienGanNhat,
+          loaiSuKien: loaiSuKienGanNhat, 
+          ngayCoSuKien: ngayCoSuKienHienTai.toSet().toList(),
+        ),
+        key: 'widget_image', 
+        logicalSize: const Size(500, 375), 
+      );
 
-    await HomeWidget.updateWidget(
-      name: 'HomeScreenWidgetProvider',
-      androidName: 'HomeScreenWidgetProvider',
-    );
+      await HomeWidget.updateWidget(
+        name: 'HomeScreenWidgetProvider',
+        androidName: 'HomeScreenWidgetProvider',
+      );
+    } else if (Platform.isIOS) {
+      // --- TRUYỀN DỮ LIỆU SANG CHO WIDGET IOS (SWIFTUI NATIVE) ---
+      
+      // 1. Khai báo App Group ID (Chúng ta sẽ thiết lập tên này bên Xcode)
+      await HomeWidget.setAppGroupId('group.com.toanbb.vie_lich');
+      
+      // 2. Lưu các biến text/số vào bộ nhớ chung (UserDefaults)
+      await HomeWidget.saveWidgetData<String>('ten_su_kien', tenSuKienGanNhat);
+      await HomeWidget.saveWidgetData<String>('thoi_gian_su_kien', thoiGianSuKienGanNhat);
+      await HomeWidget.saveWidgetData<String>('loai_su_kien', loaiSuKienGanNhat);
+      
+      // Chuyển mảng [1, 15, 23] thành chuỗi "1,15,23" để bên Swift dễ tách ra
+      String chuoiNgaySuKien = ngayCoSuKienHienTai.toSet().join(',');
+      await HomeWidget.saveWidgetData<String>('ngay_co_su_kien', chuoiNgaySuKien);
+      
+      await HomeWidget.saveWidgetData<int>('thang_duyet', now.month);
+      await HomeWidget.saveWidgetData<int>('nam_duyet', now.year);
+
+      // 3. Ra lệnh cho iOS làm mới Widget trên màn hình chính
+      await HomeWidget.updateWidget(
+        iOSName: 'VieLichWidget', // Tên file cấu hình Widget sẽ tạo bên Xcode
+      );
+    }
   }
 }

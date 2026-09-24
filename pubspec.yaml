@@ -74,6 +74,7 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/icon/vie_lich_logo.png"
+  remove_alpha_ios: true
   
   # Cấu hình chuẩn cho Adaptive Icon trên Android 8.0+
   adaptive_icon_background: "#FFFFFF" # Có thể thay bằng mã màu hex của bạn

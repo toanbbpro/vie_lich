@@ -3,7 +3,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
@@ -19,16 +18,10 @@ import 'services/widget_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Nạp dữ liệu ngôn ngữ Việt cho intl
   await initializeDateFormatting('vi', null);
-
-  // Khởi tạo Hive CE
   await Hive.initFlutter();
   Hive.registerAdapter(SuKienAdapter());
   final box = await Hive.openBox<SuKien>('suKienBox');
-
-  // Khởi tạo AndroidAlarmManager
-  await AndroidAlarmManager.initialize();
 
   // Khởi tạo dịch vụ thông báo
   await NotificationService.init();
