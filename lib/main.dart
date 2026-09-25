@@ -1,10 +1,10 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-
+import 'package:window_manager/window_manager.dart';
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
 import 'providers/su_kien_provider.dart';
@@ -19,25 +19,39 @@ import 'services/widget_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Nạp dữ liệu ngôn ngữ Việt cho intl
+  // MỚI: Khởi tạo cho Desktop (Windows, macOS, Linux)
+  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(350, 400), // Kích thước vừa vặn cho 1 widget lịch
+      center: true,
+      backgroundColor: Colors.transparent, // Làm nền trong suốt
+      skipTaskbar: false, // Tạm thời vẫn hiện ở Taskbar để dễ tắt
+      titleBarStyle: TitleBarStyle.hidden, // Ẩn hoàn toàn thanh tiêu đề và viền
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  }
+
   await initializeDateFormatting('vi', null);
 
-  // Khởi tạo Hive CE
   await Hive.initFlutter();
   Hive.registerAdapter(SuKienAdapter());
   final box = await Hive.openBox<SuKien>('suKienBox');
 
-  // Khởi tạo AndroidAlarmManager
-  await AndroidAlarmManager.initialize();
+  // Khởi tạo dịch vụ thông báo (Chỉ chạy trên Mobile/macOS)
+  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+    await NotificationService.init();
+    final dsSuKien = box.values.toList();
+    await NotificationService.khoiPhucLich(dsSuKien);
+  }
 
-  // Khởi tạo dịch vụ thông báo
-  await NotificationService.init();
-
-  // Khôi phục lịch thông báo
-  final dsSuKien = box.values.toList();
-  await NotificationService.khoiPhucLich(dsSuKien);
-// GỌI HÀM CẬP NHẬT WIDGET
-  await WidgetService.capNhatWidget();
+  // Cập nhật Widget Native Android/iOS
+  if (Platform.isAndroid || Platform.isIOS) {
+    await WidgetService.capNhatWidget();
+  }
   runApp(const MyApp());
 }
 
