@@ -28,5 +28,19 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>CFBundleDisplayName</key>
+	<string>VIE Lịch</string>
+	<!-- CẤU HÌNH DEEP LINK (URL SCHEME) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.toanbb.vie-Lich</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>vielich</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

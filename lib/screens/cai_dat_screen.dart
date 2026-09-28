@@ -1,6 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Bổ sung thư viện này để dùng Clipboard
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,6 +13,8 @@ import '../models/su_kien.dart';
 import '../services/github_update_service.dart';
 import '../services/notification_service.dart';
 import '../services/sound_settings.dart';
+import 'dart:io';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class CaiDatScreen extends StatefulWidget {
   const CaiDatScreen({super.key});
@@ -240,6 +241,28 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
 
   /// ===== XIN QUYỀN THÔNG BÁO =====
   Future<void> _xinQuyenThongBao() async {
+    // 1. NẾU LÀ MACOS: Dùng hàm xin quyền riêng của macOS
+    if (Platform.isMacOS) {
+      final macOSPlugin = FlutterLocalNotificationsPlugin()
+          .resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
+      
+      final granted = await macOSPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(granted == true 
+                ? 'Đã cấp quyền thông báo trên Mac!' 
+                : 'Chưa cấp quyền. Vui lòng mở System Settings của Mac.'),
+          ),
+        );
+      }
+      return; // Dừng tại đây, không chạy code permission_handler bên dưới
+    }
     final status = await Permission.notification.status;
     if (status.isGranted) {
       _thongBao('Quyền thông báo đã được cấp');

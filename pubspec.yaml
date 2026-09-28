@@ -56,6 +56,10 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.4.2
   home_widget: ^0.10.0
+  window_manager: ^0.5.2
+  system_tray: ^2.0.3
+  app_links: ^7.2.1
+  uuid: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +79,12 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/vie_lich_logo.png"
   remove_alpha_ios: true
+  macos:
+    generate: true
+    image_path: "assets/icon/vie_lich_logo.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/vie_lich_logo.png"
   
   # Cấu hình chuẩn cho Adaptive Icon trên Android 8.0+
   adaptive_icon_background: "#FFFFFF" # Có thể thay bằng mã màu hex của bạn

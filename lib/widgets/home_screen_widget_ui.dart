@@ -6,7 +6,7 @@ class HomeScreenWidgetUI extends StatelessWidget {
   final int thangDuyet;
   final int namDuyet;
   final String tenSuKien;
-  final String thoiGianSuaKien;
+  final String thoiGianSuKien;
   final String loaiSuKien;
   final List<int> ngayCoSuKien;
 
@@ -15,7 +15,7 @@ class HomeScreenWidgetUI extends StatelessWidget {
     required this.thangDuyet,
     required this.namDuyet,
     this.tenSuKien = "Không có sự kiện sắp tới",
-    this.thoiGianSuaKien = "",
+    this.thoiGianSuKien = "",
     this.loaiSuKien = "event",
     this.ngayCoSuKien = const [],
   });
@@ -132,8 +132,8 @@ class HomeScreenWidgetUI extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String thongTinSuKien = tenSuKien;
-    if (thoiGianSuaKien.isNotEmpty) {
-      thongTinSuKien = '$tenSuKien ($thoiGianSuaKien)';
+    if (thoiGianSuKien.isNotEmpty) {
+      thongTinSuKien = '$tenSuKien ($thoiGianSuKien)';
     }
 
     return Directionality(

@@ -18,30 +18,43 @@ class NotificationService {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings iosSettings =
+    const DarwinInitializationSettings darwinSettings =
         DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
+      // ĐÃ THÊM: Ép buộc macOS phải hiện Popup kể cả khi app đang mở
+      defaultPresentAlert: true, 
+      defaultPresentBadge: true,
+      defaultPresentSound: true,
     );
 
     const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
-      iOS: iosSettings,
+      iOS: darwinSettings,
+      macOS: darwinSettings, 
     );
 
     await _notificationsPlugin.initialize(
-      // SỬA: Đổi thành tham số có tên `settings:`
-      settings: initSettings,
+      settings: initSettings, 
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         debugPrint("Người dùng đã chạm vào thông báo có ID: ${response.payload}");
       },
     );
+
+    if (Platform.isMacOS) {
+      final macOSPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin>();
+      await macOSPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
   }
 
   static Future<void> lenLichSuKien(SuKien sk) async {
     final now = DateTime.now();
-    
     final amHienTai = AmLichHelper.duongSangAm(now);
     final namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
     final todayOnly = DateTime(now.year, now.month, now.day);
@@ -77,7 +90,7 @@ class NotificationService {
         priority: Priority.high,
       );
 
-      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
@@ -85,11 +98,11 @@ class NotificationService {
 
       const NotificationDetails platformDetails = NotificationDetails(
         android: androidDetails,
-        iOS: iosDetails,
+        iOS: darwinDetails,
+        macOS: darwinDetails,
       );
 
       await _notificationsPlugin.zonedSchedule(
-        // SỬA: Thêm tên cho toàn bộ các tham số & xóa uiLocalNotificationDateInterpretation
         id: sk.id.hashCode,
         title: 'Sắp đến: ${sk.ten}',
         body: 'Sự kiện diễn ra vào ${ngayDuong.day}/${ngayDuong.month}/${ngayDuong.year}',
@@ -98,13 +111,10 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         payload: sk.id,
       );
-      
-      debugPrint("Đã hẹn giờ báo: ${sk.ten} lúc $thoiGianBaoThuc");
     }
   }
 
   static Future<void> huyLichSuKien(String id) async {
-    // SỬA: Đổi thành tham số có tên `id:`
     await _notificationsPlugin.cancel(id: id.hashCode);
   }
 
@@ -121,20 +131,16 @@ class NotificationService {
       final dsSuKien = box.values.toList();
       await khoiPhucLich(dsSuKien);
     } catch (e) {
-      debugPrint('Lỗi khôi phục lịch sau khi đổi âm: $e');
+      debugPrint('Lỗi khôi phục lịch: $e');
     }
   }
 
   static Future<void> recreateCustomChannel([String? soundFileName]) async {
-    if (Platform.isIOS) return; 
-
+    if (Platform.isIOS || Platform.isMacOS) return; 
     final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    
     if (androidPlugin != null) {
-      // SỬA: Đổi thành tham số có tên `channelId:`
       await androidPlugin.deleteNotificationChannel(channelId: 'vie_lich_channel');
-      debugPrint('Đã xóa channel cũ để cập nhật âm thanh: $soundFileName');
     }
   }
 }

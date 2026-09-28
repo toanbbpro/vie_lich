@@ -41,6 +41,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  app_links:
+    dependency: "direct main"
+    description:
+      name: app_links
+      sha256: f8db46d2ea9ff6f3a37191a7fd5b7813da1253ace8c32c1b9eadace41d1188ea
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.2.1"
+  app_links_linux:
+    dependency: transitive
+    description:
+      name: app_links_linux
+      sha256: f5f7173a78609f3dfd4c2ff2c95bd559ab43c80a87dc6a095921d96c05688c81
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
+  app_links_platform_interface:
+    dependency: transitive
+    description:
+      name: app_links_platform_interface
+      sha256: "7546f09a6e93f4a2df2fe2bd40a5c6c64310ac461b036d82b43033be7a59f809"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.4"
+  app_links_web:
+    dependency: transitive
+    description:
+      name: app_links_web
+      sha256: af060ed76183f9e2b87510a9480e56a5352b6c249778d07bd2c95fc35632a555
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.4"
   archive:
     dependency: transitive
     description:
@@ -501,6 +533,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
+  gtk:
+    dependency: transitive
+    description:
+      name: gtk
+      sha256: "4ff85b2a16724029dd9e5bbb5a94b6918f9973f74ba571c949d2002801879cf5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.0"
   hive_ce:
     dependency: "direct main"
     description:
@@ -1013,6 +1053,46 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  screen_retriever:
+    dependency: transitive
+    description:
+      name: screen_retriever
+      sha256: ace919117a7520c13a50a6259e60c4a0d4cbe98809468792a91b5c5adada2aa6
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  screen_retriever_linux:
+    dependency: transitive
+    description:
+      name: screen_retriever_linux
+      sha256: "7b52006a5ceae1f3d5af7f77188c3290d6e7d8ded16d99809bea84967c65c257"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  screen_retriever_macos:
+    dependency: transitive
+    description:
+      name: screen_retriever_macos
+      sha256: a1489b99cce597c45a54b9aae1cd94c8d4705353b7e0bb2457a6e4de44e0ad8a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  screen_retriever_platform_interface:
+    dependency: transitive
+    description:
+      name: screen_retriever_platform_interface
+      sha256: "94a5535277510a63184ca178ce12a1449bc0b38618879aa1c18bf57369c5064a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
+  screen_retriever_windows:
+    dependency: transitive
+    description:
+      name: screen_retriever_windows
+      sha256: dafc6922b0bfbf1d48cf3ccbf519b4fff47bdcb820da1728ea6db675fecc9324
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.2"
   share_plus:
     dependency: "direct main"
     description:
@@ -1170,6 +1250,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.2"
+  system_tray:
+    dependency: "direct main"
+    description:
+      name: system_tray
+      sha256: "40444e5de8ed907822a98694fd031b8accc3cb3c0baa547634ce76189cf3d9cf"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.3"
   table_calendar:
     dependency: "direct main"
     description:
@@ -1283,13 +1371,13 @@ packages:
     source: hosted
     version: "3.1.6"
   uuid:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: uuid
-      sha256: "9b129329f58692f6e6578329498a8fe9fbe98f090beb764ffbb8ee2eadd01dcd"
+      sha256: "648e103079f7c64a36dc7d39369cabb358d377078a051d6ae2ad3aa539519313"
       url: "https://pub.dev"
     source: hosted
-    version: "4.6.0"
+    version: "3.0.7"
   vector_math:
     dependency: transitive
     description:
@@ -1346,6 +1434,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.4.0"
+  window_manager:
+    dependency: "direct main"
+    description:
+      name: window_manager
+      sha256: "05c231fd7b23d2380f14c5cc10b7b93d60d4fa4a2fb4e0f032de27e44b5560e9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.2"
   windows_file_picker:
     dependency: transitive
     description:

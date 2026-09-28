@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import '../models/su_kien.dart';
 import '../services/notification_service.dart';
+import '../services/widget_service.dart';
 import '../utils/am_lich_helper.dart';
 
 class SuKienProvider extends ChangeNotifier {
@@ -24,6 +25,7 @@ class SuKienProvider extends ChangeNotifier {
     await NotificationService.lenLichSuKien(suKien);
     _capNhatDanhSachNgayCoSuKien(); // Tính toán lại ngày chấm đỏ
     notifyListeners();
+    await WidgetService.capNhatWidget();
   }
 
   /// Xóa sự kiện + hủy thông báo
@@ -32,6 +34,7 @@ class SuKienProvider extends ChangeNotifier {
     await _box.delete(id);
     _capNhatDanhSachNgayCoSuKien(); // Tính toán lại ngày chấm đỏ
     notifyListeners();
+    await WidgetService.capNhatWidget();
   }
 
   /// Cập nhật sự kiện + lên lịch lại thông báo
@@ -40,6 +43,7 @@ class SuKienProvider extends ChangeNotifier {
     await NotificationService.lenLichSuKien(suKien);
     _capNhatDanhSachNgayCoSuKien(); // Tính toán lại ngày chấm đỏ
     notifyListeners();
+    await WidgetService.capNhatWidget();
   }
 
   /// Lấy danh sách sự kiện trong một ngày âm cụ thể
