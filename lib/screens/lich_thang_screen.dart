@@ -1,9 +1,10 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../providers/lich_provider.dart';
-import '../providers/su_kien_provider.dart'; // Đã thêm import SuKienProvider
+import '../providers/su_kien_provider.dart'; 
 import '../utils/am_lich_helper.dart';
 import '../utils/lunar_vn.dart';
 
@@ -25,7 +26,6 @@ class _LichThangScreenState extends State<LichThangScreen> {
     _focusedMonth = DateTime(now.year, now.month, 1);
   }
 
-  /// Cache kết quả chuyển đổi âm lịch — thuật toán khá nặng, cache để rebuild nhanh.
   LunarDate _layAmLich(DateTime date) {
     final key = '${date.year}-${date.month}-${date.day}';
     return _cacheAmLich.putIfAbsent(
@@ -54,14 +54,9 @@ class _LichThangScreenState extends State<LichThangScreen> {
     Provider.of<LichProvider>(context, listen: false).chonNgay(now);
   }
 
-  /// Trả về danh sách ngày vừa đủ để hiển thị tháng hiện tại.
-  /// Số tuần thường là 5, có thể là 4 (tháng 2 không nhuận bắt đầu từ T2)
-  /// hoặc 6 (tháng 31 ngày bắt đầu từ CN).
   List<DateTime> _layNgayTrongThang() {
     final firstDay = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-    // weekday: 1 = Thứ Hai ... 7 = Chủ Nhật
     final offset = firstDay.weekday - 1;
-    // Số ngày của tháng: ngày 0 của tháng sau = ngày cuối tháng này
     final lastDay = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
     final daysInMonth = lastDay.day;
     final totalCells = offset + daysInMonth;
@@ -75,14 +70,15 @@ class _LichThangScreenState extends State<LichThangScreen> {
     final provider = Provider.of<LichProvider>(context);
     final selectedDate = provider.selectedDate;
 
-    // --- Lắng nghe danh sách sự kiện từ SuKienProvider ---
     final suKienProvider = Provider.of<SuKienProvider>(context);
     final cacNgayCoSuKien = suKienProvider.cacNgayCoSuKienDuongLich;
-    // -------------------------------------------------------------
 
     final listNgay = _layNgayTrongThang();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+
+    // Xác định thiết bị Desktop để giới hạn chiều rộng
+    final isDesktop = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
     return Scaffold(
       appBar: AppBar(
@@ -97,68 +93,63 @@ class _LichThangScreenState extends State<LichThangScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // === HEADER ĐIỀU HƯỚNG THÁNG ===
-            _HeaderThang(
-              thang: _focusedMonth.month,
-              nam: _focusedMonth.year,
-              onPrev: _thangTruoc,
-              onNext: _thangSau,
-            ),
-            // === HEADER THỨ TRONG TUẦN ===
-            const _HeaderThu(),
-            // === GRID NGÀY (số ô = số tuần * 7) ===
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 2,
-                mainAxisSpacing: 2,
-              ),
-              itemCount: listNgay.length,
-              itemBuilder: (context, index) {
-                final date = listNgay[index];
-                final amLich = _layAmLich(date);
-                final isCurrentMonth = date.month == _focusedMonth.month &&
-                    date.year == _focusedMonth.year;
-                final isToday = date.year == today.year &&
-                    date.month == today.month &&
-                    date.day == today.day;
-                final isSelected = date.year == selectedDate.year &&
-                    date.month == selectedDate.month &&
-                    date.day == selectedDate.day;
+        child: Center(
+          child: ConstrainedBox(
+            // ĐÃ SỬA: Giới hạn bề ngang trên Desktop ở mức tối đa 600px để ô lịch vuông vắn
+            constraints: BoxConstraints(maxWidth: isDesktop ? 600 : double.infinity),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeaderThang(
+                  thang: _focusedMonth.month,
+                  nam: _focusedMonth.year,
+                  onPrev: _thangTruoc,
+                  onNext: _thangSau,
+                ),
+                const _HeaderThu(),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    childAspectRatio: 1.0, 
+                    crossAxisSpacing: 2,
+                    mainAxisSpacing: 2,
+                  ),
+                  itemCount: listNgay.length,
+                  itemBuilder: (context, index) {
+                    final date = listNgay[index];
+                    final amLich = _layAmLich(date);
+                    final isCurrentMonth = date.month == _focusedMonth.month && date.year == _focusedMonth.year;
+                    final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
+                    final isSelected = date.year == selectedDate.year && date.month == selectedDate.month && date.day == selectedDate.day;
 
-                // --- Kiểm tra xem ngày đang vẽ có sự kiện hay không ---
-                final dateOnly = DateTime(date.year, date.month, date.day);
-                final hasEvent = cacNgayCoSuKien.contains(dateOnly);
-                // -------------------------------------------------------------
+                    final dateOnly = DateTime(date.year, date.month, date.day);
+                    final hasEvent = cacNgayCoSuKien.contains(dateOnly);
 
-                return _ONgay(
-                  date: date,
-                  amLich: amLich,
-                  isCurrentMonth: isCurrentMonth,
-                  isToday: isToday,
-                  isSelected: isSelected,
-                  hasEvent: hasEvent,
-                  onTap: () {
-                    provider.chonNgay(date);
+                    return _ONgay(
+                      date: date,
+                      amLich: amLich,
+                      isCurrentMonth: isCurrentMonth,
+                      isToday: isToday,
+                      isSelected: isSelected,
+                      hasEvent: hasEvent,
+                      onTap: () {
+                        provider.chonNgay(date);
+                      },
+                    );
                   },
-                );
-              },
+                ),
+                const SizedBox(height: 12),
+                _ChiTietNgayChon(
+                  ngay: selectedDate,
+                  amLich: _layAmLich(selectedDate),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
-            const SizedBox(height: 12),
-            // === CHI TIẾT NGÀY ĐƯỢC CHỌN ===
-            _ChiTietNgayChon(
-              ngay: selectedDate,
-              amLich: _layAmLich(selectedDate),
-            ),
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
@@ -247,14 +238,14 @@ class _HeaderThu extends StatelessWidget {
   }
 }
 
-/// ===== Ô NGÀY (dương đen trên trái + âm đỏ dưới phải) =====
+/// ===== Ô NGÀY =====
 class _ONgay extends StatelessWidget {
   final DateTime date;
   final LunarDate amLich;
   final bool isCurrentMonth;
   final bool isToday;
   final bool isSelected;
-  final bool hasEvent; // Nhận biến trạng thái sự kiện
+  final bool hasEvent; 
   final VoidCallback onTap;
 
   const _ONgay({
@@ -263,7 +254,7 @@ class _ONgay extends StatelessWidget {
     required this.isCurrentMonth,
     required this.isToday,
     required this.isSelected,
-    this.hasEvent = false, // Mặc định là false
+    this.hasEvent = false,
     required this.onTap,
   });
 
@@ -336,7 +327,6 @@ class _ONgay extends StatelessWidget {
                 ),
               ),
             ),
-            // Chấm mùng 1 / ngày rằm (mặc định)
             if (isDauThangAm || isRam)
               Positioned(
                 bottom: 4,
@@ -350,8 +340,6 @@ class _ONgay extends StatelessWidget {
                   ),
                 ),
               ),
-
-            // Chấm màu xanh thông báo sự kiện (Góc trên phải)
             if (hasEvent)
               Positioned(
                 top: 4,
@@ -372,7 +360,7 @@ class _ONgay extends StatelessWidget {
   }
 }
 
-/// ===== CHI TIẾT NGÀY ĐƯỢC CHỌN (dưới cùng) =====
+/// ===== CHI TIẾT NGÀY ĐƯỢC CHỌN =====
 class _ChiTietNgayChon extends StatelessWidget {
   final DateTime ngay;
   final LunarDate amLich;
@@ -385,8 +373,7 @@ class _ChiTietNgayChon extends StatelessWidget {
     final lunarDay = AmLichHelper.duongSangAm(ngay);
     final thu = DateFormat('EEEE, dd/MM/yyyy', 'vi').format(ngay);
     final tietKhi = AmLichHelper.layTietKhi(ngay);
-    final dsLe =
-        lunarDay != null ? AmLichHelper.layNgayLe(ngay, lunarDay) : <String>[];
+    final dsLe = lunarDay != null ? AmLichHelper.layNgayLe(ngay, lunarDay) : <String>[];
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -426,8 +413,7 @@ class _ChiTietNgayChon extends StatelessWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.wb_sunny_outlined,
-                      size: 14, color: Colors.orange.shade700),
+                  Icon(Icons.wb_sunny_outlined, size: 14, color: Colors.orange.shade700),
                   const SizedBox(width: 4),
                   Text(
                     'Tiết khí: $tietKhi',
@@ -443,8 +429,7 @@ class _ChiTietNgayChon extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Row(
                     children: [
-                      const Icon(Icons.celebration,
-                          size: 14, color: Colors.orange),
+                      const Icon(Icons.celebration, size: 14, color: Colors.orange),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
