@@ -244,19 +244,20 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     // 1. NẾU LÀ MACOS: Dùng hàm xin quyền riêng của macOS
     if (Platform.isMacOS) {
       final macOSPlugin = FlutterLocalNotificationsPlugin()
-          .resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
-      
+          .resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin>();
+
       final granted = await macOSPlugin?.requestPermissions(
         alert: true,
         badge: true,
         sound: true,
       );
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(granted == true 
-                ? 'Đã cấp quyền thông báo trên Mac!' 
+            content: Text(granted == true
+                ? 'Đã cấp quyền thông báo trên Mac!'
                 : 'Chưa cấp quyền. Vui lòng mở System Settings của Mac.'),
           ),
         );
@@ -613,7 +614,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
             title: 'Gửi email góp ý',
             subtitle: 'toanbb.dev@gmail.com',
             onTap: () => _moUrl(
-                'mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng Âm lịch'),
+                'mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng Âm lịch VIE Lịch'),
           ),
           _ItemCaiDat(
             icon: Icons.code,
@@ -657,7 +658,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'VIE Lịch - Ứng dụng Âm lịch Việt Nam',
+                    'VIE Lịch - App lịch Việt cho người Việt',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,

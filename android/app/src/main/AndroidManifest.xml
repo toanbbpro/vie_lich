@@ -61,6 +61,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- DEEP LINK 1: vielich://share?data=... -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vielich" android:host="share" />
+            </intent-filter>
+
+            <!-- DEEP LINK 2: vielich://open (không host) -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vielich" />
+            </intent-filter>
         </activity>
         <!-- KHAI BÁO WIDGET -->
         <receiver android:name=".HomeScreenWidgetProvider" android:exported="true" android:label=" ">

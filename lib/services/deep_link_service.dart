@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show gzip;
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // ĐÃ THÊM: Import Provider
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/su_kien.dart';
-import '../providers/su_kien_provider.dart'; // ĐÃ THÊM: Import SuKienProvider
+import '../providers/su_kien_provider.dart';
 import 'widget_service.dart';
-import '../main.dart'; 
+import '../main.dart';
 
 class DeepLinkService {
   static final _appLinks = AppLinks();
@@ -52,7 +53,7 @@ class DeepLinkService {
       'ten': sk.ten,
       'ngayAm': sk.ngayAm,
       'thangAm': sk.thangAm,
-      'namAm': sk.namAm, 
+      'namAm': sk.namAm,
       'gioNhac': sk.gioNhac,
       'phutNhac': sk.phutNhac,
       'baoTruoc': sk.baoTruoc,
@@ -65,37 +66,56 @@ class DeepLinkService {
 
   static void _xuLyDuLieuShare(String base64Data) {
     try {
-      String normalizedBase64 = base64Data;
-      while (normalizedBase64.length % 4 != 0) {
-        normalizedBase64 += '=';
+      // 1. Chuẩn hóa base64 (thêm padding nếu thiếu)
+      String normalized = base64Data;
+      while (normalized.length % 4 != 0) {
+        normalized += '=';
       }
 
-      final jsonString = utf8.decode(base64Url.decode(normalizedBase64));
-      final map = jsonDecode(jsonString);
+      // 2. Decode base64 — thử URL-safe trước, fallback base64 thường
+      List<int> bytes;
+      try {
+        bytes = base64Url.decode(normalized);
+      } catch (_) {
+        bytes = base64.decode(normalized);
+      }
 
-      final skDuocShare = SuKien(
-        id: const Uuid().v4(),
-        ten: map['ten'],
-        ngayAm: map['ngayAm'],
-        thangAm: map['thangAm'],
-        namAm: map['namAm'],
-        gioNhac: map['gioNhac'],
-        phutNhac: map['phutNhac'],
-        baoTruoc: map['baoTruoc'],
-        tag: map['tag'],
-      );
+      // 3. Thử gzip decode, fallback về bytes gốc
+      String jsonString;
+      try {
+        final decompressed = gzip.decode(bytes);
+        jsonString = utf8.decode(decompressed);
+      } catch (_) {
+        jsonString = utf8.decode(bytes);
+      }
 
-      debugPrint("✅ [DeepLink] Đã dịch mã sự kiện: ${skDuocShare.ten}");
-      _hienThiDialogXacNhan(skDuocShare);
+      // 4. Parse JSON — hỗ trợ cả array (multi) và object (single)
+      final decoded = jsonDecode(jsonString);
+
+      List<SuKien> dsSuKien;
+      if (decoded is List) {
+        dsSuKien = decoded
+            .map((e) => SuKien.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else if (decoded is Map<String, dynamic>) {
+        dsSuKien = [SuKien.fromJson(decoded)];
+      } else {
+        throw Exception('Định dạng JSON không hợp lệ');
+      }
+
+      if (dsSuKien.isEmpty) return;
+
+      debugPrint("✅ [DeepLink] Giải mã thành công ${dsSuKien.length} sự kiện");
+      _hienThiDialogXacNhan(dsSuKien);
     } catch (e) {
       debugPrint("❌ [DeepLink] Lỗi giải mã Base64/JSON: $e");
       _hienThiThongBaoLoi();
     }
   }
 
-  static void _hienThiDialogXacNhan(SuKien sk) async {
+  static void _hienThiDialogXacNhan(List<SuKien> dsSuKien) async {
     BuildContext? context;
-    
+
     for (int i = 0; i < 6; i++) {
       context = navigatorKey.currentContext;
       if (context != null && context.mounted) break;
@@ -104,28 +124,79 @@ class DeepLinkService {
     }
 
     if (context == null || !context.mounted) {
-      debugPrint("❌ [DeepLink] Quá giờ (Timeout), không tìm thấy giao diện để hiện Popup!");
+      debugPrint("❌ [DeepLink] Quá giờ, không tìm thấy UI!");
       return;
     }
 
     if (Navigator.canPop(context)) {
-      Navigator.pop(context); 
+      Navigator.pop(context);
     }
+
+    final bool isMulti = dsSuKien.length > 1;
+    final SuKien skDau = dsSuKien.first;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Có người chia sẻ lịch cho bạn!'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Sự kiện: ${sk.ten}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 8),
-              Text('Ngày âm: ${sk.ngayAm}/${sk.thangAm}${sk.namAm != null ? '/${sk.namAm}' : ' (Hàng năm)'}'),
-              Text('Nhắc lúc: ${sk.gioNhac.toString().padLeft(2, '0')}:${sk.phutNhac.toString().padLeft(2, '0')}'),
-            ],
+          title: Text(
+            isMulti
+                ? 'Có người chia sẻ ${dsSuKien.length} lịch cho bạn!'
+                : 'Có người chia sẻ lịch cho bạn!',
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isMulti) ...[
+                  Text(
+                    'Sự kiện: ${skDau.ten}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ngày âm: ${skDau.ngayAm}/${skDau.thangAm}'
+                    '${skDau.namAm != null ? '/${skDau.namAm}' : ' (Hàng năm)'}',
+                  ),
+                  Text(
+                    'Nhắc lúc: ${skDau.gioNhac.toString().padLeft(2, '0')}:'
+                    '${skDau.phutNhac.toString().padLeft(2, '0')}',
+                  ),
+                ] else ...[
+                  Text(
+                    'Danh sách ${dsSuKien.length} sự kiện:',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...dsSuKien.take(5).map(
+                        (sk) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '• ${sk.ten} (${sk.ngayAm}/${sk.thangAm} âm)',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                  if (dsSuKien.length > 5)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '... và ${dsSuKien.length - 5} sự kiện khác',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -135,23 +206,49 @@ class DeepLinkService {
             ElevatedButton(
               onPressed: () async {
                 if (ctx.mounted) {
-                  // ĐÃ SỬA: Thay thế logic cũ bằng lệnh gọi SuKienProvider
-                  // Provider sẽ tự động lo việc lưu Hive, lên lịch thông báo và cập nhật UI ngay lập tức
-                  await Provider.of<SuKienProvider>(ctx, listen: false).themSuKien(sk);
-                  
-                  // Chỉ cần cập nhật thêm Widget ngoài Desktop/Màn hình chính
+                  final provider =
+                      Provider.of<SuKienProvider>(ctx, listen: false);
+
+                  // Tạo sự kiện MỚI với id mới để tránh ghi đè
+                  for (final sk in dsSuKien) {
+                    final skMoi = SuKien(
+                      id: const Uuid().v4(),
+                      ten: sk.ten,
+                      ngayAm: sk.ngayAm,
+                      thangAm: sk.thangAm,
+                      namAm: sk.namAm,
+                      ghiChu: sk.ghiChu,
+                      duongDanAnh: null,
+                      baoTruoc: sk.baoTruoc,
+                      daXuatLich: false,
+                      gioNhac: sk.gioNhac,
+                      phutNhac: sk.phutNhac,
+                      tag: sk.tag,
+                    );
+                    await provider.themSuKien(skMoi);
+                  }
+
                   await WidgetService.capNhatWidget();
-                  
+
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Đã thêm sự kiện thành công!')),
+                      SnackBar(
+                        content: Text(
+                          'Đã thêm ${dsSuKien.length} sự kiện thành công!',
+                        ),
+                      ),
                     );
                   }
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Lưu vào lịch của tôi', style: TextStyle(color: Colors.white)),
+              child: Text(
+                isMulti
+                    ? 'Lưu tất cả ${dsSuKien.length} sự kiện'
+                    : 'Lưu vào lịch của tôi',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -166,10 +263,11 @@ class DeepLinkService {
       if (context != null && context.mounted) break;
       await Future.delayed(const Duration(milliseconds: 500));
     }
-    
+
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mã liên kết sự kiện không hợp lệ hoặc bị hỏng!')),
+        const SnackBar(
+            content: Text('Mã liên kết sự kiện không hợp lệ hoặc bị hỏng!')),
       );
     }
   }
