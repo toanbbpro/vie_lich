@@ -8,7 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:in_app_update/in_app_update.dart'; // 👈 ĐẢM BẢO CÓ DÒNG NÀY
+import 'package:in_app_update/in_app_update.dart';
 import 'dart:io';
 
 import '../models/su_kien.dart';
@@ -320,7 +320,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
         count++;
       }
       if (mounted) {
-        _thongBao('Đã khôi phục $count nhắc lịch!');
+        _thongBao('Đã khôi phục $count lịch!');
       }
     }
   }
@@ -784,6 +784,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
+
+                    // Nút "Kiểm tra cập nhật" - tự fit theo nội dung
                     Center(
                       child: OutlinedButton.icon(
                         onPressed: () async {
@@ -809,34 +811,36 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 8),
+
+                    // 2 nút Ủng hộ + Thông tin - tự fit theo nội dung
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _hienThiDialogUngHo,
-                            icon: const Icon(Icons.coffee, size: 16),
-                            label: const Text(
-                              'Ủng hộ',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                            ),
+                        OutlinedButton.icon(
+                          onPressed: _hienThiDialogUngHo,
+                          icon: const Icon(Icons.coffee, size: 16),
+                          label: const Text(
+                            'Ủng hộ',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _hienThiDialogThongTin,
-                            icon: const Icon(Icons.info_outline, size: 16),
-                            label: const Text(
-                              'Thông tin',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                            ),
+                        OutlinedButton.icon(
+                          onPressed: _hienThiDialogThongTin,
+                          icon: const Icon(Icons.info_outline, size: 16),
+                          label: const Text(
+                            'Thông tin',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                           ),
                         ),
                       ],
