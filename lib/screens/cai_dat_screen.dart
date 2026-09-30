@@ -7,14 +7,15 @@ import 'package:hive_ce/hive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:io';
+
+import '../models/su_kien.dart';
 import '../providers/su_kien_provider.dart';
 import '../services/backup_service.dart';
-import '../models/su_kien.dart';
 import '../services/github_update_service.dart';
 import '../services/notification_service.dart';
 import '../services/sound_settings.dart';
-import 'dart:io';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class CaiDatScreen extends StatefulWidget {
   const CaiDatScreen({super.key});
@@ -25,7 +26,6 @@ class CaiDatScreen extends StatefulWidget {
 
 class _CaiDatScreenState extends State<CaiDatScreen> {
   String _version = '...';
-  String _buildNumber = '';
   SoundType _soundType = SoundType.system;
   String? _customFileName;
   bool _loadingSound = true;
@@ -71,7 +71,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       if (!mounted) return;
       setState(() {
         _version = info.version;
-        _buildNumber = info.buildNumber;
       });
     } catch (_) {}
   }
@@ -87,7 +86,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     });
   }
 
-  /// ===== PHÁT / DỪNG ÂM THANH TÙY CHỈNH =====
   Future<void> _togglePhatThu() async {
     if (_dangPhat) {
       await _audioPlayer.stop();
@@ -96,7 +94,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
 
     try {
-      // Phát từ file local trong app (không cần permission)
       final localPath = await SoundSettings.getCustomSoundLocalPath();
       if (localPath == null) {
         _thongBao('Chưa có file âm thanh');
@@ -125,29 +122,22 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
-  /// ===== TAP RADIO "ÂM TÙY CHỈNH" =====
   Future<void> _xuLyChonAmTuChinh() async {
-    // Đang ở custom + có file → toggle phát/dừng
     if (_soundType == SoundType.custom && _customFileName != null) {
       await _togglePhatThu();
       return;
     }
 
-    // Có file sẵn → chuyển sang custom + phát
     if (_customFileName != null) {
       await SoundSettings.setType(SoundType.custom);
-
       final box = Hive.box<SuKien>('suKienBox');
       await NotificationService.khoiPhucSauDoiAm(box.values.toList());
-
       if (!mounted) return;
       setState(() => _soundType = SoundType.custom);
-
       await _togglePhatThu();
       return;
     }
 
-    // Chưa có file → mở picker
     final daChon = await _chonFileAmThanh();
     if (!mounted) return;
     if (!daChon) {
@@ -157,12 +147,10 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
-  /// ===== CHỌN FILE ÂM THANH (dùng MediaStore) =====
   Future<bool> _chonFileAmThanh() async {
     await _dungAudio();
 
     try {
-      // Xin quyền đọc audio trên Android 13+
       if (Platform.isAndroid) {
         final status = await Permission.audio.status;
         if (!status.isGranted) {
@@ -190,22 +178,17 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       }
 
       final originalName = sourcePath.split('/').last;
-
-      // Lưu vào MediaStore qua SoundSettings
       final success =
           await SoundSettings.saveCustomSound(sourcePath, originalName);
       if (!success) {
         if (!mounted) return false;
-        _thongBao('Lỗi lưu file âm thanh vào MediaStore');
+        _thongBao('Lỗi lưu file âm thanh');
         return false;
       }
 
       await SoundSettings.setType(SoundType.custom);
-
-      // Tạo lại channel custom với URI mới
       await NotificationService.recreateCustomChannel();
 
-      // Khôi phục lịch để dùng âm mới
       final box = Hive.box<SuKien>('suKienBox');
       await NotificationService.khoiPhucSauDoiAm(box.values.toList());
 
@@ -224,24 +207,19 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
-  /// ===== CHUYỂN SANG ÂM HỆ THỐNG =====
   Future<void> _dungAmHeThong() async {
     await _dungAudio();
-
     await SoundSettings.setType(SoundType.system);
-    // KHÔNG xóa file custom — giữ lại để dùng sau
 
     final box = Hive.box<SuKien>('suKienBox');
     await NotificationService.khoiPhucSauDoiAm(box.values.toList());
 
     if (!mounted) return;
     setState(() => _soundType = SoundType.system);
-    _thongBao('Đã chuyển sang âm hệ thống (file tùy chỉnh vẫn được giữ)');
+    _thongBao('Đã chuyển sang âm hệ thống');
   }
 
-  /// ===== XIN QUYỀN THÔNG BÁO =====
   Future<void> _xinQuyenThongBao() async {
-    // 1. NẾU LÀ MACOS: Dùng hàm xin quyền riêng của macOS
     if (Platform.isMacOS) {
       final macOSPlugin = FlutterLocalNotificationsPlugin()
           .resolvePlatformSpecificImplementation<
@@ -254,15 +232,11 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(granted == true
-                ? 'Đã cấp quyền thông báo trên Mac!'
-                : 'Chưa cấp quyền. Vui lòng mở System Settings của Mac.'),
-          ),
-        );
+        _thongBao(granted == true
+            ? 'Đã cấp quyền thông báo trên Mac!'
+            : 'Chưa cấp quyền. Vui lòng mở System Settings.');
       }
-      return; // Dừng tại đây, không chạy code permission_handler bên dưới
+      return;
     }
     final status = await Permission.notification.status;
     if (status.isGranted) {
@@ -321,7 +295,37 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
-  /// ===== HIỂN THỊ DIALOG ỦNG HỘ (BUY ME A COFFEE) =====
+  /// ===== SAO LƯU =====
+  Future<void> _saoLuuDuLieu() async {
+    final provider = Provider.of<SuKienProvider>(context, listen: false);
+    final ok = await BackupService.taoBanSaoLuu(provider.danhSachSuKien);
+    if (ok && mounted) {
+      _thongBao('Đã tạo bản sao lưu hoàn tất');
+    }
+  }
+
+  /// ===== KHÔI PHỤC =====
+  Future<void> _khoiPhucDuLieu() async {
+    final data = await BackupService.khoiPhucSaoLuu();
+    if (data == null) return;
+    if (data.containsKey('events') && mounted) {
+      final provider = Provider.of<SuKienProvider>(context, listen: false);
+      final List<dynamic> eventsRaw = data['events'];
+      int count = 0;
+      for (var item in eventsRaw) {
+        final sk = SuKien.fromJson(item as Map<String, dynamic>);
+        await provider.capNhatSuKien(sk);
+        count++;
+      }
+      if (mounted) {
+        _thongBao('Đã khôi phục $count nhắc lịch!');
+      }
+    }
+  }
+
+  // ============================================================
+  // DIALOG ỦNG HỘ
+  // ============================================================
   void _hienThiDialogUngHo() {
     const bankId = 'tpbank';
     const accountNo = '91196797979';
@@ -342,32 +346,29 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.coffee, size: 28, color: Colors.brown),
-                const SizedBox(width: 8),
-                const Text(
+              children: const [
+                Icon(Icons.coffee, size: 28, color: Colors.brown),
+                SizedBox(width: 8),
+                Text(
                   'Ủng hộ tác giả',
                   style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             const Text(
-              'Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé! Cảm ơn bạn rất nhiều.',
+              'Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 20),
-
-            // Mã QR Code
             Container(
               decoration: BoxDecoration(
-                border: Border.all(
-                    color: Colors
-                        .grey.shade200), // Làm viền nhạt đi cho tiệp màu nền
+                border: Border.all(color: Colors.grey.shade200),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: ClipRRect(
@@ -396,8 +397,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                 ),
               ),
             ),
-
-            // Nút Copy Số tài khoản
             OutlinedButton.icon(
               onPressed: () {
                 Clipboard.setData(const ClipboardData(text: accountNo));
@@ -425,260 +424,478 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     );
   }
 
+  // ============================================================
+  // DIALOG THÔNG TIN THÊM
+  // ============================================================
+  void _hienThiDialogThongTin() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/icon/vie_lich_logo.png',
+                width: 60,
+                height: 60,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'VIE Lịch',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'App lịch Việt cho người Việt',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              Text(
+                'Dùng thuật toán Hồ Ngọc Đức (UTC+7)',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () => _moUrl('https://www.facebook.com/toanbb.pro/'),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person, size: 18, color: Colors.grey.shade600),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tác giả: Toàn BB',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.blue.shade700,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  InkWell(
+                    onTap: () => _moUrl(
+                        'mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng VIE Lịch'),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.email_outlined,
+                              size: 18, color: Colors.grey.shade600),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Email',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue.shade700,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () =>
+                        _moUrl('https://github.com/toanbbpro/vie_lich'),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.code,
+                              size: 18, color: Colors.grey.shade600),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Github',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue.shade700,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Vibe code cùng Gemini và Deepseek chat',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey.shade500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const bool isPlayStore =
+        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          // KHÓA KÉO TRANG
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
+          children: [
+            // ===================== ÂM THANH THÔNG BÁO =====================
+            _SectionCard(
+              title: 'Âm thanh thông báo',
+              child: _loadingSound
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : RadioGroup<SoundType>(
+                      groupValue: _soundType,
+                      onChanged: (v) {
+                        if (v == SoundType.system) {
+                          if (_soundType != SoundType.system) _dungAmHeThong();
+                        } else if (v == SoundType.custom) {
+                          _xuLyChonAmTuChinh();
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          _AmHeThongTile(
+                            theme: theme,
+                            laChon: _soundType == SoundType.system,
+                            onTap: () {
+                              if (_soundType != SoundType.system) {
+                                _dungAmHeThong();
+                              }
+                            },
+                          ),
+                          const Divider(height: 1, indent: 16, endIndent: 16),
+                          _OCaiDatAmTuChinh(
+                            theme: theme,
+                            laChon: _soundType == SoundType.custom,
+                            dangPhat: _dangPhat,
+                            tenFile: _customFileName,
+                            onChonRadio: _xuLyChonAmTuChinh,
+                            onChonFile: () async {
+                              final daChon = await _chonFileAmThanh();
+                              if (daChon && mounted) {
+                                await _togglePhatThu();
+                              }
+                            },
+                            onTogglePhat:
+                                _customFileName != null ? _togglePhatThu : null,
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ===================== CẤU HÌNH =====================
+            _SectionCard(
+              title: 'Cấu hình',
+              topPadding: 20,
+              child: Column(
+                children: [
+                  _ItemCauHinh(
+                    icon: Icons.notifications_active_outlined,
+                    iconBg: Colors.pink.shade50,
+                    iconColor: Colors.pink.shade300,
+                    title: 'Cấp quyền thông báo',
+                    onTap: _xinQuyenThongBao,
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _ItemCauHinh(
+                    icon: Icons.cloud_upload_outlined,
+                    iconBg: Colors.blue.shade50,
+                    iconColor: Colors.blue,
+                    title: 'Sao lưu dữ liệu',
+                    onTap: _saoLuuDuLieu,
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _ItemCauHinh(
+                    icon: Icons.cloud_download_outlined,
+                    iconBg: Colors.green.shade50,
+                    iconColor: Colors.green,
+                    title: 'Khôi phục dữ liệu',
+                    onTap: _khoiPhucDuLieu,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ===================== THÔNG TIN =====================
+            _SectionCard(
+              title: 'Thông tin',
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/icon/vie_lich_logo.png',
+                          width: 50,
+                          height: 50,
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'VIE Lịch',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Phiên bản v$_version',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          if (isPlayStore) {
+                            _moUrl(
+                              'https://play.google.com/store/apps/details?id=com.toanbb.vie_lich',
+                            );
+                          } else {
+                            GithubUpdateService.checkUpdate(
+                              context,
+                              showNoUpdate: true,
+                            );
+                          }
+                        },
+                        icon:
+                            const Icon(Icons.system_update_outlined, size: 16),
+                        label: const Text(
+                          'Kiểm tra cập nhật',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _hienThiDialogUngHo,
+                            icon: const Icon(Icons.coffee, size: 16),
+                            label: const Text(
+                              'Ủng hộ',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _hienThiDialogThongTin,
+                            icon: const Icon(Icons.info_outline, size: 16),
+                            label: const Text(
+                              'Thông tin',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ============================================================
+/// SECTION CARD: Tiêu đề dạng viên thuốc, nằm đè lên viền trên, căn trái
+/// ============================================================
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final double topPadding;
+
+  const _SectionCard({
+    required this.title,
+    required this.child,
+    this.topPadding = 8,
+  });
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cài đặt'),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          // ===== PHẦN: ÂM THANH THÔNG BÁO =====
-          const _TieuDeSection(text: 'Âm thanh thông báo'),
-          if (_loadingSound)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else
-            RadioGroup<SoundType>(
-              groupValue: _soundType,
-              onChanged: (v) {
-                if (v == SoundType.system) {
-                  if (_soundType != SoundType.system) _dungAmHeThong();
-                } else if (v == SoundType.custom) {
-                  _xuLyChonAmTuChinh();
-                }
-              },
-              child: Column(
-                children: [
-                  // ====== ÂM HỆ THỐNG ======
-                  RadioListTile<SoundType>(
-                    value: SoundType.system,
-                    title: const Text('Âm hệ thống'),
-                    subtitle: const Text('Dùng âm mặc định của thiết bị'),
-                    secondary: Icon(
-                      _soundType == SoundType.system
-                          ? Icons.volume_up
-                          : Icons.volume_off_outlined,
-                      color: _soundType == SoundType.system
-                          ? theme.colorScheme.primary
-                          : null,
-                    ),
-                  ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // === KHUNG VIỀN CHÍNH ===
+        Container(
+          margin: const EdgeInsets.only(top: 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: EdgeInsets.only(top: topPadding),
+            child: child,
+          ),
+        ),
 
-                  // ====== ÂM TÙY CHỈNH ======
-                  _OCaiDatAmTuChinh(
-                    theme: theme,
-                    laChon: _soundType == SoundType.custom,
-                    dangPhat: _dangPhat,
-                    tenFile: _customFileName,
-                    onChonRadio: _xuLyChonAmTuChinh,
-                    onChonFile: () async {
-                      final daChon = await _chonFileAmThanh();
-                      if (daChon && mounted) {
-                        await _togglePhatThu();
-                      }
-                    },
-                    onTogglePhat:
-                        _customFileName != null ? _togglePhatThu : null,
-                  ),
-                ],
+        // === PILL TIÊU ĐỀ ===
+        Positioned(
+          top: 0,
+          left: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                width: 1.5,
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
-              'Nhấn vào "Âm tùy chỉnh" để nghe thử hoặc dừng. '
-              'Khi chuyển sang "Âm hệ thống", file tùy chỉnh vẫn được giữ lại. '
-              'File âm thanh được lưu trữ an toàn để thông báo hoạt động ngay cả khi '
-              'ứng dụng bị tắt.',
+              title.toUpperCase(),
               style: TextStyle(
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-                color: Colors.grey.shade600,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+                color: theme.colorScheme.primary,
               ),
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
 
-          const Divider(height: 32),
+/// ===== TILE ÂM HỆ THỐNG =====
+class _AmHeThongTile extends StatelessWidget {
+  final ThemeData theme;
+  final bool laChon;
+  final VoidCallback onTap;
 
-          // ===== PHẦN: QUYỀN =====
-          const _TieuDeSection(text: 'Quyền truy cập'),
-          _ItemCaiDat(
-            icon: Icons.notifications_active_outlined,
-            title: 'Quyền thông báo',
-            subtitle: 'Nhận nhắc nhở khi tới ngày giỗ, lễ',
-            onTap: _xinQuyenThongBao,
-          ),
+  const _AmHeThongTile({
+    required this.theme,
+    required this.laChon,
+    required this.onTap,
+  });
 
-          const Divider(height: 32),
-          // KHỐI SAO LƯU VÀ KHÔI PHỤC
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.cloud_upload_outlined,
-                      color: Colors.blue),
-                  title: const Text('Sao lưu dữ liệu'),
-                  subtitle: const Text(
-                      'Đóng gói toàn bộ nhắc lịch và cấu hình cài đặt'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    final provider =
-                        Provider.of<SuKienProvider>(context, listen: false);
-                    final ok = await BackupService.taoBanSaoLuu(
-                        provider.danhSachSuKien);
-                    if (ok && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Đã tạo bản sao lưu hoàn tất')),
-                      );
-                    }
-                  },
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 72,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              IgnorePointer(
+                child: Radio<SoundType>(value: SoundType.system),
+              ),
+              Expanded(
+                child: Text(
+                  'Âm hệ thống',
+                  style: const TextStyle(fontSize: 16),
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.cloud_download_outlined,
-                      color: Colors.green),
-                  title: const Text('Khôi phục dữ liệu'),
-                  subtitle: const Text('Phục hồi dữ liệu từ file sao lưu JSON'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    final data = await BackupService.khoiPhucSaoLuu();
-                    if (data == null) {
-                      return;
-                    }
-
-                    if (data.containsKey('events') && context.mounted) {
-                      final provider =
-                          Provider.of<SuKienProvider>(context, listen: false);
-                      final List<dynamic> eventsRaw = data['events'];
-                      int count = 0;
-                      for (var item in eventsRaw) {
-                        final sk =
-                            SuKien.fromJson(item as Map<String, dynamic>);
-                        await provider.capNhatSuKien(sk);
-                        count++;
-                      }
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(
-                                  'Đã khôi phục thành công $count nhắc lịch và cài đặt!')),
-                        );
-                      }
-                    }
-                  },
+              ),
+              SizedBox(
+                width: 52,
+                height: double.infinity,
+                child: Icon(
+                  laChon ? Icons.volume_up : Icons.volume_off_outlined,
+                  size: 26,
+                  color: laChon ? theme.colorScheme.primary : null,
                 ),
-              ],
-            ),
-          ),
-          // ===== PHẦN: THÔNG TIN =====
-          const _TieuDeSection(text: 'Thông tin ứng dụng'),
-          _ItemCaiDat(
-            icon: Icons.info_outline,
-            title: 'Phiên bản',
-            subtitle: _buildNumber.isEmpty
-                ? _version
-                : '$_version build $_buildNumber',
-            onTap: null,
-          ),
-          _ItemCaiDat(
-            icon: Icons.person_outline,
-            title: 'Tác giả',
-            subtitle: 'ToanBB',
-            onTap: null,
-          ),
-          _ItemCaiDat(
-            icon: Icons.system_update_outlined,
-            title: 'Kiểm tra cập nhật',
-            subtitle: 'Tìm bản cập nhật mới trên GitHub',
-            onTap: () {
-              GithubUpdateService.checkUpdate(context, showNoUpdate: true);
-            },
-          ),
-
-          const Divider(height: 32),
-
-          // ===== PHẦN: LIÊN HỆ =====
-          const _TieuDeSection(text: 'Liên hệ & Hỗ trợ'),
-          _ItemCaiDat(
-            icon: Icons.email_outlined,
-            title: 'Gửi email góp ý',
-            subtitle: 'toanbb.dev@gmail.com',
-            onTap: () => _moUrl(
-                'mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng Âm lịch VIE Lịch'),
-          ),
-          _ItemCaiDat(
-            icon: Icons.code,
-            title: 'Mã nguồn',
-            subtitle: 'github.com/toanbbpro/vie_lich',
-            onTap: () => _moUrl('https://github.com/toanbbpro/vie_lich'),
-          ),
-
-          const Divider(height: 1),
-          // NÚT BUY ME A COFFEE
-          ListTile(
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.brown.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.coffee, color: Colors.brown),
-            ),
-            title: const Text(
-              'Buy me a coffee',
-              style:
-                  TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
-            ),
-            subtitle: const Text('Mời mình một ly cà phê nhé'),
-            trailing: const Icon(Icons.favorite, color: Colors.red),
-            onTap: _hienThiDialogUngHo,
+              const SizedBox(width: 52),
+              const SizedBox(width: 4),
+            ],
           ),
-
-          const SizedBox(height: 24),
-
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Image.asset(
-                    'assets/icon/vie_lich_logo.png',
-                    width: 40,
-                    height: 40,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'VIE Lịch - App lịch Việt cho người Việt',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Dùng thuật toán Hồ Ngọc Đức (UTC+7)',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
     );
   }
@@ -750,11 +967,13 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: onChonFile,
+                    onTap: onTogglePhat,
                     child: Icon(
-                      Icons.folder_open,
-                      size: 24,
-                      color: theme.colorScheme.primary,
+                      dangPhat ? Icons.stop_circle : Icons.play_circle_outline,
+                      size: 30,
+                      color: coFile
+                          ? (dangPhat ? Colors.red : theme.colorScheme.primary)
+                          : Colors.grey.shade400,
                     ),
                   ),
                 ),
@@ -765,13 +984,11 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: onTogglePhat,
+                    onTap: onChonFile,
                     child: Icon(
-                      dangPhat ? Icons.stop_circle : Icons.play_circle_outline,
-                      size: 30,
-                      color: coFile
-                          ? (dangPhat ? Colors.red : theme.colorScheme.primary)
-                          : Colors.grey.shade400,
+                      Icons.folder_open,
+                      size: 24,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ),
@@ -785,54 +1002,37 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
   }
 }
 
-class _TieuDeSection extends StatelessWidget {
-  final String text;
-  const _TieuDeSection({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
-    );
-  }
-}
-
-class _ItemCaiDat extends StatelessWidget {
+/// ===== ITEM CẤU HÌNH =====
+class _ItemCauHinh extends StatelessWidget {
   final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
   final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
-  const _ItemCaiDat({
+  const _ItemCauHinh({
     required this.icon,
+    required this.iconBg,
+    required this.iconColor,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: theme.colorScheme.primaryContainer,
-        child: Icon(icon, color: theme.colorScheme.primary, size: 22),
+        backgroundColor: iconBg,
+        child: Icon(icon, color: iconColor, size: 22),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 15,
+        ),
       ),
-      trailing: onTap != null ? const Icon(Icons.chevron_right) : null,
+      trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
   }
