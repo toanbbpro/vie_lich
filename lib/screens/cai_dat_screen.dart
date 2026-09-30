@@ -8,10 +8,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:in_app_update/in_app_update.dart'; // 👈 ĐẢM BẢO CÓ DÒNG NÀY
 import 'dart:io';
 
 import '../models/su_kien.dart';
 import '../providers/su_kien_provider.dart';
+import '../services/app_update_service.dart';
 import '../services/backup_service.dart';
 import '../services/github_update_service.dart';
 import '../services/notification_service.dart';
@@ -324,6 +326,77 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   }
 
   // ============================================================
+  // IN-APP UPDATE (PLAY STORE)
+  // ============================================================
+
+  /// Kiểm tra và xử lý update khi user nhấn nút
+  Future<void> _kiemTraCapNhatPlayStore() async {
+    final info = await AppUpdateService.checkForUpdate();
+
+    // Check mounted SAU await
+    if (!mounted) return;
+    if (info == null) {
+      _thongBao('Không thể kiểm tra cập nhật');
+      return;
+    }
+
+    if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+      await _hienThiDialogCapNhat(info);
+    } else {
+      if (!mounted) return;
+      _thongBao('Bạn đang dùng bản mới nhất');
+    }
+  }
+
+  /// Dialog hỏi user muốn cập nhật kiểu gì
+  Future<void> _hienThiDialogCapNhat(AppUpdateInfo info) async {
+    if (!mounted) return;
+
+    final luaChon = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Có bản cập nhật mới'),
+        content: const Text(
+          'Phiên bản mới đã có sẵn trên Google Play.\n\n'
+          '• Cập nhật ngay: Tải ngầm, bạn tiếp tục dùng app.\n'
+          '• Cập nhật buộc: Khởi động lại app để áp dụng ngay.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'later'),
+            child: const Text('Để sau'),
+          ),
+          if (info.flexibleUpdateAllowed)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'flexible'),
+              child: const Text('Cập nhật ngay'),
+            ),
+          if (info.immediateUpdateAllowed)
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'immediate'),
+              child: const Text('Cập nhật buộc'),
+            ),
+        ],
+      ),
+    );
+
+    // Check mounted SAU await
+    if (!mounted) return;
+    if (luaChon == null || luaChon == 'later') return;
+
+    if (luaChon == 'flexible') {
+      final ok = await AppUpdateService.startFlexibleUpdate();
+      if (!mounted) return;
+      if (ok) {
+        _thongBao('Đang tải bản cập nhật ở chế độ nền...');
+      }
+    } else if (luaChon == 'immediate') {
+      await AppUpdateService.startImmediateUpdate();
+    }
+  }
+
+  // ============================================================
   // DIALOG ỦNG HỘ
   // ============================================================
   void _hienThiDialogUngHo() {
@@ -580,7 +653,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          // KHÓA KÉO TRANG
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
           children: [
@@ -714,12 +786,11 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                     const SizedBox(height: 16),
                     Center(
                       child: OutlinedButton.icon(
-                        onPressed: () {
+                        onPressed: () async {
                           if (isPlayStore) {
-                            _moUrl(
-                              'https://play.google.com/store/apps/details?id=com.toanbb.vie_lich',
-                            );
+                            await _kiemTraCapNhatPlayStore();
                           } else {
+                            if (!mounted) return;
                             GithubUpdateService.checkUpdate(
                               context,
                               showNoUpdate: true,
@@ -782,7 +853,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
 }
 
 /// ============================================================
-/// SECTION CARD: Tiêu đề dạng viên thuốc, nằm đè lên viền trên, căn trái
+/// SECTION CARD
 /// ============================================================
 class _SectionCard extends StatelessWidget {
   final String title;
@@ -802,7 +873,6 @@ class _SectionCard extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // === KHUNG VIỀN CHÍNH ===
         Container(
           margin: const EdgeInsets.only(top: 12),
           decoration: BoxDecoration(
@@ -819,8 +889,6 @@ class _SectionCard extends StatelessWidget {
             child: child,
           ),
         ),
-
-        // === PILL TIÊU ĐỀ ===
         Positioned(
           top: 0,
           left: 16,
