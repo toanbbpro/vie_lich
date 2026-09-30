@@ -1,7 +1,7 @@
 name: vie_lich
 description: App lịch Việt cho người Việt
 publish_to: 'none'
-version: 1.2.6+11
+version: 1.2.6+12
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

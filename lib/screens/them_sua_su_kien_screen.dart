@@ -32,8 +32,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   int _phutNhac = 30;
   String? _duongDanAnh;
   bool _daXuatLich = false;
-  
-  List<String> _tags = []; 
+
+  List<String> _tags = [];
 
   bool get _isEditing => widget.suKien != null;
 
@@ -51,9 +51,13 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       _phutNhac = s.phutNhac;
       _duongDanAnh = s.duongDanAnh;
       _daXuatLich = s.daXuatLich;
-      
+
       if (s.tag != null && s.tag!.trim().isNotEmpty) {
-        _tags = s.tag!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        _tags = s.tag!
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       }
     }
   }
@@ -118,7 +122,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       if (!imgDir.existsSync()) {
         await imgDir.create(recursive: true);
       }
-      
+
       final ext = picked.path.split('.').last;
       final fileName = 'sk_${DateTime.now().millisecondsSinceEpoch}.$ext';
       final savedPath = '${imgDir.path}/$fileName';
@@ -132,7 +136,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi: $e')));
     }
   }
 
@@ -140,9 +145,9 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
-    _addTag(); 
-    
+
+    _addTag();
+
     final provider = Provider.of<SuKienProvider>(context, listen: false);
 
     final hienTai = widget.suKien;
@@ -152,13 +157,15 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       ngayAm: _ngayAm,
       thangAm: _thangAm,
       namAm: hienTai?.namAm,
-      ghiChu: _ghiChuController.text.trim().isEmpty ? null : _ghiChuController.text.trim(),
+      ghiChu: _ghiChuController.text.trim().isEmpty
+          ? null
+          : _ghiChuController.text.trim(),
       duongDanAnh: _duongDanAnh,
       baoTruoc: _baoTruoc,
       daXuatLich: _isEditing ? _daXuatLich : false,
       gioNhac: _gioNhac,
       phutNhac: _phutNhac,
-      tag: _tags.isEmpty ? null : _tags.join(', '), 
+      tag: _tags.isEmpty ? null : _tags.join(', '),
     );
 
     if (_isEditing) {
@@ -173,7 +180,9 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isEditing ? 'Đã cập nhật nhắc lịch thành công' : 'Đã lưu nhắc lịch thành công'),
+        content: Text(_isEditing
+            ? 'Đã cập nhật nhắc lịch thành công'
+            : 'Đã lưu nhắc lịch thành công'),
       ),
     );
 
@@ -187,9 +196,12 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xóa sự kiện'),
-        content: Text('Bạn có chắc chắn muốn xóa "${widget.suKien!.ten}" không? Hành động này không thể hoàn tác.'),
+        content: Text(
+            'Bạn có chắc chắn muốn xóa "${widget.suKien!.ten}" không? Hành động này không thể hoàn tác.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -203,8 +215,9 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       if (!mounted) {
         return;
       }
-      await Provider.of<SuKienProvider>(context, listen: false).xoaSuKien(widget.suKien!.id);
-      
+      await Provider.of<SuKienProvider>(context, listen: false)
+          .xoaSuKien(widget.suKien!.id);
+
       if (!mounted) {
         return;
       }
@@ -222,14 +235,16 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       ten: _tenController.text.trim(),
       ngayAm: _ngayAm,
       thangAm: _thangAm,
-      ghiChu: _ghiChuController.text.trim().isEmpty ? null : _ghiChuController.text.trim(),
+      ghiChu: _ghiChuController.text.trim().isEmpty
+          ? null
+          : _ghiChuController.text.trim(),
       baoTruoc: _baoTruoc,
       gioNhac: _gioNhac,
       phutNhac: _phutNhac,
     );
 
     final ok = await CalendarExport.xuatSuKien(tam);
-    
+
     if (!mounted) {
       return;
     }
@@ -238,12 +253,13 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       setState(() => _daXuatLich = true);
       if (_isEditing) {
         await _luu(dongManHinh: false);
-      } 
-      
+      }
+
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã xuất lịch hệ thống thành công')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã xuất lịch hệ thống thành công')));
     }
   }
 
@@ -252,7 +268,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       final now = DateTime.now();
       var ngay = LunarSolarConverter.lunarToSolar(_ngayAm, _thangAm, now.year);
       if (ngay.isBefore(DateTime(now.year, now.month, now.day))) {
-        ngay = LunarSolarConverter.lunarToSolar(_ngayAm, _thangAm, now.year + 1);
+        ngay =
+            LunarSolarConverter.lunarToSolar(_ngayAm, _thangAm, now.year + 1);
       }
       return DateFormat('EEEE, dd/MM/yyyy', 'vi').format(ngay);
     } catch (_) {
@@ -263,10 +280,16 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     final provider = Provider.of<SuKienProvider>(context, listen: false);
-    final Set<String> allAvailableTags = {'Giỗ', 'Bên nội', 'Bên ngoại', 'Lễ Tết', 'Cá nhân'};
-    
+    final Set<String> allAvailableTags = {
+      'Giỗ',
+      'Bên nội',
+      'Bên ngoại',
+      'Lễ Tết',
+      'Cá nhân'
+    };
+
     for (var sk in provider.danhSachSuKien) {
       if (sk.tag != null && sk.tag!.trim().isNotEmpty) {
         final list = sk.tag!.split(',').map((e) => e.trim());
@@ -320,7 +343,9 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.label_outline),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập tên nhắc lịch' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Nhập tên nhắc lịch'
+                    : null,
               ),
               const SizedBox(height: 16),
               Row(
@@ -328,8 +353,12 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                   Expanded(
                     child: DropdownButtonFormField<int>(
                       initialValue: _ngayAm,
-                      decoration: const InputDecoration(labelText: 'Ngày âm', border: OutlineInputBorder()),
-                      items: List.generate(30, (i) => i + 1).map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(),
+                      decoration: const InputDecoration(
+                          labelText: 'Ngày âm', border: OutlineInputBorder()),
+                      items: List.generate(30, (i) => i + 1)
+                          .map((e) =>
+                              DropdownMenuItem(value: e, child: Text('$e')))
+                          .toList(),
                       onChanged: (v) => setState(() => _ngayAm = v!),
                     ),
                   ),
@@ -338,8 +367,13 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                     flex: 2,
                     child: DropdownButtonFormField<int>(
                       initialValue: _thangAm,
-                      decoration: const InputDecoration(labelText: 'Tháng âm', border: OutlineInputBorder()),
-                      items: List.generate(12, (i) => i + 1).map((e) => DropdownMenuItem(value: e, child: Text(AmLichHelper.layTenThang(e)))).toList(),
+                      decoration: const InputDecoration(
+                          labelText: 'Tháng âm', border: OutlineInputBorder()),
+                      items: List.generate(12, (i) => i + 1)
+                          .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(AmLichHelper.layTenThang(e))))
+                          .toList(),
                       onChanged: (v) => setState(() => _thangAm = v!),
                     ),
                   ),
@@ -348,17 +382,24 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer
+                        .withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today, size: 16, color: theme.colorScheme.primary),
+                    Icon(Icons.calendar_today,
+                        size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('Dương lịch tới: ${_previewNgayDuong()}', style: TextStyle(fontSize: 13, color: theme.colorScheme.primary))),
+                    Expanded(
+                        child: Text('Dương lịch tới: ${_previewNgayDuong()}',
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: theme.colorScheme.primary))),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              
               TextFormField(
                 controller: _tagController,
                 decoration: InputDecoration(
@@ -367,7 +408,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.local_offer_outlined),
                   suffixIcon: IconButton(
-                    icon: Icon(Icons.add_circle, color: theme.colorScheme.primary),
+                    icon: Icon(Icons.add_circle,
+                        color: theme.colorScheme.primary),
                     onPressed: _addTag,
                   ),
                 ),
@@ -378,49 +420,67 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                 },
                 onFieldSubmitted: (_) => _addTag(),
               ),
-              
               if (_tags.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Wrap(
                     spacing: 8,
                     runSpacing: -8,
-                    children: _tags.map((t) => Chip(
-                      label: Text(t, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      deleteIcon: const Icon(Icons.cancel, size: 18),
-                      onDeleted: () => setState(() => _tags.remove(t)),
-                    )).toList(),
+                    children: _tags
+                        .map((t) => Chip(
+                              label: Text(t,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              backgroundColor:
+                                  theme.colorScheme.primaryContainer,
+                              deleteIcon: const Icon(Icons.cancel, size: 18),
+                              onDeleted: () => setState(() => _tags.remove(t)),
+                            ))
+                        .toList(),
                   ),
                 ),
-
               if (suggestedTags.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 12, bottom: 4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Gợi ý (Bấm để thêm):', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      Text('Gợi ý (Bấm để thêm):',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
                       const SizedBox(height: 4),
                       Wrap(
                         spacing: 8,
                         runSpacing: -8,
-                        children: suggestedTags.map((t) => ActionChip(
-                          label: Text(t, style: TextStyle(fontSize: 12, color: theme.colorScheme.primary)),
-                          backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          side: BorderSide.none,
-                          onPressed: () => setState(() => _tags.add(t)),
-                        )).toList(),
+                        children: suggestedTags
+                            .map((t) => ActionChip(
+                                  label: Text(t,
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.colorScheme.primary)),
+                                  backgroundColor: theme
+                                      .colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  side: BorderSide.none,
+                                  onPressed: () => setState(() => _tags.add(t)),
+                                ))
+                            .toList(),
                       ),
                     ],
                   ),
                 ),
-
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 initialValue: _baoTruoc,
-                decoration: const InputDecoration(labelText: 'Báo trước', border: OutlineInputBorder(), prefixIcon: Icon(Icons.notifications_active_outlined)),
-                items: const [0, 1, 2, 3, 5, 7, 10, 15, 30].map((e) => DropdownMenuItem(value: e, child: Text(e == 0 ? 'Không báo trước' : '$e ngày'))).toList(),
+                decoration: const InputDecoration(
+                    labelText: 'Báo trước',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.notifications_active_outlined)),
+                items: const [0, 1, 2, 3, 5, 7, 10, 15, 30]
+                    .map((e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(e == 0 ? 'Không báo trước' : '$e ngày')))
+                    .toList(),
                 onChanged: (v) => setState(() => _baoTruoc = v!),
               ),
               const SizedBox(height: 16),
@@ -428,42 +488,59 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                 onTap: _chonGioNhac,
                 borderRadius: BorderRadius.circular(4),
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Giờ nhắc', border: OutlineInputBorder(), prefixIcon: Icon(Icons.access_time)),
-                  child: Text('${_gioNhac.toString().padLeft(2, '0')}:${_phutNhac.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 16)),
+                  decoration: const InputDecoration(
+                      labelText: 'Giờ nhắc',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.access_time)),
+                  child: Text(
+                      '${_gioNhac.toString().padLeft(2, '0')}:${_phutNhac.toString().padLeft(2, '0')}',
+                      style: const TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _ghiChuController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Ghi chú', border: OutlineInputBorder(), prefixIcon: Icon(Icons.notes), alignLabelWithHint: true),
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.notes),
+                    alignLabelWithHint: true),
               ),
               const SizedBox(height: 16),
               if (_duongDanAnh == null)
-                OutlinedButton.icon(onPressed: _chonAnh, icon: const Icon(Icons.add_photo_alternate_outlined), label: const Text('Thêm ảnh minh họa'))
+                OutlinedButton.icon(
+                    onPressed: _chonAnh,
+                    icon: const Icon(Icons.add_photo_alternate_outlined),
+                    label: const Text('Thêm ảnh minh họa'))
               else
                 Stack(
                   alignment: Alignment.topRight,
                   children: [
-                    Image.file(File(_duongDanAnh!), height: 150, width: double.infinity, fit: BoxFit.cover),
-                    IconButton(icon: const Icon(Icons.cancel, color: Colors.white), onPressed: () => setState(() => _duongDanAnh = null)),
+                    Image.file(File(_duongDanAnh!),
+                        height: 150, width: double.infinity, fit: BoxFit.cover),
+                    IconButton(
+                        icon: const Icon(Icons.cancel, color: Colors.white),
+                        onPressed: () => setState(() => _duongDanAnh = null)),
                   ],
                 ),
-                
               const SizedBox(height: 32),
-              
               OutlinedButton.icon(
                 onPressed: _xuatLich,
-                icon: Icon(_daXuatLich ? Icons.event_available : Icons.event, color: _daXuatLich ? Colors.green : null),
-                label: Text(_daXuatLich ? 'Đã xuất lịch hệ thống (Xuất lại)' : 'Xuất sang lịch hệ thống'),
+                icon: Icon(_daXuatLich ? Icons.event_available : Icons.event,
+                    color: _daXuatLich ? Colors.green : null),
+                label: Text(_daXuatLich
+                    ? 'Đã xuất lịch hệ thống (Xuất lại)'
+                    : 'Xuất sang lịch hệ thống'),
               ),
-              
               if (_isEditing) ...[
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _xoa,
                   icon: const Icon(Icons.delete_forever),
-                  label: const Text('Xóa sự kiện', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  label: const Text('Xóa sự kiện',
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.red.shade600,
                     foregroundColor: Colors.white,

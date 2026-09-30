@@ -78,9 +78,9 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
     final xacNhan = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Xóa nhắc lịch'),
+        title: const Text('Xóa lịch'),
         content: Text(
-          'Bạn có chắc muốn xóa $soLuong nhắc lịch đã chọn?\n'
+          'Bạn có chắc muốn xóa $soLuong lịch đã chọn?\n'
           'Hành động này không thể hoàn tác.',
         ),
         actions: [
@@ -109,7 +109,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
     if (!mounted) return;
     _tatCheDoChon();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Đã xóa $soLuong nhắc lịch')),
+      SnackBar(content: Text('Đã xóa $soLuong lịch')),
     );
   }
 
@@ -123,8 +123,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
     if (dsChon.length > 25) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text('Chỉ nên chia sẻ tối đa 25 nhắc lịch mỗi lần qua mã QR.'),
+          content: Text('Chỉ nên chia sẻ tối đa 25 lịch mỗi lần qua mã QR.'),
         ),
       );
       return;
@@ -202,11 +201,11 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
           barrierDismissible: false,
           builder: (_) => AlertDialog(
             title: const Text(
-              'Phát hiện nhắc lịch mới 🪄',
+              'Phát hiện lịch mới 🪄',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             content: Text(
-              'Hệ thống tìm thấy ${dsMoi.length} nhắc lịch từ mã QR. '
+              'Hệ thống tìm thấy ${dsMoi.length} lịch từ mã QR. '
               'Bạn có muốn lưu vào máy không?',
             ),
             actions: [
@@ -230,8 +229,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                  content:
-                      Text('🎉 Đã lưu thành công ${dsMoi.length} nhắc lịch!')),
+                  content: Text('🎉 Đã lưu thành công ${dsMoi.length} lịch!')),
             );
           }
         }
@@ -309,7 +307,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                     if (_selectedIds.isNotEmpty)
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: 'Xóa nhắc lịch đã chọn',
+                        tooltip: 'Xóa lịch đã chọn',
                         color: Colors.red,
                         onPressed: _xoaCacSuKienDaChon,
                       ),
@@ -317,7 +315,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                     // 3. Share
                     IconButton(
                       icon: const Icon(Icons.share),
-                      tooltip: 'Chia sẻ nhắc lịch',
+                      tooltip: 'Chia sẻ lịch',
                       onPressed: _selectedIds.isEmpty
                           ? null
                           : () => _chiaSeQuaQR(dsGoc),
@@ -325,7 +323,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                   ],
                 )
               : AppBar(
-                  title: const Text('Nhắc lịch'),
+                  title: const Text('Lịch cần nhắc'),
                   centerTitle: true,
                   actions: [
                     IconButton(
@@ -384,8 +382,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                     if (dsSapXep.isEmpty)
                       const Expanded(
                         child: Center(
-                          child:
-                              Text('Không tìm thấy nhắc lịch phù hợp bộ lọc.'),
+                          child: Text('Không tìm thấy lịch phù hợp bộ lọc.'),
                         ),
                       )
                     else
@@ -420,7 +417,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.add),
-                  label: const Text('Thêm nhắc lịch'),
+                  label: const Text('Thêm lịch'),
                 ),
         );
       },
@@ -448,7 +445,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Chưa có nhắc lịch nào',
+              'Chưa có lịch nào',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -457,7 +454,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Nhấn nút "Thêm nhắc lịch" bên dưới để tạo nhắc ngày giỗ, lễ theo âm lịch.',
+              'Nhấn nút "Thêm lịch" bên dưới để tạo nhắc ngày giỗ, lễ theo âm lịch.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600),
             ),
