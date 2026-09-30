@@ -8,7 +8,7 @@
 PRODUCT_NAME = VIE Lich
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.toanbb.vieLich
+PRODUCT_BUNDLE_IDENTIFIER = com.toanbb.vie-Lich
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.toanbb. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 ToanBB. All rights reserved.
