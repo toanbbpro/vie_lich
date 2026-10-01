@@ -61,7 +61,7 @@ Nếu bạn đã cài bản cũ từ v1.2.1 trở đi sẽ được thông báo 
 
 ```bash
 # 1. Clone kho lưu trữ
-git clone [https://github.com/toanbbpro/vie_lich.git](https://github.com/toanbbpro/vie_lich.git)
+git clone https://github.com/toanbbpro/vie_lich.git
 
 # 2. Di chuyển vào thư mục
 cd vie_lich
