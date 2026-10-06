@@ -1,0 +1,14 @@
+# Chuẩn hoá line ending
+* text=auto eol=lf
+
+# File nhị phân — không đụng tới
+*.exe   binary
+*.dll   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.ipa   binary
+*.apk   binary
+*.dmg   binary
+*.zip   binary
+*.tar.gz binary
