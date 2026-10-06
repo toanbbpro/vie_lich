@@ -1,12 +1,12 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:system_tray/system_tray.dart';
-import 'package:in_app_update/in_app_update.dart'; // 👈 THÊM DÒNG NÀY
+import 'package:tray_manager/tray_manager.dart';
+import 'package:in_app_update/in_app_update.dart';
 
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
@@ -92,7 +92,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final SystemTray _systemTray = SystemTray();
+  TrayIcon? _trayIcon;
+  Menu? _trayMenu;
 
   @override
   void initState() {
@@ -116,6 +117,12 @@ class _MyAppState extends State<MyApp> {
 
     // Kiểm tra xem có flexible update đã tải xong chưa
     _kiemTraFlexibleUpdateDaTai();
+  }
+
+  @override
+  void dispose() {
+    _trayIcon?.dispose();
+    super.dispose();
   }
 
   /// Nếu user đã tải xong flexible update ở lần chạy trước, giờ cài đặt
@@ -155,53 +162,170 @@ class _MyAppState extends State<MyApp> {
     debugPrint('❌ [Flutter] capNhatWidget thất bại sau $maxRetries lần thử');
   }
 
+  // ============================================================
+  // SYSTEM TRAY — tray_manager 0.7.0 (native API)
+  // ============================================================
   Future<void> _initSystemTray() async {
-    String iconPath =
-        Platform.isWindows ? 'assets/icon/vie_lich_logo_v2.ico' : '';
+    try {
+      String iconPath = '';
 
-    await _systemTray.initSystemTray(title: "VIE Lịch", iconPath: iconPath);
+      if (Platform.isWindows) {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final candidates = [
+          '$exeDir\\app_icon.ico',
+          '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
+          '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_logo_v2.ico',
+        ];
+        for (final p in candidates) {
+          if (File(p).existsSync()) {
+            iconPath = p;
+            debugPrint('✅ Tray icon (Windows): $p');
+            break;
+          }
+        }
+      } else if (Platform.isMacOS) {
+          final exeFile = File(Platform.resolvedExecutable);
+          // exeFile = .../VIE Lich.app/Contents/MacOS/vie_lich
+          // .parent = Contents/MacOS
+          // .parent.parent = Contents
+          // .parent.parent.parent = VIE Lich.app
+          final appDir = exeFile.parent.parent.parent.path;
 
-    final Menu menu = Menu();
+          final candidates = [
+            // Path chuẩn macOS bundle — đúng theo output find
+            '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/tray_mac.png',
+            '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
+            // Fallback cho trường hợp bundle khác cấu trúc
+            '$appDir/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
+          ];
+          for (final p in candidates) {
+            if (File(p).existsSync()) {
+              iconPath = p;
+              debugPrint('✅ Tray icon (macOS): $p');
+              break;
+            }
+          }
+        }
 
-    if (Platform.isWindows) {
-      await menu.buildFrom([
-        MenuItemLabel(
-          label: 'Mở ứng dụng quản lý',
-          onClicked: (menuItem) => _switchToAppMode(),
-        ),
-        MenuItemLabel(
-          label: 'Hiện Widget Lịch',
-          onClicked: (menuItem) => _switchToWidgetMode(),
-        ),
-        MenuItemLabel(
-          label: 'Thoát ứng dụng',
-          onClicked: (menuItem) async => await windowManager.destroy(),
-        ),
-      ]);
-    } else if (Platform.isMacOS) {
-      await menu.buildFrom([
-        MenuItemLabel(
-          label: 'Mở cửa sổ Lịch',
-          onClicked: (menuItem) async {
-            await windowManager.show();
-            await windowManager.focus();
-          },
-        ),
-        MenuItemLabel(
-          label: 'Thoát ứng dụng',
-          onClicked: (menuItem) async => await windowManager.destroy(),
-        ),
-      ]);
+      if (iconPath.isEmpty) {
+        debugPrint('⚠️ Không tìm thấy icon tray');
+        return;
+      }
+
+      _trayIcon = TrayIcon.create();
+      if (_trayIcon == null) {
+        debugPrint('❌ Không tạo được TrayIcon');
+        return;
+      }
+
+      _trayIcon!.icon = ImageAsset.fromAsset(iconPath);
+      _trayIcon!.setTooltip('VIE Lịch');
+      debugPrint('✅ setIcon + setTooltip OK');
+
+      await _rebuildTrayMenu();
+
+      _trayIcon!.addListener((event) {
+        if (Platform.isMacOS) {
+          // macOS: click trái hiện menu (theo convention của menu bar app)
+          if (event is TrayIconClickedEvent) {
+            debugPrint('🖱️ Tray icon LEFT click (macOS) → menu');
+            _trayIcon?.openContextMenu();
+          }
+        } else if (Platform.isWindows) {
+          // Windows: right click hiện menu, double-click mở main window
+          if (event is TrayIconRightClickedEvent) {
+            debugPrint('🖱️ Tray icon RIGHT click (Windows) → menu');
+            _trayIcon?.openContextMenu();
+          } else if (event is TrayIconDoubleClickedEvent) {
+            debugPrint('🖱️ Tray icon DOUBLE click (Windows) → app mode');
+            _switchToAppMode();
+          }
+        }
+      });
+
+      _trayIcon!.setVisible(true);
+      debugPrint('✅ System tray khởi tạo thành công');
+    } catch (e, st) {
+      debugPrint('❌ Init system tray lỗi: $e\n$st');
+    }
+  }
+
+  Future<void> _rebuildTrayMenu() async {
+    _trayMenu = Menu.create();
+    if (_trayMenu == null) {
+      debugPrint('⚠️ Không tạo được Menu');
+      return;
     }
 
-    await _systemTray.setContextMenu(menu);
+    if (Platform.isWindows) {
+      // Item 1: Mở app mode
+      final openAppItem = MenuItem.createWithLabelAndType(
+        'Mở ứng dụng quản lý',
+        MenuItemType.normal,
+      );
+      openAppItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          _switchToAppMode();
+        }
+      });
+      _trayMenu!.addItem(openAppItem!);
 
-    _systemTray.registerSystemTrayEventHandler((String eventName) {
-      if (eventName == kSystemTrayEventClick ||
-          eventName == kSystemTrayEventRightClick) {
-        _systemTray.popUpContextMenu();
-      }
-    });
+      // Item 2: Widget mode
+      final openWidgetItem = MenuItem.createWithLabelAndType(
+        'Hiện Widget Lịch',
+        MenuItemType.normal,
+      );
+      openWidgetItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          _switchToWidgetMode();
+        }
+      });
+      _trayMenu!.addItem(openWidgetItem!);
+
+      _trayMenu!.addSeparator();
+
+      // Item 3: Thoát
+      final exitItem = MenuItem.createWithLabelAndType(
+        'Thoát ứng dụng',
+        MenuItemType.normal,
+      );
+      exitItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          windowManager.destroy();
+        }
+      });
+      _trayMenu!.addItem(exitItem!);
+    } else if (Platform.isMacOS) {
+      // Item 1: Mở cửa sổ
+      final openItem = MenuItem.createWithLabelAndType(
+        'Mở cửa sổ Lịch',
+        MenuItemType.normal,
+      );
+      openItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          windowManager.show();
+          windowManager.focus();
+        }
+      });
+      _trayMenu!.addItem(openItem!);
+
+      _trayMenu!.addSeparator();
+
+      // Item 2: Thoát
+      final exitItem = MenuItem.createWithLabelAndType(
+        'Thoát ứng dụng',
+        MenuItemType.normal,
+      );
+      exitItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          windowManager.destroy();
+        }
+      });
+      _trayMenu!.addItem(exitItem!);
+    }
+
+    _trayIcon?.setContextMenu(_trayMenu!);
+    debugPrint('✅ setContextMenu OK');
   }
 
   Future<void> _switchToAppMode() async {

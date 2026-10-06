@@ -888,9 +888,12 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: EdgeInsets.only(top: topPadding),
-            child: child,
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: EdgeInsets.only(top: topPadding),
+              child: child,
+            ),
           ),
         ),
         Positioned(
