@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+
+# Windows-specific files có thể dùng CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.rc text eol=crlf

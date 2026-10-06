@@ -240,6 +240,10 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       }
       return;
     }
+    if (Platform.isWindows) {
+      _thongBao('Windows không cần cấp quyền thông báo');
+      return;
+    }
     final status = await Permission.notification.status;
     if (status.isGranted) {
       _thongBao('Quyền thông báo đã được cấp');
@@ -328,12 +332,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   // ============================================================
   // IN-APP UPDATE (PLAY STORE)
   // ============================================================
-
-  /// Kiểm tra và xử lý update khi user nhấn nút
   Future<void> _kiemTraCapNhatPlayStore() async {
     final info = await AppUpdateService.checkForUpdate();
 
-    // Check mounted SAU await
     if (!mounted) return;
     if (info == null) {
       _thongBao('Không thể kiểm tra cập nhật');
@@ -348,7 +349,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
-  /// Dialog hỏi user muốn cập nhật kiểu gì
   Future<void> _hienThiDialogCapNhat(AppUpdateInfo info) async {
     if (!mounted) return;
 
@@ -381,7 +381,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       ),
     );
 
-    // Check mounted SAU await
     if (!mounted) return;
     if (luaChon == null || luaChon == 'later') return;
 
@@ -784,8 +783,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-
-                    // Nút "Kiểm tra cập nhật" - tự fit theo nội dung
                     Center(
                       child: OutlinedButton.icon(
                         onPressed: () async {
@@ -811,10 +808,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
-                    // 2 nút Ủng hộ + Thông tin - tự fit theo nội dung
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -888,9 +882,12 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: EdgeInsets.only(top: topPadding),
-            child: child,
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: EdgeInsets.only(top: topPadding),
+              child: child,
+            ),
           ),
         ),
         Positioned(

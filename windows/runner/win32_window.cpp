@@ -4,6 +4,8 @@
 #include <flutter_windows.h>
 
 #include "resource.h"
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 
 namespace {
 
@@ -139,6 +141,15 @@ bool Win32Window::Create(const std::wstring& title,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);
+      if (window) {
+      // Loại bỏ viền và bóng đổ của DWM
+      DWM_WINDOW_CORNER_PREFERENCE preference = DWMWCP_DONOTROUND;
+      DwmSetWindowAttribute(window, DWMWA_WINDOW_CORNER_PREFERENCE, &preference, sizeof(preference));
+
+      // Vô hiệu hóa bóng đổ (shadow) của hệ thống
+      MARGINS margins = {0, 0, 0, 0};
+      DwmExtendFrameIntoClientArea(window, &margins);
+    }
 
   if (!window) {
     return false;
@@ -150,7 +161,7 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  return ShowWindow(window_handle_, SW_HIDE);
 }
 
 // static
