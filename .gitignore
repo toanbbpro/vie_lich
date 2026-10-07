@@ -116,5 +116,3 @@ lib/firebase_options.dart
 # FVM (nếu dùng Flutter Version Management)
 # ==============================================================
 .fvm/
-# Windows helper build artifact
-windows_helper/
