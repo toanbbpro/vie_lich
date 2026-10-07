@@ -1,14 +1,41 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Tải về Vie Lịch trên Google Play, Android APK, Windows, macOS, iOS. Lịch Âm Dương & Tiện Ích Việt." />
+
+  <!-- iOS meta tags & Favicon -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Vie Lịch" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+
   <title>Vie Lịch - Lịch Âm Dương & Tiện Ích Việt</title>
-  <!-- Tailwind CSS CDN -->
+
+  <!-- Tailwind CSS & Font Awesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
   <style>
-    /* Thanh cuộn mềm cho phần gallery ảnh */
+    /* Thiết lập scroll snap theo từng màn hình */
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 4.5rem;
+      scroll-snap-type: y proximity;
+    }
+    @media (min-width: 768px) {
+      html {
+        scroll-snap-type: y mandatory;
+      }
+    }
+    .snap-section {
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+    }
+
+    /* Ẩn thanh cuộn gallery */
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -20,169 +47,296 @@
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased font-sans">
 
-  <!-- Header -->
-  <header class="max-w-6xl mx-auto px-6 py-6 flex justify-between items-center">
-    <div class="flex items-center space-x-3">
-      <span class="text-2xl font-bold text-red-600">🗓️ Vie Lịch</span>
-    </div>
-    <div class="flex items-center space-x-4">
-      <a href="#screenshots" class="hidden sm:inline text-slate-600 hover:text-slate-900 font-medium text-sm">Giao diện</a>
-      <a href="#features" class="hidden sm:inline text-slate-600 hover:text-slate-900 font-medium text-sm">Tính năng</a>
-      <a href="https://github.com/toanbbpro/vie_lich" target="_blank" class="text-slate-600 hover:text-slate-900 font-medium">
-        <i class="fa-brands fa-github text-xl"></i>
+  <!-- Fixed Navigation Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-slate-50/90 backdrop-blur-md border-b border-slate-200/80 transition-all">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex justify-between items-center">
+      <!-- App Logo & Title -->
+      <a href="#hero" class="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+        <img src="favicon.png" alt="Vie Lịch" class="w-8 h-8 rounded-lg object-contain shadow-xs" />
+        <span class="text-red-600">Vie Lịch</span>
       </a>
-      <a href="#download" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
-        Tải xuống
-      </a>
+
+      <!-- Menu Links -->
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-600">
+        <a href="#hero" class="hover:text-red-600 transition">Trang chủ</a>
+        <a href="#download" class="hover:text-red-600 transition">Tải về</a>
+        <a href="#screenshots" class="hover:text-red-600 transition">Giao diện</a>
+        <a href="#features" class="hover:text-red-600 transition">Tính năng</a>
+        <a href="https://toanbbpro.github.io/vie_lich/privacy.html" class="text-slate-700 hover:text-red-600 font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-shield-halved text-xs text-slate-500"></i> Quyền riêng tư
+        </a>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-3">
+        <a href="https://github.com/toanbbpro/vie_lich" target="_blank" title="GitHub" class="text-slate-500 hover:text-slate-900 transition p-1.5">
+          <i class="fa-brands fa-github text-xl"></i>
+        </a>
+        <a href="#download" class="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition shadow-sm">
+          Tải app
+        </a>
+      </div>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <section class="max-w-5xl mx-auto px-6 pt-12 pb-16 text-center">
-    <span class="bg-red-100 text-red-700 text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wider">
-      Mã nguồn mở • Nhẹ • Tiếng Việt
-    </span>
-    <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 mt-6 tracking-tight">
-      App lịch Việt của người Việt
-    </h1>
-    <p class="text-lg text-slate-600 mt-5 max-w-2xl mx-auto">
-      Lịch vạn niên tinh gọn, thuần Việt, tra cứu ngày hoàng đạo, can chi, tiết khí và quản lý nhắc các sự kiện theo lịch âm thuận tiện ngay trong tầm tay.
-    </p>
-    
-    <div class="mt-8 flex flex-col sm:flex-row gap-4 justify-center" id="download">
-      <a href="https://github.com/toanbbpro/vie_lich/releases" target="_blank" class="bg-red-600 hover:bg-red-700 text-white px-8 py-3.5 rounded-2xl font-medium shadow-md shadow-red-200 transition flex items-center justify-center gap-2">
-        <i class="fa-solid fa-download"></i> Tải bản mới nhất (Releases)
-      </a>
-      <a href="https://github.com/toanbbpro/vie_lich" target="_blank" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-8 py-3.5 rounded-2xl font-medium transition flex items-center justify-center gap-2">
-        <i class="fa-brands fa-github"></i> Xem mã nguồn
-      </a>
-    </div>
+  <!-- ================= SECTION 1: HERO ================= -->
+  <section id="hero" class="snap-section min-h-screen flex flex-col justify-between pt-24 pb-8 px-6 max-w-5xl mx-auto text-center">
+    <div class="my-auto">
+      <span class="bg-red-50 text-red-600 border border-red-200/60 text-[11px] font-semibold px-3 py-1 rounded-full uppercase tracking-wider inline-block">
+        Mã nguồn mở • Đa nền tảng • Thuần Việt
+      </span>
 
-    <!-- Hero Mockup Image -->
-    <div class="mt-12 flex justify-center">
-      <div class="relative p-2 bg-slate-900 rounded-[2.5rem] shadow-2xl border-4 border-slate-800 max-w-[260px]">
-        <img 
-          src="https://github.com/user-attachments/assets/9ffd5359-5c26-404e-9ba8-0c92a6efbfd6" 
-          alt="Giao diện chính Vie Lịch" 
-          class="rounded-[2rem] w-full object-cover block"
-        />
+      <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 mt-5 tracking-tight">
+        App lịch Việt của người Việt
+      </h1>
+
+      <p class="text-base md:text-lg text-slate-600 mt-4 max-w-xl mx-auto leading-relaxed">
+        Lịch vạn niên tinh gọn, tra cứu ngày hoàng đạo, can chi, tiết khí và quản lý nhắc việc theo lịch âm tiện lợi trên mọi thiết bị.
+      </p>
+
+      <!-- Duy nhất 1 nút tải về trỏ xuống mục Download -->
+      <div class="mt-7 flex justify-center items-center">
+        <a href="#download" class="inline-flex items-center gap-2.5 px-6 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-red-200 transition hover:scale-[1.02]">
+          <i class="fa-solid fa-download"></i> Tải ứng dụng ngay
+        </a>
+      </div>
+
+      <!-- Hero Phone Mockup Image -->
+      <div class="mt-8 flex justify-center">
+        <div class="relative p-1.5 bg-slate-900 rounded-[2.2rem] shadow-xl border-3 border-slate-800 max-w-[210px]">
+          <img 
+            src="https://github.com/user-attachments/assets/9ffd5359-5c26-404e-9ba8-0c92a6efbfd6" 
+            alt="Giao diện chính Vie Lịch" 
+            class="rounded-[1.8rem] w-full object-cover block"
+          />
+        </div>
       </div>
     </div>
+
+    <!-- Scroll down indicator -->
+    <a href="#download" class="inline-block text-slate-400 hover:text-slate-700 transition animate-bounce py-2">
+      <i class="fa-solid fa-chevron-down text-sm"></i>
+    </a>
   </section>
 
-  <!-- App Showcase / Screenshots Carousel -->
-  <section id="screenshots" class="max-w-7xl mx-auto px-6 py-16">
-    <div class="text-center mb-10">
-      <h2 class="text-3xl font-extrabold text-slate-900">Hình ảnh trải nghiệm thực tế</h2>
-      <p class="text-slate-600 mt-2 text-sm">Giao diện chi tiết, mượt mà trên từng tác vụ</p>
-    </div>
-
-    <!-- Gallery Container cuộn ngang -->
-    <div class="flex gap-6 overflow-x-auto no-scrollbar pb-6 px-2 snap-x snap-mandatory">
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/9ffd5359-5c26-404e-9ba8-0c92a6efbfd6" alt="Lịch ngày" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Trang chủ / Hôm nay</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/60a400ca-21f3-4fff-ae17-bffd6841ea53" alt="Lịch tháng" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Lịch tháng </span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/b5a6b8a1-7f1c-4b4c-8f21-a266439c0816" alt="Danh sách lịch cần nhắc nhở" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Danh sách lịch cần nhắc nhở</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/695b26e3-5ac7-42bb-88e4-d7b92cb32fdd" alt="Cấu hình cài đặt ứng dụng" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Cấu hình cài đặt ứng dụng</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/7ee90435-af65-41b3-8666-231273956c54" alt="Thêm/sửa nhắc lịch" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Thêm/sửa nhắc lịch</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/a045277a-20a5-4e63-9629-108872f7110e" alt="Chia sẻ nhắc lịch bằng QR code" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Chia sẻ nhắc lịch bằng QR code</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/a65aec95-7284-41c9-816c-5e2faf31c6b8" alt="Buy me a coffee" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Buy me a coffee</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/1486733a-7537-456a-bc39-f564dbaf9ecc" alt="Thông báo" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Thông báo</span>
-      </div>
-      <div class="flex-shrink-0 snap-center text-center">
-        <div class="p-2 bg-slate-900 rounded-[2rem] shadow-lg border-2 border-slate-800 w-[220px]">
-          <img src="https://github.com/user-attachments/assets/2eb75b1e-4e77-4dc0-b58a-179691a431e8" alt="Tự động cập nhật" class="rounded-[1.5rem] w-full h-auto object-cover" />
-        </div>
-        <span class="block mt-3 text-xs font-semibold text-slate-600">Tự động cập nhật</span>
+  <!-- ================= SECTION 2: DOWNLOAD ================= -->
+  <section id="download" class="snap-section min-h-screen flex flex-col justify-between py-20 px-6 max-w-5xl mx-auto">
+    <div class="my-auto">
+      <div class="text-center mb-7">
+        <span class="text-xs font-bold text-red-600 uppercase tracking-widest">Tải ứng dụng</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 mt-1">Chọn nền tảng của bạn</h2>
+        <p class="text-slate-500 mt-1 text-xs md:text-sm">Phát hành chính thức từ Google Play và GitHub Releases</p>
       </div>
 
+      <!-- Store Badges Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <!-- Google Play -->
+        <a href="https://play.google.com/store/apps/details?id=com.toanbb.vie_lich" target="_blank" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+          <svg class="w-6 h-6 flex-shrink-0" viewBox="0 0 512 512">
+            <path fill="#4285F4" d="M32.5 24.3C27.3 29.8 24 38 24 48.7v414.6c0 10.7 3.3 18.9 8.5 24.4l2.5 2.3 232-232v-5.5L35 22l-2.5 2.3z"/>
+            <path fill="#FFBA00" d="M344 316.5l-77-77v-5.5l77-77 1.8 1 91.5 52c26.1 14.8 26.1 39.2 0 54l-91.5 52-1.8 1.5z"/>
+            <path fill="#EA4335" d="M267 236.7L32.5 487.7c8.7 9.2 23 10.3 39.2 1.1l272.3-154.6-77-97.5z"/>
+            <path fill="#34A853" d="M267 236.7l77-97.5L71.7 24.6c-16.2-9.2-30.5-8.1-39.2 1.1L267 236.7z"/>
+          </svg>
+          <div class="text-left flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">GET IT ON</span>
+            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Google Play</span>
+          </div>
+        </a>
+
+        <!-- Android APK -->
+        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/vie_lich-v1.2.6.apk" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+          <i class="fa-brands fa-android text-emerald-400 text-2xl flex-shrink-0"></i>
+          <div class="text-left flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">TẢI FILE CÀI ĐẶT</span>
+            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Android APK (v1.2.6)</span>
+          </div>
+        </a>
+
+        <!-- Windows -->
+        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/VIE_Lich_v1.2.6_win_Portable.zip" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+          <i class="fa-brands fa-windows text-blue-400 text-2xl flex-shrink-0"></i>
+          <div class="text-left flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">DOWNLOAD FOR</span>
+            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Windows (ZIP)</span>
+          </div>
+        </a>
+
+        <!-- macOS -->
+        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/VIE_Lich_v1.2.6.dmg" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+          <i class="fa-brands fa-apple text-white text-2xl flex-shrink-0"></i>
+          <div class="text-left flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">DOWNLOAD FOR</span>
+            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">macOS (DMG)</span>
+          </div>
+        </a>
+
+        <!-- iOS (IPA) -->
+        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/VIE_Lich_v1.2.6.ipa" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+          <i class="fa-brands fa-apple text-amber-300 text-2xl flex-shrink-0"></i>
+          <div class="text-left flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">SIDELOAD (IPA)</span>
+            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">iOS (AltStore / TrollStore)</span>
+          </div>
+        </a>
+
+        <!-- Linux -->
+        <div class="flex items-center gap-3.5 p-3 px-4 bg-neutral-900/60 border border-neutral-800 rounded-xl text-neutral-400 opacity-60 cursor-not-allowed">
+          <i class="fa-brands fa-linux text-xl flex-shrink-0 text-neutral-400"></i>
+          <div class="text-left flex flex-col justify-center">
+            <span class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium leading-tight">COMING SOON</span>
+            <span class="text-sm font-semibold text-neutral-300 tracking-tight leading-none mt-0.5">Linux Package</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- iOS Note -->
+      <div class="mt-4 bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 px-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2 text-amber-900">
+          <i class="fa-brands fa-apple text-amber-700 text-sm"></i>
+          <span>
+            <strong>Ghi chú iOS:</strong> Ứng dụng chưa có trên App Store — cài đặt sideload qua file <strong>IPA</strong> bằng AltStore, Sideloadly hoặc TrollStore.
+          </span>
+        </div>
+      </div>
     </div>
+
+    <!-- Scroll down indicator -->
+    <a href="#screenshots" class="text-center text-slate-400 hover:text-slate-700 transition animate-bounce py-2">
+      <i class="fa-solid fa-chevron-down text-sm"></i>
+    </a>
   </section>
 
-  <!-- Features Section -->
-  <section id="features" class="max-w-6xl mx-auto px-6 py-12">
-    <div class="grid md:grid-cols-3 gap-8">
-      <!-- Feature 1 -->
-      <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
-        <div class="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-xl mb-4">
-          <i class="fa-solid fa-moon"></i>
-        </div>
-        <h3 class="text-xl font-bold text-slate-900 mb-2">Lịch Âm Chuẩn Xác</h3>
-        <p class="text-slate-600 text-sm leading-relaxed">
-          Thuật toán tính lịch âm theo múi giờ Việt Nam, đầy đủ can chi ngày/tháng/năm, tiết khí và các ngày lễ truyền thống.
-        </p>
+  <!-- ================= SECTION 3: SCREENSHOTS ================= -->
+  <section id="screenshots" class="snap-section min-h-screen flex flex-col justify-between py-20 px-6 max-w-7xl mx-auto">
+    <div class="my-auto w-full">
+      <div class="text-center mb-8">
+        <span class="text-xs font-bold text-red-600 uppercase tracking-widest">Trải nghiệm</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 mt-1">Hình ảnh thực tế ứng dụng</h2>
+        <p class="text-slate-500 mt-1 text-xs md:text-sm">Thiết kế trực quan, mượt mà và tối ưu thao tác sử dụng hàng ngày</p>
       </div>
 
-      <!-- Feature 2 -->
-      <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
-        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl mb-4">
-          <i class="fa-solid fa-star"></i>
+      <!-- Gallery cuộn ngang -->
+      <div class="flex gap-5 overflow-x-auto no-scrollbar pb-4 px-2 snap-x snap-mandatory">
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/9ffd5359-5c26-404e-9ba8-0c92a6efbfd6" alt="Trang chủ / Hôm nay" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Trang chủ / Hôm nay</span>
         </div>
-        <h3 class="text-xl font-bold text-slate-900 mb-2">Nhắc lịch âm</h3>
-        <p class="text-slate-600 text-sm leading-relaxed">
-          Nhắc các lịch âm đã lưu tự động hàng năm, hỗ trợ chia sẻ nhắc lịch bằng QR code và sao lưu danh sách nhắc lịch ra file JSON.
-        </p>
-      </div>
-
-      <!-- Feature 3 -->
-      <div class="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
-        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4">
-          <i class="fa-solid fa-shield-halved"></i>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/60a400ca-21f3-4fff-ae17-bffd6841ea53" alt="Lịch tháng" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Lịch tháng</span>
         </div>
-        <h3 class="text-xl font-bold text-slate-900 mb-2">Gọn Nhẹ & Riêng Tư</h3>
-        <p class="text-slate-600 text-sm leading-relaxed">
-          Không chèn quảng cáo phiền toái, hỗ trợ kiểm tra và tự động cập nhật phiên bản mới trực tiếp từ kho lưu trữ GitHub.
-        </p>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/b5a6b8a1-7f1c-4b4c-8f21-a266439c0816" alt="Danh sách nhắc nhở" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Danh sách nhắc lịch</span>
+        </div>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/695b26e3-5ac7-42bb-88e4-d7b92cb32fdd" alt="Cấu hình cài đặt" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Cấu hình cài đặt</span>
+        </div>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/7ee90435-af65-41b3-8666-231273956c54" alt="Thêm/sửa nhắc lịch" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Thêm / sửa nhắc lịch</span>
+        </div>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/a045277a-20a5-4e63-9629-108872f7110e" alt="Chia sẻ QR code" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Chia sẻ QR code</span>
+        </div>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/a65aec95-7284-41c9-816c-5e2faf31c6b8" alt="Buy me a coffee" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Buy me a coffee</span>
+        </div>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/1486733a-7537-456a-bc39-f564dbaf9ecc" alt="Thông báo" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Thông báo</span>
+        </div>
+        <div class="flex-shrink-0 snap-center text-center">
+          <div class="p-1.5 bg-slate-900 rounded-[1.8rem] shadow border border-slate-800 w-[200px]">
+            <img src="https://github.com/user-attachments/assets/2eb75b1e-4e77-4dc0-b58a-179691a431e8" alt="Tự động cập nhật" class="rounded-[1.4rem] w-full h-auto object-cover" />
+          </div>
+          <span class="block mt-2.5 text-xs font-medium text-slate-600">Tự động cập nhật</span>
+        </div>
       </div>
     </div>
+
+    <!-- Scroll down indicator -->
+    <a href="#features" class="text-center text-slate-400 hover:text-slate-700 transition animate-bounce py-2">
+      <i class="fa-solid fa-chevron-down text-sm"></i>
+    </a>
   </section>
 
-  <!-- Footer -->
-  <footer class="max-w-6xl mx-auto px-6 py-12 mt-12 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center text-sm text-slate-500 gap-4">
-    <p>© 2026 Vie Lịch. Phát triển bởi <a href="https://github.com/toanbbpro" target="_blank" class="text-slate-800 font-medium hover:underline">toanbbpro</a>.</p>
-    <div class="flex gap-6">
-      <a href="https://github.com/toanbbpro/vie_lich/blob/main/LICENSE" target="_blank" class="hover:text-slate-800">License</a>
-      <a href="https://github.com/toanbbpro/vie_lich/issues" target="_blank" class="hover:text-slate-800">Báo lỗi / Góp ý</a>
+  <!-- ================= SECTION 4: FEATURES & FOOTER ================= -->
+  <section id="features" class="snap-section min-h-screen flex flex-col justify-between pt-20 px-6 max-w-6xl mx-auto">
+    <div class="my-auto">
+      <div class="text-center mb-8">
+        <span class="text-xs font-bold text-red-600 uppercase tracking-widest">Tiện ích</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 mt-1">Tính năng nổi bật</h2>
+        <p class="text-slate-500 mt-1 text-xs md:text-sm">Được thiết kế đáp ứng đúng nhu cầu văn hóa và sinh hoạt của người Việt</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Feature 1 -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
+          <div class="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-lg mb-3">
+            <i class="fa-solid fa-moon"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1.5">Lịch Âm Chuẩn Xác</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Thuật toán tính lịch âm theo múi giờ Việt Nam, đầy đủ can chi ngày/tháng/năm, tiết khí và các ngày lễ truyền thống.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
+          <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-lg mb-3">
+            <i class="fa-solid fa-star"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1.5">Nhắc Lịch Âm Tự Động</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Nhắc các ngày giỗ chạp, rằm, mùng một tự động hàng năm, hỗ trợ chia sẻ qua mã QR và xuất file sao lưu JSON.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs">
+          <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg mb-3">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1.5">Gọn Nhẹ & Riêng Tư</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Không chèn quảng cáo, bảo mật dữ liệu cá nhân hoàn toàn trên máy, hỗ trợ cập nhật trực tiếp qua GitHub.
+          </p>
+        </div>
+      </div>
     </div>
-  </footer>
+
+    <!-- Integrated Footer -->
+    <footer class="w-full py-6 mt-10 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-3">
+      <p>© 2026 Vie Lịch. Phát triển bởi <a href="https://github.com/toanbbpro" target="_blank" class="text-slate-700 font-medium hover:underline">toanbbpro</a>.</p>
+      <div class="flex flex-wrap gap-5">
+        <a href="https://toanbbpro.github.io/vie_lich/privacy.html" class="text-red-600 font-semibold hover:underline">Chính sách quyền riêng tư</a>
+        <a href="https://github.com/toanbbpro/vie_lich/releases" target="_blank" class="hover:text-slate-800 transition">Bản phát hành</a>
+        <a href="https://github.com/toanbbpro/vie_lich/blob/main/LICENSE" target="_blank" class="hover:text-slate-800 transition">License</a>
+        <a href="https://github.com/toanbbpro/vie_lich/issues" target="_blank" class="hover:text-slate-800 transition">Báo lỗi / Góp ý</a>
+      </div>
+    </footer>
+  </section>
 
 </body>
 </html>
