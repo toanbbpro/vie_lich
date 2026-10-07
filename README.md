@@ -118,6 +118,10 @@ flutter build windows --release
 *   App cho Linux, cụ thể Zorin OS, chú trọng menubar và widget desktop nếu khả thi.
 *   App cho iOS, nhưng không đưa lên App Store, chỉ hỗ trợ sideload.
 
+## 📄 Giấy phép
+
+* **Mã nguồn (Source Code):** Được phát hành dưới giấy phép **[GPL v3](LICENSE)**. Bạn có thể tự do xem, sửa đổi và phân phối lại mã nguồn theo điều khoản của giấy phép này.
+* **Tài nguyên (Assets):** Tất cả các tài nguyên hình ảnh, logo (bao gồm `vie_lich_logo.png`), biểu tượng và âm thanh nằm trong thư mục `assets/` đều thuộc bản quyền của tác giả (Copyright © 2026 ToànBB). **KHÔNG** áp dụng giấy phép GPL v3 cho các tài nguyên này. Bạn không được phép sao chép, sử dụng lại hoặc phân phối các tài nguyên này cho mục đích thương mại hay gắn vào dự án khác khi chưa có sự cho phép.
 ---
 
 ## 📊 Lịch sử Star
@@ -129,8 +133,3 @@ flutter build windows --release
 </div>
 
 ---
-
-## 📄 Giấy phép
-
-* **Mã nguồn (Source Code):** Được phát hành dưới giấy phép **[GPL v3](LICENSE)**. Bạn có thể tự do xem, sửa đổi và phân phối lại mã nguồn theo điều khoản của giấy phép này.
-* **Tài nguyên (Assets):** Tất cả các tài nguyên hình ảnh, logo (bao gồm `vie_lich_logo.png`), biểu tượng và âm thanh nằm trong thư mục `assets/` đều thuộc bản quyền của tác giả (Copyright © 2026 ToànBB). **KHÔNG** áp dụng giấy phép GPL v3 cho các tài nguyên này. Bạn không được phép sao chép, sử dụng lại hoặc phân phối các tài nguyên này cho mục đích thương mại hay gắn vào dự án khác khi chưa có sự cho phép.
