@@ -1,5 +1,5 @@
 <div align="center">
-  <h1><img src="assets/icon/vie_lich_logo.png" alt="VIE Lịch Logo" width="60" height="60">  VIE Lịch - App lịch Việt của người Việt</h1>
+  <h1><img src="assets/icon/vie_lich_logo.png" alt="VIE Lịch Logo" width="32" height="32">  VIE Lịch - App lịch Việt cho người Việt</h1>
 
   <!-- Badges: Version & Stats -->
   [![Release](https://img.shields.io/github/v/release/toanbbpro/vie_lich?label=version&color=blue)](https://github.com/toanbbpro/vie_lich/releases/latest)
