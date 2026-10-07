@@ -109,6 +109,7 @@ flutter build macos --release
 ## Windows - chỉ trên branch windows
 flutter build windows --release
 ```
+</details>
 ## 🚩 Kế hoạch phát triển - Roadmap
 
 *   Publish app lên Google Play Store.
