@@ -7,26 +7,20 @@
   [![Release](https://img.shields.io/github/v/release/toanbbpro/vie_lich?label=version&color=blue)](https://github.com/toanbbpro/vie_lich/releases/latest)
   [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
   [![Author: ToanBB](https://img.shields.io/badge/Author-To%C3%A0nBB-orange.svg)](https://github.com/toanbbpro)
-  [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Ftoanbbpro%2Fvie_lich&count_bg=%23E11D48&title_bg=%231E293B&icon=&icon_color=%23E7E7E7&title=Views&edge_flat=false)](https://hits.seeyoufarm.com)
+[![Views](https://api.visitorbadge.io/api/visitors?path=toanbbpro%2Fvie_lich&label=Views&labelColor=%231e293b&countColor=%23e11d48&style=flat)](https://github.com/toanbbpro/vie_lich)
   [![GitHub stars](https://img.shields.io/github/stars/toanbbpro/vie_lich?style=flat&color=gold)](https://github.com/toanbbpro/vie_lich/stargazers)
-
   <br>
-
   <!-- Badges: Built With -->
   [![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=flat&logo=flutter&logoColor=white)](https://flutter.dev)
-  [![Go](https://img.shields.io/badge/Go_(Windows_Helper)-%2300ADD8.svg?style=flat&logo=go&logoColor=white)](https://go.dev/)
-  [![Swift](https://img.shields.io/badge/Swift_(iOS)-%23FA7343.svg?style=flat&logo=swift&logoColor=white)](https://developer.apple.com/swift/)
-
+  [![Go](https://img.shields.io/badge/Go-%2300ADD8.svg?style=flat&logo=go&logoColor=white)](https://go.dev/)
+  [![Swift](https://img.shields.io/badge/Swift-%23FA7343.svg?style=flat&logo=swift&logoColor=white)](https://developer.apple.com/swift/)
   <br>
-
   <!-- Badges: Platforms -->
   [![Android](https://img.shields.io/badge/Android-3DDC84?style=flat&logo=android&logoColor=white)](#-cài-đặt)
   [![iOS](https://img.shields.io/badge/iOS-000000?style=flat&logo=apple&logoColor=white)](#-cài-đặt)
   [![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat&logo=windows&logoColor=white)](#-cài-đặt)
   [![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)](#-cài-đặt)
-
   <br><br>
-
   Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, họp họ, lễ hội truyền thống thuần Việt.
 
   <p>
