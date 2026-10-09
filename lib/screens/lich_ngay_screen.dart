@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,10 +8,49 @@ import '../providers/lich_provider.dart';
 import '../utils/am_lich_helper.dart';
 
 // ============================================================
-// CONSTANTS
+// CONSTANTS — TINH CHỈNH RIÊNG CHO TỪNG PLATFORM
 // ============================================================
-/// Vị trí tâm trống đồng theo chiều dọc (0.0 → 1.0)
-const double kTrongDongCenterY = 0.35;
+
+/// === MOBILE (Android + iOS) ===
+const Alignment kButtonAlignmentMobile = Alignment(-0.02, -0.115);
+const double kButtonSizeMobile = 200;
+
+/// === macOS ===
+/// Sau khi chạy `flutter run -d macos`, tinh chỉnh 2 giá trị này cho khớp
+/// trống đồng trong `vie_lich_bg_desktop.png`
+const Alignment kButtonAlignmentMacOS = Alignment(-0.01, -0.02);
+const double kButtonSizeMacOS = 270;
+
+/// === Windows ===
+/// Sau khi chạy `flutter run -d windows`, tinh chỉnh 2 giá trị này
+const Alignment kButtonAlignmentWindows = Alignment(0, -0.25);
+const double kButtonSizeWindows = 240;
+
+/// Gradient vàng gold dùng cho viền
+const LinearGradient kGoldGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [
+    Color(0xFFF9E79F), // vàng rất nhạt
+    Color(0xFFD4AF37), // vàng gold
+    Color(0xFFB8860B), // vàng đậm
+    Color(0xFFD4AF37), // vàng gold
+    Color(0xFFF9E79F), // vàng rất nhạt
+  ],
+  stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+);
+
+/// Gradient dọc cho vạch ngăn
+const LinearGradient kGoldVerticalGradient = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [
+    Color(0xFFB8860B),
+    Color(0xFFD4AF37),
+    Color(0xFFB8860B),
+  ],
+  stops: [0.0, 0.5, 1.0],
+);
 
 // ============================================================
 // HELPER
@@ -33,6 +73,41 @@ String _tenThangAmChu(int thang) {
   ];
   if (thang >= 1 && thang <= 12) return names[thang];
   return '$thang';
+}
+
+// ============================================================
+// WIDGET: VIỀN GOLD GRADIENT
+// ============================================================
+class _GoldGradientBorder extends StatelessWidget {
+  final Widget child;
+  final double borderWidth;
+  final double radius;
+  final Color? innerColor;
+
+  const _GoldGradientBorder({
+    required this.child,
+    this.borderWidth = 1.5,
+    this.radius = 16.0,
+    this.innerColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(borderWidth),
+      decoration: BoxDecoration(
+        gradient: kGoldGradient,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: innerColor ?? Colors.white.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(radius - borderWidth),
+        ),
+        child: child,
+      ),
+    );
+  }
 }
 
 // ============================================================
@@ -65,7 +140,6 @@ class _LichNgayScreenState extends State<LichNgayScreen>
     super.dispose();
   }
 
-  /// Trigger ripple rồi nhảy về hôm nay (nếu đang xem ngày khác)
   void _onStarTap() {
     final provider = context.read<LichProvider>();
     final now = DateTime.now();
@@ -73,10 +147,8 @@ class _LichNgayScreenState extends State<LichNgayScreen>
     final sel = provider.selectedDate;
     final selDate = DateTime(sel.year, sel.month, sel.day);
 
-    // Ripple chạy ngay
     _rippleCtrl.forward(from: 0);
 
-    // Jump về hôm nay sau 180ms để user thấy ripple trước
     if (selDate != today) {
       Future.delayed(const Duration(milliseconds: 180), () {
         if (mounted) {
@@ -88,7 +160,28 @@ class _LichNgayScreenState extends State<LichNgayScreen>
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    // === Chọn config theo platform ===
+    final isMobile = Platform.isAndroid || Platform.isIOS;
+    final isMacOS = Platform.isMacOS;
+
+    final bgAsset = isMobile
+        ? 'assets/backgrounds/vie_lich_bg_mobile.png'
+        : 'assets/backgrounds/vie_lich_bg_desktop.png';
+
+    final Alignment buttonAlignment;
+    final double buttonSize;
+    if (isMobile) {
+      buttonAlignment = kButtonAlignmentMobile;
+      buttonSize = kButtonSizeMobile;
+    } else if (isMacOS) {
+      buttonAlignment = kButtonAlignmentMacOS;
+      buttonSize = kButtonSizeMacOS;
+    } else {
+      buttonAlignment = kButtonAlignmentWindows;
+      buttonSize = kButtonSizeWindows;
+    }
+
+    const buttonAsset = 'assets/backgrounds/vie_lich_button.png';
 
     return Consumer<LichProvider>(
       builder: (context, provider, _) {
@@ -96,19 +189,17 @@ class _LichNgayScreenState extends State<LichNgayScreen>
         final lunar = AmLichHelper.duongSangAm(ngay);
 
         return Scaffold(
-          backgroundColor: Colors.transparent,
+          backgroundColor: const Color(0xFFFAF3E8),
           body: LayoutBuilder(
             builder: (context, constraints) {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
-              // Center khớp với painter
-              final center =
-                  Offset(size.width / 2, size.height * kTrongDongCenterY);
-              // Vùng tap: lớn hơn star một chút để dễ chạm
-              final tapRadius = math.min(size.width, size.height) * 0.18;
+              final buttonCenter = Offset(
+                (buttonAlignment.x + 1) / 2 * size.width,
+                (buttonAlignment.y + 1) / 2 * size.height,
+              );
 
               return GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                // --- SWIPE ---
                 onHorizontalDragStart: (_) {
                   _dragDistance = 0;
                 },
@@ -127,29 +218,27 @@ class _LichNgayScreenState extends State<LichNgayScreen>
                   }
                   _dragDistance = 0;
                 },
-                // --- TAP VÀO TÂM ---
                 onTapUp: (details) {
-                  final d = (details.localPosition - center).distance;
-                  if (d < tapRadius) {
+                  final d = (details.localPosition - buttonCenter).distance;
+                  if (d < buttonSize * 0.5) {
                     _onStarTap();
                   }
                 },
                 child: Stack(
                   children: [
-                    // ============================================================
-                    // 1. BACKGROUND TRỐNG ĐỒNG
-                    // ============================================================
+                    // 1. BACKGROUND
                     Positioned.fill(
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _TrongDongPainter(baseColor: primary),
+                      child: Image.asset(
+                        bgAsset,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFFFAF3E8),
                         ),
                       ),
                     ),
 
-                    // ============================================================
-                    // 2. RIPPLE LAYER
-                    // ============================================================
+                    // 2. RIPPLE
                     Positioned.fill(
                       child: IgnorePointer(
                         child: RepaintBoundary(
@@ -160,6 +249,7 @@ class _LichNgayScreenState extends State<LichNgayScreen>
                                 painter: _RipplePainter(
                                   progress: _rippleCtrl.value,
                                   color: const Color(0xFFFFC107),
+                                  center: buttonCenter,
                                 ),
                               );
                             },
@@ -168,9 +258,22 @@ class _LichNgayScreenState extends State<LichNgayScreen>
                       ),
                     ),
 
-                    // ============================================================
-                    // 3. CONTENT
-                    // ============================================================
+                    // 3. NÚT TRỐNG ĐỒNG
+                    Positioned(
+                      left: buttonCenter.dx - buttonSize / 2,
+                      top: buttonCenter.dy - buttonSize / 2,
+                      width: buttonSize,
+                      height: buttonSize,
+                      child: IgnorePointer(
+                        child: Image.asset(
+                          buttonAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+
+                    // 4. CONTENT
                     SafeArea(
                       child: LayoutBuilder(
                         builder: (context, c2) {
@@ -294,11 +397,8 @@ class _LichDoiBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
     final red = Colors.red.shade600;
     final blue = const Color(0xFF1565C0);
-    final divider = theme.colorScheme.primary.withValues(alpha: 0.25);
 
     final thuWords = thu.split(' ');
     final thuDisplay = thuWords.length >= 2
@@ -369,23 +469,20 @@ class _LichDoiBlock extends StatelessWidget {
 
                   // ================= SỐ ÂM =================
                   Align(
-                    alignment: const Alignment(0.7, 0.75),
+                    alignment: const Alignment(0.9, 1),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          '$ngayAm',
-                          style: TextStyle(
-                            fontSize: lunarFontSize,
-                            fontWeight: FontWeight.w300,
-                            height: 0.85,
-                            letterSpacing: -2,
-                            color: red,
-                          ),
+                        _TextWithGoldStroke(
+                          text: '$ngayAm',
+                          fontSize: lunarFontSize,
+                          fillColor: red,
+                          strokeWidth: 4.0,
+                          letterSpacing: -2,
                         ),
                         Transform.translate(
-                          offset: const Offset(0, -4),
+                          offset: const Offset(0, -1),
                           child: Text(
                             'Tháng $tenThangAmHoa',
                             style: TextStyle(
@@ -395,6 +492,7 @@ class _LichDoiBlock extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 6),
                         Text(
                           'Âm lịch',
                           style: TextStyle(
@@ -414,76 +512,178 @@ class _LichDoiBlock extends StatelessWidget {
             const SizedBox(height: 8),
 
             // ================================================
-            // BẢNG DƯỚI
+            // BẢNG DƯỚI — bọc viền gold gradient
             // ================================================
-            SizedBox(
-              height: (h * 0.18).clamp(70.0, 110.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.only(right: 12),
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      thuDisplay,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: thuFontSize,
-                        fontWeight: FontWeight.w500,
-                        color: primary,
-                        height: 1.15,
-                      ),
-                    ),
+            _GoldGradientBorder(
+              borderWidth: 1.5,
+              radius: 16,
+              innerColor: Colors.white.withValues(alpha: 0.55),
+              child: SizedBox(
+                height: (h * 0.18).clamp(70.0, 110.0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  Container(width: 1, color: divider),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Ngày ${ngay.day} tháng ${ngay.month} năm ${ngay.year}',
-                                style: TextStyle(
-                                  fontSize: metaFontSize,
-                                  fontWeight: FontWeight.w500,
-                                  color: primary,
-                                  height: 1.15,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Cột "Thứ Năm"
+                      Container(
+                        padding: const EdgeInsets.only(right: 14),
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          thuDisplay,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: thuFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7B3F00),
+                            height: 1.15,
                           ),
-                          Container(height: 1, color: divider),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Ngày $ngayAm tháng $tenThangAm năm $canChiNam',
-                                style: TextStyle(
-                                  fontSize: metaFontSize,
-                                  color: red,
-                                  height: 1.15,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+
+                      // Vạch dọc — gradient gold
+                      Container(
+                        width: 1.5,
+                        decoration: const BoxDecoration(
+                          gradient: kGoldVerticalGradient,
+                        ),
+                      ),
+
+                      // 2 dòng: dương / âm
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Ngày ${ngay.day} tháng ${ngay.month} năm ${ngay.year}',
+                                    style: TextStyle(
+                                      fontSize: metaFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF7B3F00),
+                                      height: 1.15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                height: 1,
+                                decoration: const BoxDecoration(
+                                  gradient: kGoldVerticalGradient,
+                                ),
+                              ),
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Ngày $ngayAm tháng $tenThangAm năm $canChiNam',
+                                    style: TextStyle(
+                                      fontSize: metaFontSize,
+                                      color: const Color(0xFF9B2C2C),
+                                      height: 1.15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+// ============================================================
+// TEXT VỚI VIỀN GOLD + FLARE
+// ============================================================
+class _TextWithGoldStroke extends StatelessWidget {
+  final String text;
+  final double fontSize;
+  final Color fillColor;
+  final double strokeWidth;
+  final double letterSpacing;
+
+  const _TextWithGoldStroke({
+    required this.text,
+    required this.fontSize,
+    required this.fillColor,
+    this.strokeWidth = 4.0,
+    this.letterSpacing = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w300,
+      height: 0.85,
+      letterSpacing: letterSpacing,
+    );
+
+    const goldColor = Color(0xFFFFD700);
+
+    return Stack(
+      children: [
+        // LAYER 0: Flare ngoài — blur rộng
+        Text(
+          text,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth * 2.5
+              ..strokeJoin = StrokeJoin.round
+              ..color = goldColor.withValues(alpha: 0.25)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+          ),
+        ),
+        // LAYER 1: Flare gần — blur nhẹ
+        Text(
+          text,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth * 1.5
+              ..strokeJoin = StrokeJoin.round
+              ..color = goldColor.withValues(alpha: 0.5)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+          ),
+        ),
+        // LAYER 2: Viền gold sắc nét
+        Text(
+          text,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth
+              ..strokeJoin = StrokeJoin.round
+              ..color = goldColor,
+          ),
+        ),
+        // LAYER 3: Fill đỏ
+        Text(
+          text,
+          style: baseStyle.copyWith(color: fillColor),
+        ),
+      ],
     );
   }
 }
@@ -501,7 +701,7 @@ class _NgayLeCompact extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50.withValues(alpha: 0.7),
+        color: Colors.amber.shade50.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.orange.shade200, width: 1),
       ),
@@ -528,7 +728,7 @@ class _NgayLeCompact extends StatelessWidget {
 }
 
 // ============================================================
-// NÚT XEM TIẾT KHÍ & SAO
+// NÚT XEM TIẾT KHÍ & SAO — VIỀN GOLD GRADIENT
 // ============================================================
 class _NutXemTietKhiSao extends StatelessWidget {
   final DateTime ngay;
@@ -538,23 +738,37 @@ class _NutXemTietKhiSao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return OutlinedButton.icon(
-      onPressed: () => _hienDialogTietKhiSao(context),
-      icon: const Icon(Icons.wb_sunny_outlined, size: 18),
-      label: const Text(
-        'Xem tiết khí & sao tốt xấu',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: theme.colorScheme.primary,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        side: BorderSide(
-          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-          width: 1.2,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+    return _GoldGradientBorder(
+      borderWidth: 1.5,
+      radius: 14,
+      innerColor: Colors.white.withValues(alpha: 0.60),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _hienDialogTietKhiSao(context),
+          borderRadius: BorderRadius.circular(12.5),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(
+                  Icons.wb_sunny_outlined,
+                  size: 18,
+                  color: Color(0xFF7B3F00),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Xem tiết khí & sao tốt xấu',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7B3F00),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -711,181 +925,27 @@ class _NutXemTietKhiSao extends StatelessWidget {
 }
 
 // ============================================================
-// CUSTOM PAINTER: TRỐNG ĐỒNG + STAR MÀU ĐỒNG TƯƠI
-// ============================================================
-class _TrongDongPainter extends CustomPainter {
-  final Color baseColor;
-
-  /// Bảng màu đồng cổ
-  static const Color _bronzeDark = Color(0xFF6B4423);
-  static const Color _bronzeMid = Color(0xFF8B5A2B);
-  static const Color _bronzeLight = Color(0xFFB87333);
-
-  _TrongDongPainter({required this.baseColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final patternColor = baseColor.withValues(alpha: 0.07);
-
-    final strokePaint = Paint()
-      ..color = patternColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..isAntiAlias = true;
-
-    final fillPaint = Paint()
-      ..color = patternColor
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    final center = Offset(size.width / 2, size.height * kTrongDongCenterY);
-    final radius = math.min(size.width, size.height) * 0.45;
-
-    // ===== Họa tiết trống đồng mờ =====
-    for (int i = 0; i < 5; i++) {
-      final r = radius * (1.0 - i * 0.18);
-      canvas.drawCircle(center, r, strokePaint);
-    }
-
-    final dotRingR = radius * 0.82;
-    const numDots = 32;
-    for (int i = 0; i < numDots; i++) {
-      final angle = (i * 2 * math.pi) / numDots;
-      final dx = center.dx + dotRingR * math.cos(angle);
-      final dy = center.dy + dotRingR * math.sin(angle);
-      canvas.drawCircle(Offset(dx, dy), 1.8, fillPaint);
-    }
-
-    final sawR = radius * 0.65;
-    final sawPath = Path();
-    const numTeeth = 40;
-    for (int i = 0; i < numTeeth; i++) {
-      final angle1 = (i * 2 * math.pi) / numTeeth;
-      final angle2 = ((i + 0.5) * 2 * math.pi) / numTeeth;
-      final r1 = sawR;
-      final r2 = sawR + 5;
-      final x1 = center.dx + r1 * math.cos(angle1);
-      final y1 = center.dy + r1 * math.sin(angle1);
-      final x2 = center.dx + r2 * math.cos(angle2);
-      final y2 = center.dy + r2 * math.sin(angle2);
-      if (i == 0) {
-        sawPath.moveTo(x1, y1);
-      } else {
-        sawPath.lineTo(x1, y1);
-      }
-      sawPath.lineTo(x2, y2);
-    }
-    canvas.drawPath(sawPath, strokePaint);
-
-    // ===== STAR MẶT TRỜI MÀU ĐỒNG =====
-    _drawStar(canvas, center, radius);
-  }
-
-  void _drawStar(Canvas canvas, Offset center, double radius) {
-    // 1. Halo — vàng đồng tỏa nhẹ
-    final haloPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          _bronzeLight.withValues(alpha: 0.20),
-          _bronzeLight.withValues(alpha: 0.06),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 0.48));
-    canvas.drawCircle(center, radius * 0.48, haloPaint);
-
-    // 2. Vòng đồng bao quanh star
-    final ringPaint = Paint()
-      ..color = _bronzeMid.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..isAntiAlias = true;
-    canvas.drawCircle(center, radius * 0.40, ringPaint);
-
-    // 3. Star 12 cánh
-    final starPath = Path();
-    const numPoints = 12;
-    final outerR = radius * 0.32;
-    final innerR = radius * 0.14;
-    for (int i = 0; i < numPoints * 2; i++) {
-      final angle = (i * math.pi) / numPoints - math.pi / 2;
-      final r = i.isEven ? outerR : innerR;
-      final x = center.dx + r * math.cos(angle);
-      final y = center.dy + r * math.sin(angle);
-      if (i == 0) {
-        starPath.moveTo(x, y);
-      } else {
-        starPath.lineTo(x, y);
-      }
-    }
-    starPath.close();
-
-    // Fill star — gradient đồng
-    final starFill = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          _bronzeMid.withValues(alpha: 0.38),
-          _bronzeLight.withValues(alpha: 0.20),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: outerR));
-    canvas.drawPath(starPath, starFill);
-
-    // Stroke star — viền đồng đậm
-    final starStroke = Paint()
-      ..color = _bronzeDark.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..isAntiAlias = true;
-    canvas.drawPath(starPath, starStroke);
-
-    // 4. Nhị sen — ĐỒNG TƯƠI với highlight
-    final centerPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(-0.35, -0.35),
-        colors: const [
-          Color(0xFFF4C48A), // highlight vàng nhạt
-          Color(0xFFD97A2B), // đồng tươi
-          Color(0xFFA0522D), // đồng cháy cạnh viền
-        ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 0.06));
-    canvas.drawCircle(center, radius * 0.05, centerPaint);
-
-    // 5. Vòng nhỏ quanh nhị — đồng tươi
-    final innerRing = Paint()
-      ..color = const Color(0xFFD97A2B).withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.3
-      ..isAntiAlias = true;
-    canvas.drawCircle(center, radius * 0.10, innerRing);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrongDongPainter oldDelegate) =>
-      oldDelegate.baseColor != baseColor;
-}
-
-// ============================================================
-// CUSTOM PAINTER: RIPPLE EFFECT — ÁNH SÁNG LAN TỎA
+// CUSTOM PAINTER: RIPPLE
 // ============================================================
 class _RipplePainter extends CustomPainter {
-  final double progress; // 0.0 → 1.0
+  final double progress;
   final Color color;
+  final Offset center;
 
-  _RipplePainter({required this.progress, required this.color});
+  _RipplePainter({
+    required this.progress,
+    required this.color,
+    required this.center,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (progress <= 0 || progress >= 1) return;
 
-    final center = Offset(size.width / 2, size.height * kTrongDongCenterY);
-    final maxR = math.min(size.width, size.height) * 0.58;
+    final maxR = math.min(size.width, size.height) * 0.55;
     final r = maxR * progress;
-
-    // Opacity fade theo progress
     final opacity = (1 - progress) * 0.55;
 
-    // === 1. GLOW LAYER — vòng dày, alpha thấp, tỏa sáng ===
     final glowPaint = Paint()
       ..color = color.withValues(alpha: opacity * 0.30)
       ..style = PaintingStyle.stroke
@@ -894,7 +954,6 @@ class _RipplePainter extends CustomPainter {
       ..isAntiAlias = true;
     canvas.drawCircle(center, r, glowPaint);
 
-    // === 2. RING CHÍNH ===
     final mainPaint = Paint()
       ..color = color.withValues(alpha: opacity)
       ..style = PaintingStyle.stroke
@@ -902,7 +961,6 @@ class _RipplePainter extends CustomPainter {
       ..isAntiAlias = true;
     canvas.drawCircle(center, r, mainPaint);
 
-    // === 3. RING PHỤ GIỮA ===
     if (r > 50) {
       final midPaint = Paint()
         ..color = color.withValues(alpha: opacity * 0.55)
@@ -912,7 +970,6 @@ class _RipplePainter extends CustomPainter {
       canvas.drawCircle(center, r * 0.62, midPaint);
     }
 
-    // === 4. RING PHỤ TRONG ===
     if (r > 90) {
       final innerPaint = Paint()
         ..color = color.withValues(alpha: opacity * 0.35)
@@ -925,5 +982,7 @@ class _RipplePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RipplePainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.color != color;
+      oldDelegate.progress != progress ||
+      oldDelegate.color != color ||
+      oldDelegate.center != center;
 }

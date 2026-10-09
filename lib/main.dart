@@ -34,6 +34,7 @@ void main() async {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
       size: Size(350, 400),
+      minimumSize: Size(600, 700),   // 👈 THÊM
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: true,
@@ -48,7 +49,7 @@ void main() async {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
       size: Size(1000, 700),
-      minimumSize: Size(800, 600),
+      minimumSize: Size(600, 700),   // 👈 SỬA từ Size(800, 600)
       center: true,
       titleBarStyle: TitleBarStyle.normal,
     );
@@ -184,28 +185,23 @@ class _MyAppState extends State<MyApp> {
           }
         }
       } else if (Platform.isMacOS) {
-          final exeFile = File(Platform.resolvedExecutable);
-          // exeFile = .../VIE Lich.app/Contents/MacOS/vie_lich
-          // .parent = Contents/MacOS
-          // .parent.parent = Contents
-          // .parent.parent.parent = VIE Lich.app
-          final appDir = exeFile.parent.parent.parent.path;
+        final exeFile = File(Platform.resolvedExecutable);
+        // exeFile = .../VIE Lich.app/Contents/MacOS/vie_lich
+        final appDir = exeFile.parent.parent.parent.path;
 
-          final candidates = [
-            // Path chuẩn macOS bundle — đúng theo output find
-            '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/tray_mac.png',
-            '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
-            // Fallback cho trường hợp bundle khác cấu trúc
-            '$appDir/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
-          ];
-          for (final p in candidates) {
-            if (File(p).existsSync()) {
-              iconPath = p;
-              debugPrint('✅ Tray icon (macOS): $p');
-              break;
-            }
+        final candidates = [
+          '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/tray_mac.png',
+          '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
+          '$appDir/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
+        ];
+        for (final p in candidates) {
+          if (File(p).existsSync()) {
+            iconPath = p;
+            debugPrint('✅ Tray icon (macOS): $p');
+            break;
           }
         }
+      }
 
       if (iconPath.isEmpty) {
         debugPrint('⚠️ Không tìm thấy icon tray');
@@ -226,13 +222,11 @@ class _MyAppState extends State<MyApp> {
 
       _trayIcon!.addListener((event) {
         if (Platform.isMacOS) {
-          // macOS: click trái hiện menu (theo convention của menu bar app)
           if (event is TrayIconClickedEvent) {
             debugPrint('🖱️ Tray icon LEFT click (macOS) → menu');
             _trayIcon?.openContextMenu();
           }
         } else if (Platform.isWindows) {
-          // Windows: right click hiện menu, double-click mở main window
           if (event is TrayIconRightClickedEvent) {
             debugPrint('🖱️ Tray icon RIGHT click (Windows) → menu');
             _trayIcon?.openContextMenu();
@@ -258,7 +252,6 @@ class _MyAppState extends State<MyApp> {
     }
 
     if (Platform.isWindows) {
-      // Item 1: Mở app mode
       final openAppItem = MenuItem.createWithLabelAndType(
         'Mở ứng dụng quản lý',
         MenuItemType.normal,
@@ -270,7 +263,6 @@ class _MyAppState extends State<MyApp> {
       });
       _trayMenu!.addItem(openAppItem!);
 
-      // Item 2: Widget mode
       final openWidgetItem = MenuItem.createWithLabelAndType(
         'Hiện Widget Lịch',
         MenuItemType.normal,
@@ -284,7 +276,6 @@ class _MyAppState extends State<MyApp> {
 
       _trayMenu!.addSeparator();
 
-      // Item 3: Thoát
       final exitItem = MenuItem.createWithLabelAndType(
         'Thoát ứng dụng',
         MenuItemType.normal,
@@ -296,7 +287,6 @@ class _MyAppState extends State<MyApp> {
       });
       _trayMenu!.addItem(exitItem!);
     } else if (Platform.isMacOS) {
-      // Item 1: Mở cửa sổ
       final openItem = MenuItem.createWithLabelAndType(
         'Mở cửa sổ Lịch',
         MenuItemType.normal,
@@ -311,7 +301,6 @@ class _MyAppState extends State<MyApp> {
 
       _trayMenu!.addSeparator();
 
-      // Item 2: Thoát
       final exitItem = MenuItem.createWithLabelAndType(
         'Thoát ứng dụng',
         MenuItemType.normal,
