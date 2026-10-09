@@ -39,33 +39,87 @@ struct SimpleEntry: TimelineEntry {
 }
 
 // ============================================================
-// PROVIDER
+// PROVIDER — ĐỌC 7 NGÀY, SINH 7 ENTRY
 // ============================================================
 struct Provider: TimelineProvider {
+    private static let groupId = "group.com.toanbb.vie_Lich"
+    private static let fileName = "widget_multi_day.json"
+
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(date: Date(), data: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        completion(SimpleEntry(date: Date(), data: loadData()))
+        let data = Self.loadMultiDayData()?.first
+        completion(SimpleEntry(date: Date(), data: data))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> ()) {
-        let entry = SimpleEntry(date: Date(), data: loadData())
-        completion(Timeline(entries: [entry], policy: .never))
+        guard let multiDay = Self.loadMultiDayData(), !multiDay.isEmpty,
+              Self.isDataFresh() else {
+            // Data cũ hoặc không có → 1 entry placeholder, thử lại sau 30 phút
+            let entry = SimpleEntry(date: Date(), data: nil)
+            completion(Timeline(
+                entries: [entry],
+                policy: .after(Date().addingTimeInterval(30 * 60))
+            ))
+            return
+        }
+
+        var entries: [SimpleEntry] = []
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+
+        for (index, data) in multiDay.enumerated() {
+            let entryDate = calendar.date(
+                byAdding: .day, value: index, to: startOfToday
+            )!
+            entries.append(SimpleEntry(date: entryDate, data: data))
+        }
+
+        // Khi hết multi-day → OS hỏi lại. Nếu data đã cũ → placeholder
+        completion(Timeline(entries: entries, policy: .atEnd))
     }
 
-    private func loadData() -> WidgetData? {
-        let groupId = "group.com.toanbb.vie_Lich"
+    // ------------------------------------------------------------
+    // Đọc file multi-day từ App Group
+    // ------------------------------------------------------------
+    private static func loadMultiDayData() -> [WidgetData]? {
         guard let containerURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: groupId
         ) else { return nil }
 
-        let fileURL = containerURL.appendingPathComponent("widget_data.json")
-        guard let jsonStr = try? String(contentsOf: fileURL, encoding: .utf8),
-              let jsonData = jsonStr.data(using: .utf8) else { return nil }
+        let fileURL = containerURL.appendingPathComponent(fileName)
+        guard let rawData = try? Data(contentsOf: fileURL) else { return nil }
 
-        return try? JSONDecoder().decode(WidgetData.self, from: jsonData)
+        // Thử decode array trước (format mới)
+        if let array = try? JSONDecoder().decode([WidgetData].self, from: rawData) {
+            return array
+        }
+
+        // Fallback: format cũ (single object)
+        if let single = try? JSONDecoder().decode(WidgetData.self, from: rawData) {
+            return [single]
+        }
+
+        return nil
+    }
+
+    // ------------------------------------------------------------
+    // Check data có "tươi" không (< 7 ngày)
+    // ------------------------------------------------------------
+    private static func isDataFresh() -> Bool {
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: groupId
+        ) else { return false }
+
+        let fileURL = containerURL.appendingPathComponent(fileName)
+        guard let attrs = try? FileManager.default.attributesOfItem(
+            atPath: fileURL.path
+        ), let modDate = attrs[.modificationDate] as? Date else {
+            return false
+        }
+        return Date().timeIntervalSince(modDate) < 7 * 24 * 3600
     }
 }
 
@@ -100,7 +154,7 @@ struct VIELichWidgetEntryView: View {
                 Image(systemName: "calendar.badge.exclamationmark")
                     .font(.title)
                     .foregroundColor(.secondary)
-                Text("Đang tải...")
+                Text("Mở app để cập nhật")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -111,11 +165,6 @@ struct VIELichWidgetEntryView: View {
 
 // ============================================================
 // SMALL (170×170)
-// - Giữ "THÁNG 9" trên cùng
-// - Số ngày to hơn
-// - Gộp "18/8 Bính Ngọ" 1 dòng
-// - Đường kẻ ngang 40%
-// - Next event dưới
 // ============================================================
 struct SmallWidgetView: View {
     let data: WidgetData
@@ -123,7 +172,6 @@ struct SmallWidgetView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
-                // Phần lịch
                 VStack(spacing: 2) {
                     Text("THÁNG \(data.thangDuong)")
                         .font(.system(size: 10, weight: .semibold))
@@ -147,13 +195,11 @@ struct SmallWidgetView: View {
                 }
                 .frame(maxHeight: .infinity)
 
-                // Đường kẻ 40% chiều ngang
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
                     .frame(width: geo.size.width * 0.4, height: 1)
                     .padding(.vertical, 6)
 
-                // Next event 1 dòng
                 HStack(spacing: 4) {
                     Image(systemName: "calendar.badge.clock")
                         .foregroundColor(.orange)
@@ -185,11 +231,6 @@ struct SmallWidgetView: View {
 
 // ============================================================
 // MEDIUM (360×170)
-// - Sửa tiêu đề tháng
-// - Bỏ "THÁNG 9" cột trái
-// - Số ngày to hơn
-// - Gộp "18/8 Bính Ngọ"
-// - Next event 1 dòng
 // ============================================================
 struct MediumWidgetView: View {
     let data: WidgetData
@@ -197,7 +238,6 @@ struct MediumWidgetView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 0) {
-                // Cột trái compact
                 MediumCotTrai(data: data)
                     .frame(width: 90)
                     .padding(.leading, 10)
@@ -257,7 +297,6 @@ struct MediumCotTrai: View {
 
 // ============================================================
 // LARGE (344×344)
-// - Chỉ sửa tiêu đề tháng
 // ============================================================
 struct LargeWidgetView: View {
     let data: WidgetData
@@ -284,10 +323,6 @@ struct LargeWidgetView: View {
 
 // ============================================================
 // EXTRA LARGE (688×344)
-// - Bỏ "THÁNG 9" cột trái
-// - Số ngày to hơn
-// - Gộp "18/8 Bính Ngọ"
-// - Next event 1 dòng
 // ============================================================
 struct ExtraLargeWidgetView: View {
     let data: WidgetData
@@ -330,7 +365,7 @@ struct ExtraLargeWidgetView: View {
 }
 
 // ============================================================
-// CỘT TRÁI (EL) — BỎ tiêu đề tháng, số ngày to
+// CỘT TRÁI (EL)
 // ============================================================
 struct CotTrai: View {
     let data: WidgetData
@@ -360,7 +395,7 @@ struct CotTrai: View {
 }
 
 // ============================================================
-// CỘT PHẢI (Large + EL) — âm trên trái, dương dưới phải
+// CỘT PHẢI (Large + EL)
 // ============================================================
 struct CotPhai: View {
     let data: WidgetData
@@ -369,7 +404,6 @@ struct CotPhai: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Tiêu đề "Tháng 09/2026" + padding bottom
             Text(tieuDeThang(data.thangDuong, data.namDuong))
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.red)
@@ -451,7 +485,7 @@ struct CotPhaiCompact: View {
 }
 
 // ============================================================
-// Ô NGÀY — âm trên trái, dương dưới phải (theo yêu cầu)
+// Ô NGÀY
 // ============================================================
 struct ONgay: View {
     let o: WidgetO
@@ -460,7 +494,6 @@ struct ONgay: View {
 
     var body: some View {
         ZStack {
-            // Dương - góc TRÊN TRÁI
             VStack {
                 HStack {
                     Text("\(o.ngayDuong)")
@@ -474,7 +507,6 @@ struct ONgay: View {
                 Spacer(minLength: 0)
             }
 
-            // Âm - góc DƯỚI PHẢI
             VStack {
                 Spacer(minLength: 0)
                 HStack {
@@ -494,7 +526,6 @@ struct ONgay: View {
         .background(o.laHomNay ? Color.red.opacity(0.15) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(alignment: .bottomLeading) {
-            // Dot sự kiện ở góc dưới trái
             if o.coSuKien {
                 Circle()
                     .fill(Color.red)
@@ -529,7 +560,7 @@ struct ONgay: View {
 }
 
 // ============================================================
-// NEXT EVENT — 1 DÒNG DUY NHẤT
+// NEXT EVENT
 // ============================================================
 struct NextEventMotDong: View {
     let data: WidgetData
