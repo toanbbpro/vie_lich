@@ -8,13 +8,23 @@ import '../providers/lich_provider.dart';
 import '../utils/am_lich_helper.dart';
 
 // ============================================================
-// CONSTANTS
+// CONSTANTS — TINH CHỈNH RIÊNG CHO TỪNG PLATFORM
 // ============================================================
-const Alignment kButtonAlignmentMobile = Alignment(-0.02, -0.115);
-const Alignment kButtonAlignmentDesktop = Alignment(0, -0.25);
 
+/// === MOBILE (Android + iOS) ===
+const Alignment kButtonAlignmentMobile = Alignment(-0.02, -0.115);
 const double kButtonSizeMobile = 200;
-const double kButtonSizeDesktop = 320;
+
+/// === macOS ===
+/// Sau khi chạy `flutter run -d macos`, tinh chỉnh 2 giá trị này cho khớp
+/// trống đồng trong `vie_lich_bg_desktop.png`
+const Alignment kButtonAlignmentMacOS = Alignment(-0.01, -0.02);
+const double kButtonSizeMacOS = 270;
+
+/// === Windows ===
+/// Sau khi chạy `flutter run -d windows`, tinh chỉnh 2 giá trị này
+const Alignment kButtonAlignmentWindows = Alignment(0, -0.25);
+const double kButtonSizeWindows = 240;
 
 /// Gradient vàng gold dùng cho viền
 const LinearGradient kGoldGradient = LinearGradient(
@@ -150,13 +160,27 @@ class _LichNgayScreenState extends State<LichNgayScreen>
 
   @override
   Widget build(BuildContext context) {
+    // === Chọn config theo platform ===
     final isMobile = Platform.isAndroid || Platform.isIOS;
+    final isMacOS = Platform.isMacOS;
+
     final bgAsset = isMobile
         ? 'assets/backgrounds/vie_lich_bg_mobile.png'
         : 'assets/backgrounds/vie_lich_bg_desktop.png';
-    final buttonAlignment =
-        isMobile ? kButtonAlignmentMobile : kButtonAlignmentDesktop;
-    final buttonSize = isMobile ? kButtonSizeMobile : kButtonSizeDesktop;
+
+    final Alignment buttonAlignment;
+    final double buttonSize;
+    if (isMobile) {
+      buttonAlignment = kButtonAlignmentMobile;
+      buttonSize = kButtonSizeMobile;
+    } else if (isMacOS) {
+      buttonAlignment = kButtonAlignmentMacOS;
+      buttonSize = kButtonSizeMacOS;
+    } else {
+      buttonAlignment = kButtonAlignmentWindows;
+      buttonSize = kButtonSizeWindows;
+    }
+
     const buttonAsset = 'assets/backgrounds/vie_lich_button.png';
 
     return Consumer<LichProvider>(
@@ -403,7 +427,7 @@ class _LichDoiBlock extends StatelessWidget {
                 children: [
                   // ================= SỐ DƯƠNG =================
                   Align(
-                    alignment: const Alignment(-0.8, -0.75),
+                    alignment: const Alignment(-0.7, -0.75),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
