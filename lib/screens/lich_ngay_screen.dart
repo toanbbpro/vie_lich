@@ -31,11 +31,11 @@ const LinearGradient kGoldGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: [
-    Color(0xFFF9E79F), // vàng rất nhạt
+    Color(0xFFB8860B), // vàng đậm — bên trái
     Color(0xFFD4AF37), // vàng gold
-    Color(0xFFB8860B), // vàng đậm
+    Color(0xFFF9E79F), // vàng rất nhạt — giữa
     Color(0xFFD4AF37), // vàng gold
-    Color(0xFFF9E79F), // vàng rất nhạt
+    Color(0xFFB8860B), // vàng đậm — bên phải
   ],
   stops: [0.0, 0.25, 0.5, 0.75, 1.0],
 );
@@ -517,7 +517,7 @@ class _LichDoiBlock extends StatelessWidget {
             _GoldGradientBorder(
               borderWidth: 1.5,
               radius: 16,
-              innerColor: Colors.white.withValues(alpha: 0.55),
+              innerColor: const Color(0xFFFFF3D6),
               child: SizedBox(
                 height: (h * 0.18).clamp(70.0, 110.0),
                 child: Padding(
@@ -741,7 +741,7 @@ class _NutXemTietKhiSao extends StatelessWidget {
     return _GoldGradientBorder(
       borderWidth: 1.5,
       radius: 14,
-      innerColor: Colors.white.withValues(alpha: 0.60),
+      innerColor: const Color(0xFFFFF3D6),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
