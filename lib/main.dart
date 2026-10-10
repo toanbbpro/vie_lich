@@ -1,5 +1,6 @@
 import 'dart:io' show Platform, File;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -29,12 +30,33 @@ final ValueNotifier<bool> isWidgetMode = ValueNotifier<bool>(true);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ============================================================
+  // EDGE-TO-EDGE — Android 15+ (API 35+)
+  // Đảm bảo content hiển thị đúng dưới status bar + nav bar
+  // ============================================================
+  if (Platform.isAndroid || Platform.isIOS) {
+    // Bật chế độ tràn viền cho cả Android cũ (tương thích ngược)
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+    // Thanh hệ thống trong suốt, icon màu tối (vì theme sáng)
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark, // Android
+        statusBarBrightness: Brightness.light, // iOS (ngược)
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+    );
+  }
+
   // Cấu hình window cho Windows
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
       size: Size(350, 400),
-      minimumSize: Size(600, 700),   // 👈 THÊM
+      minimumSize: Size(600, 700),
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: true,
@@ -45,11 +67,10 @@ void main() async {
       await windowManager.focus();
     });
   } else if (Platform.isMacOS) {
-    // Cấu hình window cho macOS
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
       size: Size(1000, 700),
-      minimumSize: Size(600, 700),   // 👈 SỬA từ Size(800, 600)
+      minimumSize: Size(600, 700),
       center: true,
       titleBarStyle: TitleBarStyle.normal,
     );
@@ -75,7 +96,6 @@ void main() async {
 
   runApp(const MyApp());
 
-  // Sau khi app render xong, kiểm tra update (chỉ bản Play Store)
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     const bool isPlayStore =
         bool.fromEnvironment('PLAY_STORE', defaultValue: false);
@@ -100,7 +120,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    // Widget service với retry cho macOS
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (Platform.isMacOS) {
         debugPrint(
@@ -116,7 +135,6 @@ class _MyAppState extends State<MyApp> {
       _initSystemTray();
     }
 
-    // Kiểm tra xem có flexible update đã tải xong chưa
     _kiemTraFlexibleUpdateDaTai();
   }
 
@@ -126,7 +144,6 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  /// Nếu user đã tải xong flexible update ở lần chạy trước, giờ cài đặt
   Future<void> _kiemTraFlexibleUpdateDaTai() async {
     if (!Platform.isAndroid) return;
 
@@ -142,7 +159,6 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  /// Gọi capNhatWidget với retry cho macOS
   Future<void> _capNhatWidgetVoiRetry() async {
     const int maxRetries = 5;
     const Duration retryDelay = Duration(milliseconds: 800);
@@ -163,9 +179,6 @@ class _MyAppState extends State<MyApp> {
     debugPrint('❌ [Flutter] capNhatWidget thất bại sau $maxRetries lần thử');
   }
 
-  // ============================================================
-  // SYSTEM TRAY — tray_manager 0.7.0 (native API)
-  // ============================================================
   Future<void> _initSystemTray() async {
     try {
       String iconPath = '';
@@ -186,7 +199,6 @@ class _MyAppState extends State<MyApp> {
         }
       } else if (Platform.isMacOS) {
         final exeFile = File(Platform.resolvedExecutable);
-        // exeFile = .../VIE Lich.app/Contents/MacOS/vie_lich
         final appDir = exeFile.parent.parent.parent.path;
 
         final candidates = [
@@ -410,6 +422,8 @@ class _MainScreenState extends State<MainScreen> {
         Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
     return Scaffold(
+      // Cho phép body chạy dưới NavigationBar nếu cần (giữ false để an toàn)
+      extendBody: false,
       body: isDesktop
           ? Row(
               children: [
