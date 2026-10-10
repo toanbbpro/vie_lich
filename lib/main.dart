@@ -1,6 +1,6 @@
 import 'dart:io' show Platform, File;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // cho SystemChrome
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -31,19 +31,29 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ============================================================
-  // EDGE-TO-EDGE — Android 15+ (API 35+)
-  // Đảm bảo content hiển thị đúng dưới status bar + nav bar
+  // KHOÁ XOAY MÀN HÌNH — chỉ cho mobile (Android + iOS)
+  // Chỉ cho phép portrait (dọc) để tránh overflow layout
+  // Desktop (Windows/macOS/Linux) không bị ảnh hưởng
   // ============================================================
   if (Platform.isAndroid || Platform.isIOS) {
-    // Bật chế độ tràn viền cho cả Android cũ (tương thích ngược)
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      // Nếu muốn cho phép cả portrait úp ngược, thêm:
+      // DeviceOrientation.portraitDown,
+    ]);
+  }
+
+  // ============================================================
+  // EDGE-TO-EDGE — Android 15+ (API 35+)
+  // ============================================================
+  if (Platform.isAndroid || Platform.isIOS) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-    // Thanh hệ thống trong suốt, icon màu tối (vì theme sáng)
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark, // Android
-        statusBarBrightness: Brightness.light, // iOS (ngược)
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
         systemNavigationBarDividerColor: Colors.transparent,
@@ -422,7 +432,6 @@ class _MainScreenState extends State<MainScreen> {
         Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
     return Scaffold(
-      // Cho phép body chạy dưới NavigationBar nếu cần (giữ false để an toàn)
       extendBody: false,
       body: isDesktop
           ? Row(
