@@ -592,7 +592,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                   ),
                   InkWell(
                     onTap: () =>
-                        _moUrl('https://github.com/toanbbpro/vie_lich'),
+                        _moUrl('https://toanbbpro.github.io/vie_lich/'),
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -603,7 +603,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                               size: 18, color: Colors.grey.shade600),
                           const SizedBox(width: 6),
                           Text(
-                            'Github',
+                            'Website',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.blue.shade700,
