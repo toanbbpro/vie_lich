@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -16,26 +17,23 @@ const Alignment kButtonAlignmentMobile = Alignment(-0.02, -0.115);
 const double kButtonSizeMobile = 200;
 
 /// === macOS ===
-/// Sau khi chạy `flutter run -d macos`, tinh chỉnh 2 giá trị này cho khớp
-/// trống đồng trong `vie_lich_bg_desktop.png`
 const Alignment kButtonAlignmentMacOS = Alignment(-0.01, -0.02);
 const double kButtonSizeMacOS = 270;
 
 /// === Windows ===
-/// Sau khi chạy `flutter run -d windows`, tinh chỉnh 2 giá trị này
 const Alignment kButtonAlignmentWindows = Alignment(0, -0.25);
 const double kButtonSizeWindows = 240;
 
-/// Gradient vàng gold dùng cho viền
+/// Gradient vàng gold dùng cho viền — đậm ở 2 bên, sáng ở giữa
 const LinearGradient kGoldGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
   colors: [
-    Color(0xFFB8860B), // vàng đậm — bên trái
-    Color(0xFFD4AF37), // vàng gold
-    Color(0xFFF9E79F), // vàng rất nhạt — giữa
-    Color(0xFFD4AF37), // vàng gold
-    Color(0xFFB8860B), // vàng đậm — bên phải
+    Color(0xFFB8860B),
+    Color(0xFFD4AF37),
+    Color(0xFFF9E79F),
+    Color(0xFFD4AF37),
+    Color(0xFFB8860B),
   ],
   stops: [0.0, 0.25, 0.5, 0.75, 1.0],
 );
@@ -51,6 +49,15 @@ const LinearGradient kGoldVerticalGradient = LinearGradient(
   ],
   stops: [0.0, 0.5, 1.0],
 );
+
+/// Màu nền kem ấm bên trong 2 khung nội dung
+const Color kInnerKem = Color(0xFFFFF3D6);
+
+/// Kích thước + reserve cho nút điều hướng ngày
+const double kNavButtonSize = 48.0;
+const double kNavButtonEdge = 8.0;
+const double kNavButtonReserve =
+    kNavButtonSize + kNavButtonEdge + 8.0; // 64 — mỗi bên
 
 // ============================================================
 // HELPER
@@ -101,7 +108,7 @@ class _GoldGradientBorder extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: innerColor ?? Colors.white.withValues(alpha: 0.55),
+          color: innerColor ?? kInnerKem,
           borderRadius: BorderRadius.circular(radius - borderWidth),
         ),
         child: child,
@@ -160,9 +167,9 @@ class _LichNgayScreenState extends State<LichNgayScreen>
 
   @override
   Widget build(BuildContext context) {
-    // === Chọn config theo platform ===
     final isMobile = Platform.isAndroid || Platform.isIOS;
     final isMacOS = Platform.isMacOS;
+    final hasNav = !isMobile;
 
     final bgAsset = isMobile
         ? 'assets/backgrounds/vie_lich_bg_mobile.png'
@@ -273,19 +280,28 @@ class _LichNgayScreenState extends State<LichNgayScreen>
                       ),
                     ),
 
-                    // 4. CONTENT
+                    // 4. CONTENT — tự co để chừa chỗ cho nút
                     SafeArea(
                       child: LayoutBuilder(
                         builder: (context, c2) {
-                          final isWide = c2.maxWidth > 700;
-                          final maxContentWidth =
-                              isWide ? 560.0 : double.infinity;
-                          final horizontalPadding = isWide ? 48.0 : 20.0;
+                          // Reserve chỗ cho 2 nút nav ở 2 bên (chỉ desktop)
+                          final reserve = hasNav
+                              ? kNavButtonReserve * 2
+                              : 0.0;
+                          final available = c2.maxWidth - reserve;
+
+                          // Content: min 300, max 560
+                          final targetContent =
+                              available.clamp(300.0, 560.0);
+
+                          // Padding ngang linh hoạt theo độ rộng
+                          final horizontalPadding =
+                              targetContent > 500 ? 32.0 : 14.0;
 
                           return Center(
                             child: ConstrainedBox(
                               constraints:
-                                  BoxConstraints(maxWidth: maxContentWidth),
+                                  BoxConstraints(maxWidth: targetContent),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: horizontalPadding,
@@ -320,6 +336,42 @@ class _LichNgayScreenState extends State<LichNgayScreen>
                         },
                       ),
                     ),
+
+                    // 5. NAV BUTTONS — chỉ desktop
+                    if (hasNav) ...[
+                      Positioned(
+                        left: kNavButtonEdge,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _NavButton(
+                            icon: Icons.chevron_left,
+                            tooltip: 'Ngày trước',
+                            onTap: () {
+                              provider.chonNgay(
+                                ngay.subtract(const Duration(days: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: kNavButtonEdge,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _NavButton(
+                            icon: Icons.chevron_right,
+                            tooltip: 'Ngày sau',
+                            onTap: () {
+                              provider.chonNgay(
+                                ngay.add(const Duration(days: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               );
@@ -327,6 +379,103 @@ class _LichNgayScreenState extends State<LichNgayScreen>
           ),
         );
       },
+    );
+  }
+}
+
+// ============================================================
+// NÚT ĐIỀU HƯỚNG NGÀY (desktop) — Liquid Glass style
+// ============================================================
+class _NavButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _NavButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  State<_NavButton> createState() => _NavButtonState();
+}
+
+class _NavButtonState extends State<_NavButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          scale: _hovering ? 1.08 : 1.0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: kNavButtonSize,
+            height: kNavButtonSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // Shadow mềm — nổi nhẹ khỏi nền
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: _hovering ? 0.16 : 0.08,
+                  ),
+                  blurRadius: _hovering ? 16 : 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            // ClipOval để blur chỉ hiện trong hình tròn
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    // Nền trong suốt — hover sáng lên nhẹ
+                    color: Colors.white.withValues(
+                      alpha: _hovering ? 0.80 : 0.30,
+                    ),
+                    // Viền gold mảnh — hover đậm lên
+                    border: Border.all(
+                      color: const Color(0xFFD4AF37).withValues(
+                        alpha: _hovering ? 0.95 : 0.55,
+                      ),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onTap,
+                      child: Center(
+                        child: Icon(
+                          widget.icon,
+                          color: const Color(0xFF7B3F00).withValues(
+                            alpha: _hovering ? 1.0 : 0.85,
+                          ),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -412,8 +561,16 @@ class _LichDoiBlock extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final h = constraints.maxHeight;
-        final solarFontSize = (h * 0.26).clamp(70.0, 150.0);
-        final lunarFontSize = (h * 0.20).clamp(55.0, 120.0);
+        final w = constraints.maxWidth;
+
+        // Font size co theo height, và giới hạn thêm theo width để không
+        // tràn khi cửa sổ hẹp
+        final widthScale = (w / 560.0).clamp(0.55, 1.0);
+
+        final solarFontSize =
+            (h * 0.26 * widthScale).clamp(55.0, 150.0);
+        final lunarFontSize =
+            (h * 0.20 * widthScale).clamp(45.0, 120.0);
         final labelFontSize = (h * 0.028).clamp(10.0, 13.0);
         final monthFontSize = (h * 0.032).clamp(12.0, 15.0);
         final metaFontSize = (h * 0.032).clamp(11.0, 14.0);
@@ -511,13 +668,10 @@ class _LichDoiBlock extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // ================================================
-            // BẢNG DƯỚI — bọc viền gold gradient
-            // ================================================
             _GoldGradientBorder(
               borderWidth: 1.5,
               radius: 16,
-              innerColor: const Color(0xFFFFF3D6),
+              innerColor: kInnerKem,
               child: SizedBox(
                 height: (h * 0.18).clamp(70.0, 110.0),
                 child: Padding(
@@ -528,7 +682,6 @@ class _LichDoiBlock extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Cột "Thứ Năm"
                       Container(
                         padding: const EdgeInsets.only(right: 14),
                         alignment: Alignment.centerRight,
@@ -543,16 +696,12 @@ class _LichDoiBlock extends StatelessWidget {
                           ),
                         ),
                       ),
-
-                      // Vạch dọc — gradient gold
                       Container(
                         width: 1.5,
                         decoration: const BoxDecoration(
                           gradient: kGoldVerticalGradient,
                         ),
                       ),
-
-                      // 2 dòng: dương / âm
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.only(left: 14),
@@ -643,7 +792,6 @@ class _TextWithGoldStroke extends StatelessWidget {
 
     return Stack(
       children: [
-        // LAYER 0: Flare ngoài — blur rộng
         Text(
           text,
           style: baseStyle.copyWith(
@@ -655,7 +803,6 @@ class _TextWithGoldStroke extends StatelessWidget {
               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
           ),
         ),
-        // LAYER 1: Flare gần — blur nhẹ
         Text(
           text,
           style: baseStyle.copyWith(
@@ -667,7 +814,6 @@ class _TextWithGoldStroke extends StatelessWidget {
               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
           ),
         ),
-        // LAYER 2: Viền gold sắc nét
         Text(
           text,
           style: baseStyle.copyWith(
@@ -678,7 +824,6 @@ class _TextWithGoldStroke extends StatelessWidget {
               ..color = goldColor,
           ),
         ),
-        // LAYER 3: Fill đỏ
         Text(
           text,
           style: baseStyle.copyWith(color: fillColor),
@@ -728,7 +873,7 @@ class _NgayLeCompact extends StatelessWidget {
 }
 
 // ============================================================
-// NÚT XEM TIẾT KHÍ & SAO — VIỀN GOLD GRADIENT
+// NÚT XEM TIẾT KHÍ & SAO
 // ============================================================
 class _NutXemTietKhiSao extends StatelessWidget {
   final DateTime ngay;
@@ -741,7 +886,7 @@ class _NutXemTietKhiSao extends StatelessWidget {
     return _GoldGradientBorder(
       borderWidth: 1.5,
       radius: 14,
-      innerColor: const Color(0xFFFFF3D6),
+      innerColor: kInnerKem,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
