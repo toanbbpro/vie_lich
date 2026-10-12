@@ -23,7 +23,7 @@
 
   <p>
     <a href="https://play.google.com/store/apps/details?id=com.toanbb.vie_lich"><b>Cài đặt trên Google Play</b></a> •
-    <a href="https://toanbbpro.github.io/vie_lich/"><b>Trang giới thiệu (Landing Page)</b></a> •
+    <a href="https://toanbbpro.github.io/vie_lich/"><b>Trang web</b></a> •
     <a href="https://toanbbpro.github.io/vie_lich/privacy.html"><b>Chính sách quyền riêng tư</b></a>
   </p>
 </div>
