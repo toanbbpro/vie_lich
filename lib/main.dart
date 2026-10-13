@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform, pid, Process, ProcessSignal, ProcessStartMode, File, Directory;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // cho SystemChrome
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -150,7 +151,7 @@ Future<void> main(List<String> args) async {
     await windowManager.ensureInitialized();
     const opts = WindowOptions(
       size: Size(1000, 700),
-      minimumSize: Size(800, 600),
+      minimumSize: Size(600, 700),
       center: true,
       titleBarStyle: TitleBarStyle.normal,
     );

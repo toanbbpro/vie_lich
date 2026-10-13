@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -5,407 +8,1126 @@ import 'package:intl/intl.dart';
 import '../providers/lich_provider.dart';
 import '../utils/am_lich_helper.dart';
 
-class LichNgayScreen extends StatelessWidget {
+// ============================================================
+// CONSTANTS — TINH CHỈNH RIÊNG CHO TỪNG PLATFORM
+// ============================================================
+
+/// === MOBILE (Android + iOS) ===
+const Alignment kButtonAlignmentMobile = Alignment(-0.02, -0.115);
+const double kButtonSizeMobile = 200;
+
+/// === macOS ===
+const Alignment kButtonAlignmentMacOS = Alignment(-0.01, -0.02);
+const double kButtonSizeMacOS = 270;
+
+/// === Windows ===
+const Alignment kButtonAlignmentWindows = Alignment(0, -0.25);
+const double kButtonSizeWindows = 240;
+
+/// Gradient vàng gold dùng cho viền — đậm ở 2 bên, sáng ở giữa
+const LinearGradient kGoldGradient = LinearGradient(
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+  colors: [
+    Color(0xFFB8860B),
+    Color(0xFFD4AF37),
+    Color(0xFFF9E79F),
+    Color(0xFFD4AF37),
+    Color(0xFFB8860B),
+  ],
+  stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+);
+
+/// Gradient dọc cho vạch ngăn
+const LinearGradient kGoldVerticalGradient = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [
+    Color(0xFFB8860B),
+    Color(0xFFD4AF37),
+    Color(0xFFB8860B),
+  ],
+  stops: [0.0, 0.5, 1.0],
+);
+
+/// Màu nền kem ấm bên trong 2 khung nội dung
+const Color kInnerKem = Color(0xFFFFF3D6);
+
+/// Kích thước + reserve cho nút điều hướng ngày
+const double kNavButtonSize = 48.0;
+const double kNavButtonEdge = 8.0;
+const double kNavButtonReserve =
+    kNavButtonSize + kNavButtonEdge + 8.0; // 64 — mỗi bên
+
+// ============================================================
+// HELPER
+// ============================================================
+String _tenThangAmChu(int thang) {
+  const names = [
+    '',
+    'giêng',
+    'hai',
+    'ba',
+    'tư',
+    'năm',
+    'sáu',
+    'bảy',
+    'tám',
+    'chín',
+    'mười',
+    'mười một',
+    'chạp'
+  ];
+  if (thang >= 1 && thang <= 12) return names[thang];
+  return '$thang';
+}
+
+// ============================================================
+// WIDGET: VIỀN GOLD GRADIENT
+// ============================================================
+class _GoldGradientBorder extends StatelessWidget {
+  final Widget child;
+  final double borderWidth;
+  final double radius;
+  final Color? innerColor;
+
+  const _GoldGradientBorder({
+    required this.child,
+    this.borderWidth = 1.5,
+    this.radius = 16.0,
+    this.innerColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(borderWidth),
+      decoration: BoxDecoration(
+        gradient: kGoldGradient,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: innerColor ?? kInnerKem,
+          borderRadius: BorderRadius.circular(radius - borderWidth),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ============================================================
+// MÀN CHÍNH
+// ============================================================
+class LichNgayScreen extends StatefulWidget {
   const LichNgayScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final provider = Provider.of<LichProvider>(context);
-    final ngay = provider.selectedDate;
-    final lunar = AmLichHelper.duongSangAm(ngay);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lịch ngày'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (lunar != null) _NgayCard(ngay: ngay, lunar: lunar),
-            const SizedBox(height: 12),
-            if (lunar != null) _NgayLeCard(ngay: ngay, lunar: lunar),
-            const SizedBox(height: 24),
-            if (lunar != null) _TietKhiSaoCard(ngay: ngay, lunar: lunar),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final chon = await showDatePicker(
-                  context: context,
-                  initialDate: ngay,
-                  firstDate: DateTime(1900),
-                  lastDate: DateTime(2100),
-                );
-                if (chon != null) {
-                  provider.chonNgay(chon);
-                }
-              },
-              icon: const Icon(Icons.calendar_today),
-              label: const Text('Chọn ngày khác'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<LichNgayScreen> createState() => _LichNgayScreenState();
 }
 
-/// ===== CARD: NGÀY (GỘP ÂM + DƯƠNG + CAN CHI 1 DÒNG) =====
-class _NgayCard extends StatelessWidget {
-  final DateTime ngay;
-  final dynamic lunar;
+class _LichNgayScreenState extends State<LichNgayScreen>
+    with SingleTickerProviderStateMixin {
+  double _dragDistance = 0;
+  late AnimationController _rippleCtrl;
 
-  const _NgayCard({required this.ngay, required this.lunar});
+  @override
+  void initState() {
+    super.initState();
+    _rippleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rippleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onStarTap() {
+    final provider = context.read<LichProvider>();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sel = provider.selectedDate;
+    final selDate = DateTime(sel.year, sel.month, sel.day);
+
+    _rippleCtrl.forward(from: 0);
+
+    if (selDate != today) {
+      Future.delayed(const Duration(milliseconds: 180), () {
+        if (mounted) {
+          context.read<LichProvider>().chonNgay(today);
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final thu = DateFormat('EEEE', 'vi').format(ngay);
-    final theme = Theme.of(context);
+    final isMobile = Platform.isAndroid || Platform.isIOS;
+    final isMacOS = Platform.isMacOS;
+    final hasNav = !isMobile;
 
-    final ngayAm = lunar.getDay() as int;
-    final thangAm = lunar.getMonth() as int;
-    final namAm = AmLichHelper.layCanChiNam(lunar);
-    final chuoiCanChi = AmLichHelper.layChuoiCanChiDayDu(lunar);
+    final bgAsset = isMobile
+        ? 'assets/backgrounds/vie_lich_bg_mobile.png'
+        : 'assets/backgrounds/vie_lich_bg_desktop.png';
 
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // Thứ
-            Text(
-              thu,
-              style: TextStyle(
-                fontSize: 16,
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 16),
+    final Alignment buttonAlignment;
+    final double buttonSize;
+    if (isMobile) {
+      buttonAlignment = kButtonAlignmentMobile;
+      buttonSize = kButtonSizeMobile;
+    } else if (isMacOS) {
+      buttonAlignment = kButtonAlignmentMacOS;
+      buttonSize = kButtonSizeMacOS;
+    } else {
+      buttonAlignment = kButtonAlignmentWindows;
+      buttonSize = kButtonSizeWindows;
+    }
 
-            // Hàng ngang: Dương (trái) | Âm (phải)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // === BÊN TRÁI: DƯƠNG LỊCH ===
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        '${ngay.day}',
-                        style: TextStyle(
-                          fontSize: 64,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                          height: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Tháng ${ngay.month}',
-                        style: const TextStyle(fontSize: 13),
-                        textAlign: TextAlign.center,
-                      ),
-                      Text(
-                        'Năm ${ngay.year}',
-                        style: const TextStyle(fontSize: 13),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
+    const buttonAsset = 'assets/backgrounds/vie_lich_button.png';
 
-                // === VÁCH NGĂN CÁCH ===
-                Container(
-                  width: 1,
-                  height: 100,
-                  color: Colors.grey.shade300,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                ),
+    return Consumer<LichProvider>(
+      builder: (context, provider, _) {
+        final ngay = provider.selectedDate;
+        final lunar = AmLichHelper.duongSangAm(ngay);
 
-                // === BÊN PHẢI: ÂM LỊCH ===
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        AmLichHelper.layTenNgay(ngayAm),
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                          height: 1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        AmLichHelper.layTenThang(thangAm),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.red,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      Text(
-                        'Năm $namAm',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.red,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        return Scaffold(
+          backgroundColor: const Color(0xFFFAF3E8),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              final buttonCenter = Offset(
+                (buttonAlignment.x + 1) / 2 * size.width,
+                (buttonAlignment.y + 1) / 2 * size.height,
+              );
 
-            // === ĐƯỜNG NGĂN CÁCH + CAN CHI 1 DÒNG ===
-            if (chuoiCanChi.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Divider(color: Colors.grey.shade300, height: 1),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.auto_awesome,
-                    size: 14,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      chuoiCanChi,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                        color: theme.colorScheme.primary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+              return GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragStart: (_) {
+                  _dragDistance = 0;
+                },
+                onHorizontalDragUpdate: (details) {
+                  _dragDistance += details.delta.dx;
+                },
+                onHorizontalDragEnd: (details) {
+                  final v = details.primaryVelocity ?? 0;
+                  final sangPhai = v > 250 || _dragDistance > 60;
+                  final sangTrai = v < -250 || _dragDistance < -60;
 
-/// ===== CARD GỘP: TIẾT KHÍ + SAO TỐT / XẤU =====
-class _TietKhiSaoCard extends StatelessWidget {
-  final DateTime ngay;
-  final dynamic lunar;
-
-  const _TietKhiSaoCard({required this.ngay, required this.lunar});
-
-  @override
-  Widget build(BuildContext context) {
-    final tietKhi = AmLichHelper.layTietKhi(ngay);
-    final tot = AmLichHelper.laySaoTot(lunar);
-    final xau = AmLichHelper.laySaoXau(lunar);
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _TieuDe(text: 'Tiết khí & Sao'),
-            const SizedBox(height: 12),
-
-            // === TIẾT KHÍ ===
-            Row(
-              children: [
-                Icon(Icons.wb_sunny_outlined,
-                    size: 18, color: Colors.orange.shade700),
-                const SizedBox(width: 8),
-                Text(
-                  'Tiết khí: ',
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 15,
-                  ),
-                ),
-                Text(
-                  tietKhi.isEmpty ? '—' : tietKhi,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-
-            // === SAO TỐT ===
-            if (tot.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(Icons.thumb_up_alt_outlined,
-                      size: 18, color: Colors.green.shade700),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Sao tốt',
-                    style: TextStyle(
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: tot
-                    .map(
-                      (s) => Chip(
-                        label: Text(s, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: Colors.green.shade50,
-                        side: BorderSide(color: Colors.green.shade200),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-
-            // === SAO XẤU ===
-            if (xau.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(Icons.thumb_down_alt_outlined,
-                      size: 18, color: Colors.red.shade700),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Sao xấu',
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: xau
-                    .map(
-                      (s) => Chip(
-                        label: Text(s, style: const TextStyle(fontSize: 12)),
-                        backgroundColor: Colors.red.shade50,
-                        side: BorderSide(color: Colors.red.shade200),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-
-            // Nếu không có gì
-            if (tot.isEmpty && xau.isEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Không có dữ liệu sao.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// ===== CARD: NGÀY LỄ =====
-class _NgayLeCard extends StatelessWidget {
-  final DateTime ngay;
-  final dynamic lunar;
-
-  const _NgayLeCard({required this.ngay, required this.lunar});
-
-  @override
-  Widget build(BuildContext context) {
-    final dsLe = AmLichHelper.layNgayLe(ngay, lunar);
-    if (dsLe.isEmpty) return const SizedBox.shrink();
-
-    return Card(
-      color: Colors.amber.shade50,
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _TieuDe(text: 'Ngày lễ hôm nay', color: Colors.orange),
-            const SizedBox(height: 8),
-            ...dsLe.map(
-              (le) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
+                  if (sangTrai) {
+                    provider.chonNgay(ngay.add(const Duration(days: 1)));
+                  } else if (sangPhai) {
+                    provider.chonNgay(ngay.subtract(const Duration(days: 1)));
+                  }
+                  _dragDistance = 0;
+                },
+                onTapUp: (details) {
+                  final d = (details.localPosition - buttonCenter).distance;
+                  if (d < buttonSize * 0.5) {
+                    _onStarTap();
+                  }
+                },
+                child: Stack(
                   children: [
-                    const Icon(Icons.celebration,
-                        color: Colors.orange, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(le, style: const TextStyle(fontSize: 15)),
+                    // 1. BACKGROUND
+                    Positioned.fill(
+                      child: Image.asset(
+                        bgAsset,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFFFAF3E8),
+                        ),
+                      ),
                     ),
+
+                    // 2. RIPPLE
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: RepaintBoundary(
+                          child: AnimatedBuilder(
+                            animation: _rippleCtrl,
+                            builder: (context, _) {
+                              return CustomPaint(
+                                painter: _RipplePainter(
+                                  progress: _rippleCtrl.value,
+                                  color: const Color(0xFFFFC107),
+                                  center: buttonCenter,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 3. NÚT TRỐNG ĐỒNG
+                    Positioned(
+                      left: buttonCenter.dx - buttonSize / 2,
+                      top: buttonCenter.dy - buttonSize / 2,
+                      width: buttonSize,
+                      height: buttonSize,
+                      child: IgnorePointer(
+                        child: Image.asset(
+                          buttonAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+
+                    // 4. CONTENT — tự co để chừa chỗ cho nút
+                    SafeArea(
+                      child: LayoutBuilder(
+                        builder: (context, c2) {
+                          // Reserve chỗ cho 2 nút nav ở 2 bên (chỉ desktop)
+                          final reserve = hasNav
+                              ? kNavButtonReserve * 2
+                              : 0.0;
+                          final available = c2.maxWidth - reserve;
+
+                          // Content: min 300, max 560
+                          final targetContent =
+                              available.clamp(300.0, 560.0);
+
+                          // Padding ngang linh hoạt theo độ rộng
+                          final horizontalPadding =
+                              targetContent > 500 ? 32.0 : 14.0;
+
+                          return Center(
+                            child: ConstrainedBox(
+                              constraints:
+                                  BoxConstraints(maxWidth: targetContent),
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: horizontalPadding,
+                                  vertical: 12,
+                                ),
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  switchInCurve: Curves.easeOut,
+                                  switchOutCurve: Curves.easeIn,
+                                  layoutBuilder:
+                                      (currentChild, previousChildren) {
+                                    return Stack(
+                                      alignment: Alignment.topLeft,
+                                      children: [
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    );
+                                  },
+                                  child: KeyedSubtree(
+                                    key: ValueKey(
+                                        '${ngay.year}-${ngay.month}-${ngay.day}'),
+                                    child: _NgayContent(
+                                      ngay: ngay,
+                                      lunar: lunar,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    // 5. NAV BUTTONS — chỉ desktop
+                    if (hasNav) ...[
+                      Positioned(
+                        left: kNavButtonEdge,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _NavButton(
+                            icon: Icons.chevron_left,
+                            tooltip: 'Ngày trước',
+                            onTap: () {
+                              provider.chonNgay(
+                                ngay.subtract(const Duration(days: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: kNavButtonEdge,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _NavButton(
+                            icon: Icons.chevron_right,
+                            tooltip: 'Ngày sau',
+                            onTap: () {
+                              provider.chonNgay(
+                                ngay.add(const Duration(days: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ============================================================
+// NÚT ĐIỀU HƯỚNG NGÀY (desktop) — Liquid Glass style
+// ============================================================
+class _NavButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _NavButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  State<_NavButton> createState() => _NavButtonState();
+}
+
+class _NavButtonState extends State<_NavButton> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          scale: _hovering ? 1.08 : 1.0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: kNavButtonSize,
+            height: kNavButtonSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // Shadow mềm — nổi nhẹ khỏi nền
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: _hovering ? 0.16 : 0.08,
+                  ),
+                  blurRadius: _hovering ? 16 : 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            // ClipOval để blur chỉ hiện trong hình tròn
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    // Nền trong suốt — hover sáng lên nhẹ
+                    color: Colors.white.withValues(
+                      alpha: _hovering ? 0.80 : 0.30,
+                    ),
+                    // Viền gold mảnh — hover đậm lên
+                    border: Border.all(
+                      color: const Color(0xFFD4AF37).withValues(
+                        alpha: _hovering ? 0.95 : 0.55,
+                      ),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onTap,
+                      child: Center(
+                        child: Icon(
+                          widget.icon,
+                          color: const Color(0xFF7B3F00).withValues(
+                            alpha: _hovering ? 1.0 : 0.85,
+                          ),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// ===== WIDGET PHỤ =====
-class _TieuDe extends StatelessWidget {
-  final String text;
-  final Color? color;
+// ============================================================
+// NỘI DUNG 1 NGÀY
+// ============================================================
+class _NgayContent extends StatelessWidget {
+  final DateTime ngay;
+  final dynamic lunar;
 
-  const _TieuDe({required this.text, this.color});
+  const _NgayContent({required this.ngay, required this.lunar});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final ngayAm = lunar?.getDay() as int? ?? 0;
+    final thangAm = lunar?.getMonth() as int? ?? 0;
+    final canChiNam = lunar != null ? AmLichHelper.layCanChiNam(lunar) : '';
+    final thu = DateFormat('EEEE', 'vi').format(ngay);
+    final dsLe =
+        lunar != null ? AmLichHelper.layNgayLe(ngay, lunar) : <String>[];
+
+    const double kLeHeight = 52.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 4,
-          height: 18,
-          decoration: BoxDecoration(
-            color: color ?? Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(2),
+        Expanded(
+          child: _LichDoiBlock(
+            ngay: ngay,
+            ngayAm: ngayAm,
+            thangAm: thangAm,
+            canChiNam: canChiNam,
+            thu: thu,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: kLeHeight,
+          child: dsLe.isEmpty
+              ? const SizedBox.shrink()
+              : _NgayLeCompact(dsLe: dsLe),
+        ),
+        const SizedBox(height: 12),
+        _NutXemTietKhiSao(ngay: ngay, lunar: lunar),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// KHỐI LỊCH ĐÔI
+// ============================================================
+class _LichDoiBlock extends StatelessWidget {
+  final DateTime ngay;
+  final int ngayAm;
+  final int thangAm;
+  final String canChiNam;
+  final String thu;
+
+  const _LichDoiBlock({
+    required this.ngay,
+    required this.ngayAm,
+    required this.thangAm,
+    required this.canChiNam,
+    required this.thu,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final red = Colors.red.shade600;
+    final blue = const Color(0xFF1565C0);
+
+    final thuWords = thu.split(' ');
+    final thuDisplay = thuWords.length >= 2
+        ? '${thuWords[0]}\n${thuWords.sublist(1).join(' ')}'
+        : thu;
+
+    final tenThangAm = _tenThangAmChu(thangAm);
+    final tenThangAmHoa =
+        '${tenThangAm[0].toUpperCase()}${tenThangAm.substring(1)}';
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        final w = constraints.maxWidth;
+
+        // Font size co theo height, và giới hạn thêm theo width để không
+        // tràn khi cửa sổ hẹp
+        final widthScale = (w / 560.0).clamp(0.55, 1.0);
+
+        final solarFontSize =
+            (h * 0.26 * widthScale).clamp(55.0, 150.0);
+        final lunarFontSize =
+            (h * 0.20 * widthScale).clamp(45.0, 120.0);
+        final labelFontSize = (h * 0.028).clamp(10.0, 13.0);
+        final monthFontSize = (h * 0.032).clamp(12.0, 15.0);
+        final metaFontSize = (h * 0.032).clamp(11.0, 14.0);
+        final thuFontSize = (h * 0.042).clamp(14.0, 19.0);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  // ================= SỐ DƯƠNG =================
+                  Align(
+                    alignment: const Alignment(-0.7, -0.75),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Dương lịch',
+                          style: TextStyle(
+                            fontSize: labelFontSize,
+                            color: blue.withValues(alpha: 0.75),
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${ngay.day}',
+                          style: TextStyle(
+                            fontSize: solarFontSize,
+                            fontWeight: FontWeight.w800,
+                            height: 0.85,
+                            letterSpacing: -4,
+                            color: blue,
+                          ),
+                        ),
+                        Transform.translate(
+                          offset: const Offset(0, -6),
+                          child: Text(
+                            'Tháng ${ngay.month}',
+                            style: TextStyle(
+                              fontSize: monthFontSize,
+                              color: blue.withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ================= SỐ ÂM =================
+                  Align(
+                    alignment: const Alignment(0.9, 1),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _TextWithGoldStroke(
+                          text: '$ngayAm',
+                          fontSize: lunarFontSize,
+                          fillColor: red,
+                          strokeWidth: 4.0,
+                          letterSpacing: -2,
+                        ),
+                        Transform.translate(
+                          offset: const Offset(0, -1),
+                          child: Text(
+                            'Tháng $tenThangAmHoa',
+                            style: TextStyle(
+                              fontSize: monthFontSize,
+                              color: red.withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Âm lịch',
+                          style: TextStyle(
+                            fontSize: labelFontSize,
+                            color: red.withValues(alpha: 0.75),
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            _GoldGradientBorder(
+              borderWidth: 1.5,
+              radius: 16,
+              innerColor: kInnerKem,
+              child: SizedBox(
+                height: (h * 0.18).clamp(70.0, 110.0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.only(right: 14),
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          thuDisplay,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: thuFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7B3F00),
+                            height: 1.15,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1.5,
+                        decoration: const BoxDecoration(
+                          gradient: kGoldVerticalGradient,
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Ngày ${ngay.day} tháng ${ngay.month} năm ${ngay.year}',
+                                    style: TextStyle(
+                                      fontSize: metaFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF7B3F00),
+                                      height: 1.15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                height: 1,
+                                decoration: const BoxDecoration(
+                                  gradient: kGoldVerticalGradient,
+                                ),
+                              ),
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Ngày $ngayAm tháng $tenThangAm năm $canChiNam',
+                                    style: TextStyle(
+                                      fontSize: metaFontSize,
+                                      color: const Color(0xFF9B2C2C),
+                                      height: 1.15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ============================================================
+// TEXT VỚI VIỀN GOLD + FLARE
+// ============================================================
+class _TextWithGoldStroke extends StatelessWidget {
+  final String text;
+  final double fontSize;
+  final Color fillColor;
+  final double strokeWidth;
+  final double letterSpacing;
+
+  const _TextWithGoldStroke({
+    required this.text,
+    required this.fontSize,
+    required this.fillColor,
+    this.strokeWidth = 4.0,
+    this.letterSpacing = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w300,
+      height: 0.85,
+      letterSpacing: letterSpacing,
+    );
+
+    const goldColor = Color(0xFFFFD700);
+
+    return Stack(
+      children: [
         Text(
           text,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth * 2.5
+              ..strokeJoin = StrokeJoin.round
+              ..color = goldColor.withValues(alpha: 0.25)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
           ),
+        ),
+        Text(
+          text,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth * 1.5
+              ..strokeJoin = StrokeJoin.round
+              ..color = goldColor.withValues(alpha: 0.5)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+          ),
+        ),
+        Text(
+          text,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth
+              ..strokeJoin = StrokeJoin.round
+              ..color = goldColor,
+          ),
+        ),
+        Text(
+          text,
+          style: baseStyle.copyWith(color: fillColor),
         ),
       ],
     );
   }
+}
+
+// ============================================================
+// NGÀY LỄ (compact)
+// ============================================================
+class _NgayLeCompact extends StatelessWidget {
+  final List<String> dsLe;
+  const _NgayLeCompact({required this.dsLe});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade200, width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.celebration, color: Colors.orange, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              dsLe.join(' • '),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF8B4513),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// NÚT XEM TIẾT KHÍ & SAO
+// ============================================================
+class _NutXemTietKhiSao extends StatelessWidget {
+  final DateTime ngay;
+  final dynamic lunar;
+
+  const _NutXemTietKhiSao({required this.ngay, required this.lunar});
+
+  @override
+  Widget build(BuildContext context) {
+    return _GoldGradientBorder(
+      borderWidth: 1.5,
+      radius: 14,
+      innerColor: kInnerKem,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _hienDialogTietKhiSao(context),
+          borderRadius: BorderRadius.circular(12.5),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(
+                  Icons.wb_sunny_outlined,
+                  size: 18,
+                  color: Color(0xFF7B3F00),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Xem tiết khí & sao tốt xấu',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7B3F00),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hienDialogTietKhiSao(BuildContext context) {
+    final tietKhi = AmLichHelper.layTietKhi(ngay);
+    final tot = lunar != null ? AmLichHelper.laySaoTot(lunar) : <String>[];
+    final xau = lunar != null ? AmLichHelper.laySaoXau(lunar) : <String>[];
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 12, 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.auto_awesome,
+                          color: theme.colorScheme.primary, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Tiết khí & Sao',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.wb_sunny_outlined,
+                                size: 18, color: Colors.orange.shade700),
+                            const SizedBox(width: 8),
+                            Text('Tiết khí: ',
+                                style: TextStyle(
+                                    color: Colors.grey.shade700, fontSize: 15)),
+                            Text(
+                              tietKhi.isEmpty ? '—' : tietKhi,
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        if (tot.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Icon(Icons.thumb_up_alt_outlined,
+                                  size: 18, color: Colors.green.shade700),
+                              const SizedBox(width: 8),
+                              Text('Sao tốt',
+                                  style: TextStyle(
+                                      color: Colors.green.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: tot
+                                .map((s) => Chip(
+                                      label: Text(s,
+                                          style: const TextStyle(fontSize: 12)),
+                                      backgroundColor: Colors.green.shade50,
+                                      side: BorderSide(
+                                          color: Colors.green.shade200),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                    ))
+                                .toList(),
+                          ),
+                        ],
+                        if (xau.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Icon(Icons.thumb_down_alt_outlined,
+                                  size: 18, color: Colors.red.shade700),
+                              const SizedBox(width: 8),
+                              Text('Sao xấu',
+                                  style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: xau
+                                .map((s) => Chip(
+                                      label: Text(s,
+                                          style: const TextStyle(fontSize: 12)),
+                                      backgroundColor: Colors.red.shade50,
+                                      side: BorderSide(
+                                          color: Colors.red.shade200),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                    ))
+                                .toList(),
+                          ),
+                        ],
+                        if (tot.isEmpty && xau.isEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text('Không có dữ liệu sao.',
+                              style: TextStyle(
+                                  color: Colors.grey.shade600, fontSize: 13)),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ============================================================
+// CUSTOM PAINTER: RIPPLE
+// ============================================================
+class _RipplePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final Offset center;
+
+  _RipplePainter({
+    required this.progress,
+    required this.color,
+    required this.center,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0 || progress >= 1) return;
+
+    final maxR = math.min(size.width, size.height) * 0.55;
+    final r = maxR * progress;
+    final opacity = (1 - progress) * 0.55;
+
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: opacity * 0.30)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14.0 * (1 - progress * 0.6)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
+      ..isAntiAlias = true;
+    canvas.drawCircle(center, r, glowPaint);
+
+    final mainPaint = Paint()
+      ..color = color.withValues(alpha: opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5 * (1 - progress * 0.4)
+      ..isAntiAlias = true;
+    canvas.drawCircle(center, r, mainPaint);
+
+    if (r > 50) {
+      final midPaint = Paint()
+        ..color = color.withValues(alpha: opacity * 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..isAntiAlias = true;
+      canvas.drawCircle(center, r * 0.62, midPaint);
+    }
+
+    if (r > 90) {
+      final innerPaint = Paint()
+        ..color = color.withValues(alpha: opacity * 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..isAntiAlias = true;
+      canvas.drawCircle(center, r * 0.35, innerPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RipplePainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.color != color ||
+      oldDelegate.center != center;
 }

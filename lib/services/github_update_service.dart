@@ -6,15 +6,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:open_filex/open_filex.dart';
 
+import 'macos_update_service.dart';
+
 class GithubUpdateService {
   static const String _owner = 'toanbbpro';
   static const String _repo = 'vie_lich';
 
-  /// Hàm kiểm tra cập nhật.
-  /// [showNoUpdate] = true khi user chủ động bấm nút "Kiểm tra cập nhật" trong Cài đặt.
   static Future<void> checkUpdate(BuildContext context,
       {bool showNoUpdate = false}) async {
-    // Biến môi trường lúc biên dịch. Nếu build cho Store = true, hàm này dừng ngay lập tức.
     const isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (isPlayStore) return;
 
@@ -24,23 +23,32 @@ class GithubUpdateService {
           .get('https://api.github.com/repos/$_owner/$_repo/releases/latest');
       final data = response.data;
 
-      final String tag = data['tag_name']; // VD: v1.0.1
+      final String tag = data['tag_name'];
       final String releaseNotes = data['body'] ?? 'Không có ghi chú phát hành.';
       final String releaseUrl = data['html_url'];
 
-      // Lấy version hiện tại của app
       final info = await PackageInfo.fromPlatform();
       final currentVersion = info.version;
 
       if (_isNewer(currentVersion, tag)) {
         String? apkUrl;
+        String? macOSZipUrl;
 
-        // Nếu là Android, quét tìm file .apk trong danh sách assets của GitHub Release
         if (Platform.isAndroid) {
           final assets = data['assets'] as List;
           for (var asset in assets) {
             if (asset['name'].toString().toLowerCase().endsWith('.apk')) {
               apkUrl = asset['browser_download_url'];
+              break;
+            }
+          }
+        } else if (Platform.isMacOS) {
+          // Tìm file .zip trên GitHub release (chứa .app đã sign + notarize)
+          final assets = data['assets'] as List;
+          for (var asset in assets) {
+            final name = asset['name'].toString().toLowerCase();
+            if (name.endsWith('.zip') && name.contains('app')) {
+              macOSZipUrl = asset['browser_download_url'];
               break;
             }
           }
@@ -53,6 +61,7 @@ class GithubUpdateService {
           releaseNotes,
           releaseUrl,
           apkUrl,
+          macOSZipUrl,
           info.packageName,
         );
       } else if (showNoUpdate) {
@@ -70,12 +79,10 @@ class GithubUpdateService {
     }
   }
 
-  /// So sánh phiên bản (chuẩn Semantic Versioning)
   static bool _isNewer(String current, String tag) {
     try {
-      final v1 =
-          current.replaceAll(RegExp(r'[a-zA-Z]'), '').split('.'); // 1.0.0
-      final v2 = tag.replaceAll(RegExp(r'[a-zA-Z]'), '').split('.'); // 1.0.1
+      final v1 = current.replaceAll(RegExp(r'[a-zA-Z]'), '').split('.');
+      final v2 = tag.replaceAll(RegExp(r'[a-zA-Z]'), '').split('.');
       for (int i = 0; i < 3; i++) {
         final num1 = i < v1.length ? int.parse(v1[i]) : 0;
         final num2 = i < v2.length ? int.parse(v2[i]) : 0;
@@ -88,13 +95,13 @@ class GithubUpdateService {
     }
   }
 
-  /// Hiển thị Dialog cập nhật
   static void _hienThiDialogCapNhat(
     BuildContext context,
     String version,
     String notes,
     String releaseUrl,
     String? apkUrl,
+    String? macOSZipUrl,
     String packageName,
   ) {
     showDialog(
@@ -140,7 +147,7 @@ class GithubUpdateService {
                 if (!isDownloading)
                   FilledButton(
                     onPressed: () async {
-                      // Nếu là Android và có link APK -> Tải & Cài đặt trực tiếp
+                      // === Android: tải APK ===
                       if (Platform.isAndroid && apkUrl != null) {
                         setState(() => isDownloading = true);
                         await _taiVaCaiDatApk(apkUrl, packageName, (p) {
@@ -148,7 +155,27 @@ class GithubUpdateService {
                         });
                         if (context.mounted) Navigator.pop(context);
                       }
-                      // Nếu là Windows/Linux/MacOS -> Mở link GitHub để user tải file tương ứng
+                      // === macOS: tải + tự cài ===
+                      else if (Platform.isMacOS && macOSZipUrl != null) {
+                        setState(() => isDownloading = true);
+                        try {
+                          await MacOSUpdateService.downloadAndInstall(
+                            zipUrl: macOSZipUrl,
+                            onProgress: (p) {
+                              setState(() => progress = p);
+                            },
+                          );
+                          // Không tới đây vì đã exit
+                        } catch (e) {
+                          if (context.mounted) {
+                            setState(() => isDownloading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Lỗi cập nhật: $e')),
+                            );
+                          }
+                        }
+                      }
+                      // === Fallback: mở trang release ===
                       else {
                         final uri = Uri.parse(releaseUrl);
                         if (await canLaunchUrl(uri)) {
@@ -158,9 +185,13 @@ class GithubUpdateService {
                         if (context.mounted) Navigator.pop(context);
                       }
                     },
-                    child: Text(Platform.isAndroid
-                        ? 'Cập nhật ngay'
-                        : 'Tải bản cập nhật'),
+                    child: Text(
+                      Platform.isAndroid && apkUrl != null
+                          ? 'Cập nhật ngay'
+                          : Platform.isMacOS && macOSZipUrl != null
+                              ? 'Cập nhật và khởi động lại'
+                              : 'Tải bản cập nhật',
+                    ),
                   ),
               ],
             );
@@ -170,7 +201,6 @@ class GithubUpdateService {
     );
   }
 
-  /// Tải APK và gọi trình cài đặt
   static Future<void> _taiVaCaiDatApk(
       String url, String appId, Function(double) onProgress) async {
     try {
@@ -188,7 +218,6 @@ class GithubUpdateService {
         },
       );
 
-      // Kích hoạt trình cài đặt của Android bằng cách yêu cầu hệ thống mở file APK
       final result = await OpenFilex.open(savePath);
       debugPrint('Trạng thái mở file cài đặt: ${result.message}');
     } catch (e) {
