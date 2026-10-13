@@ -78,12 +78,12 @@
 | Nền tảng | Hình thức cài đặt | Liên kết tải |
 | :--- | :--- | :--- |
 | **Android** | Google Play Store | [Tải từ Google Play](https://play.google.com/store/apps/details?id=com.toanbb.vie_lich) |
-| **Android** | Cài đặt trực tiếp file APK | [Tải bản APK mới nhất](https://github.com/toanbbpro/vie_lich/releases/latest) |
-| **Windows** | Portable ZIP (Chạy ngay không cần cài) | [Tải bản ZIP](https://github.com/toanbbpro/vie_lich/releases/latest) |
-| **macOS** | Bộ cài đặt DMG | [Tải bản DMG](https://github.com/toanbbpro/vie_lich/releases/latest) |
+| **Android** | Cài đặt trực tiếp file .APK | [Tải bản APK mới nhất](https://github.com/toanbbpro/vie_lich/releases/latest) |
+| **Windows** | Portable .ZIP (Chạy ngay không cần cài) | [Tải bản ZIP](https://github.com/toanbbpro/vie_lich/releases/latest) |
+| **macOS** | Bộ cài đặt DMG hoặc file .APP nén zip| [Tải bản DMG](https://github.com/toanbbpro/vie_lich/releases/latest) |
 | **iOS** | Sideload IPA (AltStore / TrollStore / Sideloadly) | [Tải bản IPA](https://github.com/toanbbpro/vie_lich/releases/latest) |
 
-> **Lưu ý cập nhật:** Ứng dụng tích hợp sẵn cơ chế kiểm tra và cập nhật tự động từ GitHub Releases cho các bản cài đặt ngoài kho ứng dụng.
+> **Lưu ý cập nhật:** Ứng dụng tích hợp sẵn cơ chế kiểm tra và cập nhật tự động từ GitHub Releases cho các nền tảng MacOS, Windows và Android APK.
 
 <details>
 <summary><b>Dành cho nhà phát triển (Build từ mã nguồn)</b></summary>
@@ -91,7 +91,7 @@
 
 ```bash
 # 1. Clone kho lưu trữ
-git clone [https://github.com/toanbbpro/vie_lich.git](https://github.com/toanbbpro/vie_lich.git)
+git clone https://github.com/toanbbpro/vie_lich.git
 
 # 2. Di chuyển vào thư mục
 cd vie_lich
