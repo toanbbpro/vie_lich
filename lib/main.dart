@@ -124,7 +124,34 @@ void _forceExit() {
 // ============================================================
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ============================================================
+  // KHOÁ XOAY MÀN HÌNH — chỉ mobile (Android + iOS)
+  // Chỉ cho phép portrait (dọc) để tránh overflow layout
+  // ============================================================
+  if (Platform.isAndroid || Platform.isIOS) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+  }
 
+  // ============================================================
+  // EDGE-TO-EDGE — Android 15+ (API 35+)
+  // ============================================================
+  if (Platform.isAndroid || Platform.isIOS) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+    );
+  }
   final windowController = await WindowController.fromCurrentEngine();
   final windowArgs = windowController.arguments;
 
