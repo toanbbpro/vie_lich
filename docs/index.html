@@ -125,7 +125,9 @@
       <div class="text-center mb-7">
         <span class="text-xs font-bold text-red-600 uppercase tracking-widest">Tải ứng dụng</span>
         <h2 class="text-3xl font-extrabold text-slate-900 mt-1">Chọn nền tảng của bạn</h2>
-        <p class="text-slate-500 mt-1 text-xs md:text-sm">Phát hành chính thức từ Google Play và GitHub Releases</p>
+        <p class="text-slate-500 mt-1 text-xs md:text-sm">
+          Phát hành chính thức từ Google Play và GitHub Releases <span id="latest-version-badge" class="font-semibold text-red-600"></span>
+        </p>
       </div>
 
       <!-- Store Badges Grid -->
@@ -145,49 +147,49 @@
         </a>
 
         <!-- Android APK -->
-        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/vie_lich-v1.2.6.apk" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+        <a id="dl-apk" href="https://github.com/toanbbpro/vie_lich/releases/latest" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
           <i class="fa-brands fa-android text-emerald-400 text-2xl flex-shrink-0"></i>
           <div class="text-left flex flex-col justify-center">
             <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">TẢI FILE CÀI ĐẶT</span>
-            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Android APK (v1.2.6)</span>
+            <span id="label-apk" class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Android APK</span>
           </div>
         </a>
 
         <!-- Windows -->
-        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/VIE_Lich_v1.2.6_win_Portable.zip" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+        <a id="dl-win" href="https://github.com/toanbbpro/vie_lich/releases/latest" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
           <i class="fa-brands fa-windows text-blue-400 text-2xl flex-shrink-0"></i>
           <div class="text-left flex flex-col justify-center">
             <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">DOWNLOAD FOR</span>
-            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Windows (ZIP)</span>
+            <span id="label-win" class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">Windows (ZIP)</span>
           </div>
         </a>
 
         <!-- macOS -->
-        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/VIE_Lich_v1.2.6.dmg" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+        <a id="dl-mac" href="https://github.com/toanbbpro/vie_lich/releases/latest" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
           <i class="fa-brands fa-apple text-white text-2xl flex-shrink-0"></i>
           <div class="text-left flex flex-col justify-center">
             <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">DOWNLOAD FOR</span>
-            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">macOS (DMG)</span>
+            <span id="label-mac" class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">macOS (DMG)</span>
           </div>
         </a>
 
         <!-- iOS (IPA) -->
-        <a href="https://github.com/toanbbpro/vie_lich/releases/latest/download/VIE_Lich_v1.2.6.ipa" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
+        <a id="dl-ipa" href="https://github.com/toanbbpro/vie_lich/releases/latest" class="flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]">
           <i class="fa-brands fa-apple text-amber-300 text-2xl flex-shrink-0"></i>
           <div class="text-left flex flex-col justify-center">
             <span class="text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight">SIDELOAD (IPA)</span>
-            <span class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">iOS (AltStore / TrollStore)</span>
+            <span id="label-ipa" class="text-sm font-bold text-white tracking-tight leading-none mt-0.5">iOS (AltStore / TrollStore)</span>
           </div>
         </a>
 
         <!-- Linux -->
-        <div class="flex items-center gap-3.5 p-3 px-4 bg-neutral-900/60 border border-neutral-800 rounded-xl text-neutral-400 opacity-60 cursor-not-allowed">
-          <i class="fa-brands fa-linux text-xl flex-shrink-0 text-neutral-400"></i>
+        <a id="dl-linux" href="javascript:void(0)" class="flex items-center gap-3.5 p-3 px-4 bg-neutral-900/60 border border-neutral-800 rounded-xl text-neutral-400 opacity-60 cursor-not-allowed">
+          <i id="icon-linux" class="fa-brands fa-linux text-xl flex-shrink-0 text-neutral-400"></i>
           <div class="text-left flex flex-col justify-center">
-            <span class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium leading-tight">COMING SOON</span>
-            <span class="text-sm font-semibold text-neutral-300 tracking-tight leading-none mt-0.5">Linux Package</span>
+            <span id="sub-linux" class="text-[10px] uppercase tracking-wider text-neutral-400 font-medium leading-tight">COMING SOON</span>
+            <span id="label-linux" class="text-sm font-semibold text-neutral-300 tracking-tight leading-none mt-0.5">Linux Package</span>
           </div>
-        </div>
+        </a>
       </div>
 
       <!-- iOS Note -->
@@ -337,6 +339,61 @@
       </div>
     </footer>
   </section>
+
+  <!-- Script tự động lấy link tải mới nhất từ GitHub Releases -->
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('https://api.github.com/repos/toanbbpro/vie_lich/releases/latest');
+        if (!response.ok) return;
+
+        const release = await response.json();
+        const tag = release.tag_name || ''; // Ví dụ: "v2.0.0"
+        const assets = release.assets || [];
+
+        // Hiển thị tag phiên bản mới nhất ở tiêu đề phụ và nút APK
+        if (tag) {
+          const badge = document.getElementById('latest-version-badge');
+          if (badge) badge.textContent = `(${tag})`;
+
+          const labelApk = document.getElementById('label-apk');
+          if (labelApk) labelApk.textContent = `Android APK (${tag})`;
+        }
+
+        // Duyệt qua tất cả file đính kèm trong bản release mới nhất
+        assets.forEach(asset => {
+          const name = asset.name.toLowerCase();
+          const url = asset.browser_download_url;
+
+          if (name.endsWith('.apk')) {
+            document.getElementById('dl-apk').href = url;
+          } else if (name.endsWith('.ipa')) {
+            document.getElementById('dl-ipa').href = url;
+          } else if (name.endsWith('.dmg')) {
+            document.getElementById('dl-mac').href = url;
+          } else if (name.endsWith('.zip') || name.endsWith('.exe') || name.endsWith('.msi')) {
+            // Nếu có nhiều file zip sau này, ưu tiên file có chữ win/windows hoặc mặc định lấy .zip
+            if (name.includes('win') || !name.includes('linux')) {
+              document.getElementById('dl-win').href = url;
+            }
+          } else if (name.endsWith('.deb') || name.endsWith('.appimage') || name.endsWith('.rpm') || name.endsWith('.tar.gz') || name.includes('linux')) {
+            // Tự động mở khóa nút Linux nếu trong release có file dành cho Linux
+            const linuxBtn = document.getElementById('dl-linux');
+            if (linuxBtn) {
+              linuxBtn.href = url;
+              linuxBtn.className = "flex items-center gap-3.5 p-3 px-4 bg-black hover:bg-neutral-900 border border-neutral-700 hover:border-neutral-400 rounded-xl text-white transition shadow-sm hover:scale-[1.01]";
+              document.getElementById('icon-linux').className = "fa-brands fa-linux text-amber-400 text-2xl flex-shrink-0";
+              document.getElementById('sub-linux').textContent = "DOWNLOAD FOR";
+              document.getElementById('sub-linux').className = "text-[10px] uppercase tracking-wider text-neutral-300 font-semibold leading-tight";
+              document.getElementById('label-linux').className = "text-sm font-bold text-white tracking-tight leading-none mt-0.5";
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Không thể tự động lấy thông tin release từ GitHub:', error);
+      }
+    });
+  </script>
 
 </body>
 </html>
