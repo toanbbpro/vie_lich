@@ -126,3 +126,12 @@ lib/firebase_options.dart
 # Go helper — build artifact
 windows_helper/*.exe
 windows_helper/vie_lich_helper
+
+# Build outputs
+dist/
+build/
+
+# Hive database (runtime)
+*.hive
+*.lock
+sukienbox.*

@@ -18,6 +18,7 @@ import 'providers/lich_provider.dart';
 import 'providers/su_kien_provider.dart';
 import 'services/app_update_service.dart';
 import 'services/github_update_service.dart';
+import 'services/windows_update_service.dart';
 import 'services/notification_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/schedule_writer.dart';
@@ -1119,8 +1120,14 @@ class _MainScreenState extends State<MainScreen> {
     const bool isPlayStore =
         bool.fromEnvironment('PLAY_STORE', defaultValue: false);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isPlayStore) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (Platform.isWindows) {
+        await WindowsUpdateService.checkUpdate(
+          context,
+          respectSkip: true,
+        );
+      } else if (!isPlayStore) {
         GithubUpdateService.checkUpdate(context);
       }
     });

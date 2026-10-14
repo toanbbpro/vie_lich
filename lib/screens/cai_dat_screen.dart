@@ -16,6 +16,7 @@ import '../providers/su_kien_provider.dart';
 import '../services/app_update_service.dart';
 import '../services/backup_service.dart';
 import '../services/github_update_service.dart';
+import '../services/windows_update_service.dart';
 import '../services/notification_service.dart';
 import '../services/sound_settings.dart';
 
@@ -785,15 +786,18 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                     const SizedBox(height: 16),
                     Center(
                       child: OutlinedButton.icon(
-                        onPressed: () async {
-                          if (isPlayStore) {
+                          onPressed: () async {
+                          if (Platform.isWindows) {
+                            await WindowsUpdateService.checkUpdate(
+                              context,
+                              showNoUpdate: true,
+                              respectSkip: false,   // 👈 Manual check → luôn hiện dialog
+                            );
+                          } else if (isPlayStore) {
                             await _kiemTraCapNhatPlayStore();
                           } else {
                             if (!mounted) return;
-                            GithubUpdateService.checkUpdate(
-                              context,
-                              showNoUpdate: true,
-                            );
+                            GithubUpdateService.checkUpdate(context, showNoUpdate: true);
                           }
                         },
                         icon:
