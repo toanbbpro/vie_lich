@@ -1,13 +1,16 @@
 import 'dart:io' show Platform, File;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // cho SystemChrome
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:in_app_update/in_app_update.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
@@ -27,25 +30,172 @@ import 'widgets/home_screen_widget_ui.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<bool> isWidgetMode = ValueNotifier<bool>(true);
 
+// ============================================================
+// ALARM IDS — Android
+// ============================================================
+const int kDailyAlarmId = 0; // Chạy 00:01 mỗi ngày
+const int kPeriodicAlarmId = 1; // Backup mỗi 6h
+
+// SharedPreferences keys
+const String kPrefLastUpdate = 'widget_last_update_date';
+const String kPrefPermissionAsked = 'permission_asked_v1';
+
+// ============================================================
+// FORMAT DATE — YYYY-MM-DD để so sánh
+// ============================================================
+String _formatDate(DateTime d) {
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+// ============================================================
+// REQUEST PERMISSIONS LẦN ĐẦU — Android + iOS
+// Chỉ hỏi 1 lần duy nhất, sau đó dùng nút trong Cài đặt
+// ============================================================
+Future<void> _requestPermissionsFirstLaunch() async {
+  if (!Platform.isAndroid && !Platform.isIOS) return;
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final asked = prefs.getBool(kPrefPermissionAsked) ?? false;
+    if (asked) {
+      debugPrint('🔔 [Permission] Đã hỏi lần trước, bỏ qua');
+      return;
+    }
+
+    // Đợi UI render xong + app ổn định
+    await Future.delayed(const Duration(milliseconds: 900));
+
+    debugPrint('🔔 [Permission] Bắt đầu request lần đầu');
+
+    // Request từng cái để có log rõ ràng
+    final notifResult = await Permission.notification.request();
+    debugPrint('🔔 [Permission] notification: $notifResult');
+
+    // Chỉ request camera nếu cần (dùng cho QR scanner)
+    // Không request audio ở đây — sẽ request khi user chọn file nhạc
+
+    // Đánh dấu đã hỏi — dù user cho hay từ chối
+    await prefs.setBool(kPrefPermissionAsked, true);
+    debugPrint('🔔 [Permission] Đã đánh dấu hoàn tất');
+  } catch (e) {
+    debugPrint('❌ [Permission] Lỗi: $e');
+  }
+}
+
+// ============================================================
+// BACKGROUND CALLBACK — chạy trong isolate riêng
+// PHẢI là top-level function duy nhất trong project
+// ============================================================
+@pragma('vm:entry-point')
+Future<void> widgetUpdateCallback() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('⏰ [Widget BG] Callback fired — ${DateTime.now()}');
+
+  try {
+    await Hive.initFlutter();
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(SuKienAdapter());
+    }
+    if (!Hive.isBoxOpen('suKienBox')) {
+      await Hive.openBox<SuKien>('suKienBox');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final today = _formatDate(DateTime.now());
+    final lastUpdate = prefs.getString(kPrefLastUpdate);
+
+    if (lastUpdate == today) {
+      debugPrint('⏭️ [Widget BG] Đã update hôm nay ($today), skip');
+    } else {
+      await WidgetService.capNhatWidget();
+      await prefs.setString(kPrefLastUpdate, today);
+      debugPrint('✅ [Widget BG] Đã update widget cho ngày $today');
+    }
+
+    await _scheduleWidgetDailyUpdate();
+  } catch (e, st) {
+    debugPrint('❌ [Widget BG] Lỗi: $e\n$st');
+  }
+}
+
+// ============================================================
+// SCHEDULE DAILY — 00:01 mỗi ngày
+// ============================================================
+Future<void> _scheduleWidgetDailyUpdate() async {
+  if (!Platform.isAndroid) return;
+
+  try {
+    final now = DateTime.now();
+
+    DateTime nextMidnight;
+    if (now.hour == 0 && now.minute < 1) {
+      nextMidnight = DateTime(now.year, now.month, now.day, 0, 1);
+    } else {
+      nextMidnight = DateTime(now.year, now.month, now.day + 1, 0, 1);
+    }
+
+    await AndroidAlarmManager.cancel(kDailyAlarmId);
+
+    await AndroidAlarmManager.oneShotAt(
+      nextMidnight,
+      kDailyAlarmId,
+      widgetUpdateCallback,
+      exact: true,
+      wakeup: true,
+      rescheduleOnReboot: true,
+    );
+
+    debugPrint('⏰ [Widget] Daily scheduled: $nextMidnight');
+  } catch (e) {
+    debugPrint('❌ [Widget] Schedule daily lỗi: $e');
+  }
+}
+
+// ============================================================
+// SCHEDULE PERIODIC BACKUP — mỗi 6h
+// ============================================================
+Future<void> _scheduleWidgetPeriodicBackup() async {
+  if (!Platform.isAndroid) return;
+
+  try {
+    await AndroidAlarmManager.cancel(kPeriodicAlarmId);
+
+    await AndroidAlarmManager.periodic(
+      const Duration(hours: 6),
+      kPeriodicAlarmId,
+      widgetUpdateCallback,
+      exact: false,
+      wakeup: true,
+      rescheduleOnReboot: true,
+    );
+
+    debugPrint('⏰ [Widget] Backup scheduled: every 6h');
+  } catch (e) {
+    debugPrint('❌ [Widget] Schedule backup lỗi: $e');
+  }
+}
+
+// ============================================================
+// PUBLIC API
+// ============================================================
+Future<void> scheduleWidgetUpdates() async {
+  if (!Platform.isAndroid) return;
+
+  await _scheduleWidgetDailyUpdate();
+  await _scheduleWidgetPeriodicBackup();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ============================================================
-  // KHOÁ XOAY MÀN HÌNH — chỉ cho mobile (Android + iOS)
-  // Chỉ cho phép portrait (dọc) để tránh overflow layout
-  // Desktop (Windows/macOS/Linux) không bị ảnh hưởng
-  // ============================================================
+  // KHOÁ XOAY MÀN HÌNH
   if (Platform.isAndroid || Platform.isIOS) {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
-      // Nếu muốn cho phép cả portrait úp ngược, thêm:
-      // DeviceOrientation.portraitDown,
     ]);
   }
 
-  // ============================================================
-  // EDGE-TO-EDGE — Android 15+ (API 35+)
-  // ============================================================
+  // EDGE-TO-EDGE
   if (Platform.isAndroid || Platform.isIOS) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
@@ -61,7 +211,7 @@ void main() async {
     );
   }
 
-  // Cấu hình window cho Windows
+  // Window config
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
@@ -104,6 +254,18 @@ void main() async {
 
   DeepLinkService.init();
 
+  // Android alarm manager
+  if (Platform.isAndroid) {
+    try {
+      final initialized = await AndroidAlarmManager.initialize();
+      debugPrint('✅ [Alarm] initialize = $initialized');
+
+      await scheduleWidgetUpdates();
+    } catch (e, st) {
+      debugPrint('❌ [Alarm] Init/Schedule lỗi: $e\n$st');
+    }
+  }
+
   runApp(const MyApp());
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -122,22 +284,32 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   TrayIcon? _trayIcon;
   Menu? _trayMenu;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // 👇 Request permission lần đầu — Android/iOS
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _requestPermissionsFirstLaunch();
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (Platform.isMacOS) {
-        debugPrint(
-            '⏳ [Flutter] Đợi MainFlutterWindow register MethodChannel...');
+        debugPrint('⏳ [Flutter] Đợi MainFlutterWindow register...');
         await Future.delayed(const Duration(milliseconds: 1500));
         await _capNhatWidgetVoiRetry();
       } else if (Platform.isAndroid || Platform.isIOS) {
         await WidgetService.capNhatWidget();
+
+        if (Platform.isAndroid) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
+        }
       }
     });
 
@@ -150,8 +322,19 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _trayIcon?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed && Platform.isAndroid) {
+      debugPrint('📱 [Lifecycle] Resumed → reschedule widget daily alarm');
+      _scheduleWidgetDailyUpdate();
+    }
   }
 
   Future<void> _kiemTraFlexibleUpdateDaTai() async {
@@ -163,8 +346,7 @@ class _MyAppState extends State<MyApp> {
 
     final info = await AppUpdateService.checkForUpdate();
     if (info?.installStatus == InstallStatus.downloaded) {
-      debugPrint(
-          '📦 [Update] Phát hiện flexible update đã tải xong, cài đặt...');
+      debugPrint('📦 [Update] Flexible update đã tải xong, cài đặt...');
       await AppUpdateService.completeFlexibleUpdate();
     }
   }

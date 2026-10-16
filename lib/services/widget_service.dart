@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_ce/hive.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:tyme/tyme.dart';
 import 'package:home_widget/home_widget.dart';
 import '../widgets/home_screen_widget_ui.dart';
@@ -15,8 +15,13 @@ class WidgetService {
   static const platform = MethodChannel('vie_lich_mac_widget');
 
   static const List<String> _thuNames = [
-    'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm',
-    'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật',
+    'Thứ Hai',
+    'Thứ Ba',
+    'Thứ Tư',
+    'Thứ Năm',
+    'Thứ Sáu',
+    'Thứ Bảy',
+    'Chủ Nhật',
   ];
 
   /// Số ngày pre-compute cho widget macOS
@@ -118,8 +123,8 @@ class WidgetService {
         DateTime dateOnly =
             DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
         if (dateOnly.isBefore(todayOnly)) {
-          ngayDuong = AmLichHelper.amSangDuong(
-              namAmHienTai + 1, sk.thangAm, sk.ngayAm);
+          ngayDuong =
+              AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
         }
       }
 
@@ -220,9 +225,8 @@ class WidgetService {
       'ngayAm': amHienTai?.getDay() ?? 0,
       'thangAm': amHienTai?.getMonth() ?? 0,
       'namAm': amHienTai?.getYear() ?? targetDay.year,
-      'canChiNam': amHienTai != null
-          ? AmLichHelper.layCanChiNam(amHienTai)
-          : '',
+      'canChiNam':
+          amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
       'dsO': dsO,
       'tenSuKien': dayInfo['tenSuKien'],
       'thoiGianSuKien': dayInfo['thoiGianSuKien'],
