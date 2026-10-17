@@ -544,7 +544,7 @@ class _ItemSuKien extends StatelessWidget {
                 )
               else
                 _AvatarSuKien(
-                  duongDanAnh: suKien.duongDanAnh,
+                  duongDanAnh: suKien.anhDaiDien,
                   size: avatarSize,
                 ),
 

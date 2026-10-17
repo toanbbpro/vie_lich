@@ -4,6 +4,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_thumb_kit/video_thumb_kit.dart'; // 👈 Import gói mới
 
 import '../models/su_kien.dart';
 import '../providers/su_kien_provider.dart';
@@ -30,9 +33,9 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   int _baoTruoc = 3;
   int _gioNhac = 11;
   int _phutNhac = 30;
-  String? _duongDanAnh;
-  bool _daXuatLich = false;
 
+  List<String> _dsMedia = [];
+  bool _daXuatLich = false;
   List<String> _tags = [];
 
   bool get _isEditing => widget.suKien != null;
@@ -49,7 +52,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       _baoTruoc = s.baoTruoc;
       _gioNhac = s.gioNhac;
       _phutNhac = s.phutNhac;
-      _duongDanAnh = s.duongDanAnh;
+      _dsMedia = s.danhSachMedia.toList();
       _daXuatLich = s.daXuatLich;
 
       if (s.tag != null && s.tag!.trim().isNotEmpty) {
@@ -72,17 +75,12 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
 
   void _addTag() {
     final text = _tagController.text;
-    if (text.trim().isEmpty) {
-      return;
-    }
-
+    if (text.trim().isEmpty) return;
     final parts = text.split(',');
     setState(() {
       for (var p in parts) {
         final t = p.trim();
-        if (t.isNotEmpty && !_tags.contains(t)) {
-          _tags.add(t);
-        }
+        if (t.isNotEmpty && !_tags.contains(t)) _tags.add(t);
       }
     });
     _tagController.clear();
@@ -105,52 +103,64 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     }
   }
 
-  Future<void> _chonAnh() async {
+  Future<void> _chonMedia() async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        imageQuality: 85,
-      );
-      if (picked == null) {
-        return;
-      }
+      final List<XFile> files = await picker.pickMultipleMedia();
+
+      if (files.isEmpty) return;
 
       final appDir = await getApplicationDocumentsDirectory();
-      final imgDir = Directory('${appDir.path}/images');
-      if (!imgDir.existsSync()) {
-        await imgDir.create(recursive: true);
+      final mediaDir = Directory('${appDir.path}/media');
+      if (!mediaDir.existsSync()) await mediaDir.create(recursive: true);
+
+      List<String> newPaths = [];
+
+      for (var file in files) {
+        final fileName =
+            'media_${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+        final savedPath = '${mediaDir.path}/$fileName';
+        await File(file.path).copy(savedPath);
+        newPaths.add(savedPath);
       }
 
-      final ext = picked.path.split('.').last;
-      final fileName = 'sk_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      final savedPath = '${imgDir.path}/$fileName';
-      await File(picked.path).copy(savedPath);
-
-      if (!mounted) {
-        return;
-      }
-      setState(() => _duongDanAnh = savedPath);
+      if (!mounted) return;
+      setState(() {
+        _dsMedia.addAll(newPaths);
+      });
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+          .showSnackBar(SnackBar(content: Text('Lỗi chọn file: $e')));
+    }
+  }
+
+  Future<void> _chiaSeTatCaMedia() async {
+    if (_dsMedia.isEmpty) return;
+
+    try {
+      final files = _dsMedia.map((path) => XFile(path)).toList();
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: files,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi chia sẻ: $e')));
+      }
     }
   }
 
   Future<void> _luu({bool dongManHinh = true}) async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
+    if (!_formKey.currentState!.validate()) return;
     _addTag();
 
     final provider = Provider.of<SuKienProvider>(context, listen: false);
-
     final hienTai = widget.suKien;
+
     final suKien = SuKien(
       id: hienTai?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       ten: _tenController.text.trim(),
@@ -160,7 +170,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       ghiChu: _ghiChuController.text.trim().isEmpty
           ? null
           : _ghiChuController.text.trim(),
-      duongDanAnh: _duongDanAnh,
+      dsMedia: _dsMedia.isEmpty ? null : _dsMedia,
       baoTruoc: _baoTruoc,
       daXuatLich: _isEditing ? _daXuatLich : false,
       gioNhac: _gioNhac,
@@ -174,21 +184,11 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       await provider.themSuKien(suKien);
     }
 
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isEditing
-            ? 'Đã cập nhật nhắc lịch thành công'
-            : 'Đã lưu nhắc lịch thành công'),
-      ),
-    );
-
-    if (dongManHinh) {
-      Navigator.pop(context);
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(_isEditing ? 'Đã cập nhật nhắc lịch' : 'Đã lưu nhắc lịch'),
+    ));
+    if (dongManHinh) Navigator.pop(context);
   }
 
   Future<void> _xoa() async {
@@ -196,8 +196,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xóa sự kiện'),
-        content: Text(
-            'Bạn có chắc chắn muốn xóa "${widget.suKien!.ten}" không? Hành động này không thể hoàn tác.'),
+        content:
+            Text('Bạn có chắc chắn muốn xóa "${widget.suKien!.ten}" không?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -212,23 +212,16 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     );
 
     if (xacNhan == true) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       await Provider.of<SuKienProvider>(context, listen: false)
           .xoaSuKien(widget.suKien!.id);
-
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       Navigator.pop(context);
     }
   }
 
   Future<void> _xuatLich() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final tam = SuKien(
       id: widget.suKien?.id ?? 'tmp',
@@ -244,20 +237,11 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     );
 
     final ok = await CalendarExport.xuatSuKien(tam);
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     if (ok) {
       setState(() => _daXuatLich = true);
-      if (_isEditing) {
-        await _luu(dongManHinh: false);
-      }
-
-      if (!mounted) {
-        return;
-      }
+      if (_isEditing) await _luu(dongManHinh: false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã xuất lịch hệ thống thành công')));
     }
@@ -280,8 +264,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     final provider = Provider.of<SuKienProvider>(context, listen: false);
+
     final Set<String> allAvailableTags = {
       'Giỗ',
       'Bên nội',
@@ -289,11 +273,9 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
       'Lễ Tết',
       'Cá nhân'
     };
-
     for (var sk in provider.danhSachSuKien) {
       if (sk.tag != null && sk.tag!.trim().isNotEmpty) {
-        final list = sk.tag!.split(',').map((e) => e.trim());
-        allAvailableTags.addAll(list);
+        allAvailableTags.addAll(sk.tag!.split(',').map((e) => e.trim()));
       }
     }
     allAvailableTags.removeWhere((t) => _tags.contains(t) || t.isEmpty);
@@ -313,17 +295,14 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
             child: FilledButton.icon(
               onPressed: () => _luu(),
               icon: const Icon(Icons.save, size: 18),
-              label: const Text(
-                'Lưu',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
+              label: const Text('Lưu',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.lightBlue,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ),
@@ -392,10 +371,10 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                         size: 16, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: Text('Dương lịch tới: ${_previewNgayDuong()}',
-                            style: TextStyle(
-                                fontSize: 13,
-                                color: theme.colorScheme.primary))),
+                      child: Text('Dương lịch tới: ${_previewNgayDuong()}',
+                          style: TextStyle(
+                              fontSize: 13, color: theme.colorScheme.primary)),
+                    ),
                   ],
                 ),
               ),
@@ -414,9 +393,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                   ),
                 ),
                 onChanged: (val) {
-                  if (val.contains(',')) {
-                    _addTag();
-                  }
+                  if (val.contains(',')) _addTag();
                 },
                 onFieldSubmitted: (_) => _addTag(),
               ),
@@ -508,22 +485,94 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                     alignLabelWithHint: true),
               ),
               const SizedBox(height: 16),
-              if (_duongDanAnh == null)
-                OutlinedButton.icon(
-                    onPressed: _chonAnh,
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
-                    label: const Text('Thêm ảnh minh họa'))
-              else
-                Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    Image.file(File(_duongDanAnh!),
-                        height: 150, width: double.infinity, fit: BoxFit.cover),
-                    IconButton(
-                        icon: const Icon(Icons.cancel, color: Colors.white),
-                        onPressed: () => setState(() => _duongDanAnh = null)),
-                  ],
+
+              // KHU VỰC HIỂN THỊ DANH SÁCH MEDIA
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Hình ảnh & Video',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary)),
+                  if (_isEditing && _dsMedia.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: _chiaSeTatCaMedia,
+                      icon: const Icon(Icons.share, size: 16),
+                      label: const Text('Chia sẻ tất cả'),
+                    )
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              if (_dsMedia.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _dsMedia.map((path) {
+                    final isVideo = path.toLowerCase().endsWith('.mp4') ||
+                        path.toLowerCase().endsWith('.mov') ||
+                        path.toLowerCase().endsWith('.avi') ||
+                        path.toLowerCase().endsWith('.mkv');
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        if (isVideo)
+                          _VideoThumbnailWidget(
+                            videoPath: path,
+                            size: 100,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      _VideoPlayerScreen(videoPath: path),
+                                ),
+                              );
+                            },
+                          )
+                        else
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => Dialog(
+                                  child: Image.file(File(path)),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                    image: FileImage(File(path)),
+                                    fit: BoxFit.cover),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          top: -8,
+                          right: -8,
+                          child: IconButton(
+                            icon: const Icon(Icons.cancel,
+                                color: Colors.red, size: 24),
+                            onPressed: () =>
+                                setState(() => _dsMedia.remove(path)),
+                          ),
+                        )
+                      ],
+                    );
+                  }).toList(),
                 ),
+
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _chonMedia,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: const Text('Thêm ảnh hoặc video'),
+              ),
+
               const SizedBox(height: 32),
               OutlinedButton.icon(
                 onPressed: _xuatLich,
@@ -551,6 +600,154 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// WIDGET XỬ LÝ VIDEO THUMBNAIL
+// ============================================================
+class _VideoThumbnailWidget extends StatefulWidget {
+  final String videoPath;
+  final double size;
+  final VoidCallback onTap;
+
+  const _VideoThumbnailWidget({
+    required this.videoPath,
+    required this.size,
+    required this.onTap,
+  });
+
+  @override
+  State<_VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
+}
+
+class _VideoThumbnailWidgetState extends State<_VideoThumbnailWidget> {
+  String? _thumbnailPath;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  Future<void> _generateThumbnail() async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+
+      // 👇 GỌI QUA THƯ VIỆN video_thumb_kit
+      final thumb = await VideoThumbKit.thumbnailFile(
+        video: widget.videoPath,
+        thumbnailPath: tempDir.path,
+        imageFormat: ImageFormat.jpeg,
+        maxHeight: (widget.size * 2).toInt(),
+        quality: 75,
+      );
+
+      if (mounted) {
+        setState(() {
+          _thumbnailPath = thumb;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error generating thumbnail: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey.shade300,
+          image: _thumbnailPath != null
+              ? DecorationImage(
+                  image: FileImage(File(_thumbnailPath!)),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : (_thumbnailPath == null
+                ? const Center(
+                    child: Icon(Icons.error_outline, color: Colors.grey))
+                : const Center(
+                    child: Icon(Icons.play_circle_fill,
+                        color: Colors.white, size: 40),
+                  )),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// MÀN HÌNH PHÁT VIDEO
+// ============================================================
+class _VideoPlayerScreen extends StatefulWidget {
+  final String videoPath;
+  const _VideoPlayerScreen({required this.videoPath});
+
+  @override
+  State<_VideoPlayerScreen> createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(File(widget.videoPath))
+      ..initialize().then((_) {
+        setState(() {});
+        _controller.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: VideoPlayer(_controller),
+              )
+            : const CircularProgressIndicator(color: Colors.white),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.white,
+        onPressed: () {
+          setState(() {
+            _controller.value.isPlaying
+                ? _controller.pause()
+                : _controller.play();
+          });
+        },
+        child: Icon(
+          _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+          color: Colors.black,
         ),
       ),
     );

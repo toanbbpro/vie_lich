@@ -22,6 +22,7 @@ class SuKien extends HiveObject {
   @HiveField(5)
   String? ghiChu;
 
+  // Cũ: Đường dẫn 1 ảnh duy nhất. Giữ lại để đọc dữ liệu cũ.
   @HiveField(6)
   String? duongDanAnh;
 
@@ -37,9 +38,12 @@ class SuKien extends HiveObject {
   @HiveField(10)
   int phutNhac;
 
-  // Trường mới: Phân loại sự kiện (Bảo vệ dữ liệu cũ bằng String?)
   @HiveField(11)
   String? tag;
+
+  // 👇 MỚI: Danh sách chứa nhiều ảnh/video
+  @HiveField(12)
+  List<String>? dsMedia;
 
   SuKien({
     required this.id,
@@ -54,7 +58,26 @@ class SuKien extends HiveObject {
     this.gioNhac = 11,
     this.phutNhac = 30,
     this.tag,
+    this.dsMedia,
   });
+
+  /// Getter thông minh: Tự động gộp ảnh cũ (duongDanAnh) vào danh sách mới.
+  /// Nhờ vậy, các sự kiện tạo từ bản 2.0.0 trở về trước vẫn hiển thị bình thường.
+  List<String> get danhSachMedia {
+    if (dsMedia != null && dsMedia!.isNotEmpty) {
+      return dsMedia!;
+    }
+    if (duongDanAnh != null && duongDanAnh!.isNotEmpty) {
+      return [duongDanAnh!];
+    }
+    return [];
+  }
+
+  /// Getter tiện lợi để lấy ảnh đại diện (hiển thị ở danh sách ngoài màn hình chính)
+  String? get anhDaiDien {
+    final list = danhSachMedia;
+    return list.isNotEmpty ? list.first : null;
+  }
 
   // Chuyển Object thành Map để lưu JSON
   Map<String, dynamic> toJson() {
@@ -69,7 +92,7 @@ class SuKien extends HiveObject {
       'gioNhac': gioNhac,
       'phutNhac': phutNhac,
       'tag': tag,
-      // KHÔNG lưu duongDanAnh vì đường dẫn máy này mang qua máy khác sẽ hỏng
+      // KHÔNG lưu duongDanAnh / dsMedia vì đường dẫn máy này mang qua máy khác sẽ hỏng
       // KHÔNG lưu daXuatLich vì qua máy mới phải xuất lịch lại từ đầu
     };
   }
@@ -90,6 +113,7 @@ class SuKien extends HiveObject {
       gioNhac: json['gioNhac'] as int? ?? 11,
       phutNhac: json['phutNhac'] as int? ?? 30,
       tag: json['tag'] as String?,
+      dsMedia: null, // Không import đường dẫn ảnh từ máy khác
     );
   }
 }

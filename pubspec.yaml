@@ -61,6 +61,8 @@ dependencies:
   app_links: ^7.2.1
   uuid: ^3.0.7
   in_app_update: ^5.0.0
+  video_player: ^2.14.1
+  video_thumb_kit: ^1.0.2
 
 dev_dependencies:
   flutter_test:
