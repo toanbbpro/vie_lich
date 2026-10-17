@@ -1,8 +1,9 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Quyền thông báo (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Quyền báo thức chính xác (Android 12+) - vẫn khai báo để dự phòng -->
+    <!-- Quyền báo thức chính xác (Android 12+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- Quyền chạy sau khi khởi động lại máy -->
@@ -14,10 +15,19 @@
     <!-- Quyền cho API 32 trở xuống -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <!-- Quyền cho API 33 trở lên -->
+    <!-- Quyền âm thanh cho API 33+ (chọn file nhạc thông báo) -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- ============================================================ -->
+    <!-- XÓA QUYỀN ẢNH/VIDEO BỊ MERGE TỰ ĐỘNG TỪ image_picker          -->
+    <!-- image_picker dùng Photo Picker của hệ thống (Android 13+) nên -->
+    <!-- không cần các quyền này. Google Play yêu cầu không khai báo.  -->
+    <!-- ============================================================ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
 
     <queries>
         <intent>
@@ -112,6 +122,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
