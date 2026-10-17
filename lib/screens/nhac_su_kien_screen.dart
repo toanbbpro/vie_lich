@@ -388,7 +388,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                     else
                       Expanded(
                         child: ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 88),
+                          padding: const EdgeInsets.only(bottom: 88, top: 8),
                           itemCount: dsSapXep.length,
                           itemBuilder: (context, index) {
                             final item = dsSapXep[index];
@@ -505,75 +505,13 @@ class _ItemSuKien extends StatelessWidget {
       eventTags = suKien.tag!.split(',').map((e) => e.trim()).toList();
     }
 
+    // Kích thước ảnh vuông 1:1 (khoảng 84px)
+    const double avatarSize = 84.0;
+
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        leading: isSelecting
-            ? Checkbox(value: isSelected, onChanged: (_) => onToggleSelect())
-            : _AvatarSuKien(duongDanAnh: suKien.duongDanAnh),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                suKien.ten,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (suKien.daXuatLich)
-              Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: Icon(
-                  Icons.event_available,
-                  size: 16,
-                  color: Colors.green.shade600,
-                ),
-              ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                ngayText,
-                style: const TextStyle(fontSize: 13, color: Colors.red),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '$gioText  •  $baoText',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              if (eventTags.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: eventTags
-                        .map(
-                          (t) => Text(
-                            '#$t',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade700,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        trailing: isSelecting ? null : const Icon(Icons.chevron_right),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: () {
           if (isSelecting) {
             onToggleSelect();
@@ -587,6 +525,114 @@ class _ItemSuKien extends StatelessWidget {
           }
         },
         onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 1. Phần Ảnh / Checkbox (Bên trái)
+              if (isSelecting)
+                SizedBox(
+                  width: avatarSize,
+                  height: avatarSize,
+                  child: Center(
+                    child: Checkbox(
+                      value: isSelected,
+                      onChanged: (_) => onToggleSelect(),
+                    ),
+                  ),
+                )
+              else
+                _AvatarSuKien(
+                  duongDanAnh: suKien.duongDanAnh,
+                  size: avatarSize,
+                ),
+
+              const SizedBox(width: 16), // Khoảng cách đẩy text sang phải
+
+              // 2. Phần Thông tin (Ở giữa)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Tên sự kiện + Icon xuất lịch
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            suKien.ten,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (suKien.daXuatLich)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Icon(
+                              Icons.event_available,
+                              size: 16,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Ngày âm + Dương
+                    Text(
+                      ngayText,
+                      style: const TextStyle(fontSize: 13, color: Colors.red),
+                    ),
+                    const SizedBox(height: 2),
+
+                    // Giờ nhắc + Báo trước
+                    Text(
+                      '$gioText  •  $baoText',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+
+                    // Tags
+                    if (eventTags.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: eventTags
+                              .map(
+                                (t) => Text(
+                                  '#$t',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // 3. Icon mũi tên (Bên phải)
+              if (!isSelecting)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Icon(Icons.chevron_right, color: Colors.grey),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -594,36 +640,54 @@ class _ItemSuKien extends StatelessWidget {
 
 class _AvatarSuKien extends StatelessWidget {
   final String? duongDanAnh;
-  const _AvatarSuKien({required this.duongDanAnh});
+  final double size;
+
+  const _AvatarSuKien({
+    required this.duongDanAnh,
+    this.size = 84.0,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     Widget child;
+
     if (duongDanAnh != null && File(duongDanAnh!).existsSync()) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Image.file(
-          File(duongDanAnh!),
-          width: 48,
-          height: 48,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _placeholder(theme),
-        ),
+      child = Image.file(
+        File(duongDanAnh!),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholder(theme),
       );
     } else {
       child = _placeholder(theme);
     }
-    return SizedBox(width: 48, height: 48, child: child);
+
+    // Sử dụng bo góc nhẹ 12 để trông rộng và hiện đại hơn
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
   }
 
   Widget _placeholder(ThemeData theme) {
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        shape: BoxShape.circle,
+      color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+      child: Icon(
+        Icons.event,
+        size: size * 0.4,
+        color: theme.colorScheme.primary,
       ),
-      child: Icon(Icons.event, color: theme.colorScheme.primary),
     );
   }
 }
