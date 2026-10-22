@@ -28,7 +28,6 @@
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
-		AD754C98306A53E500E6F742 /* WidgetExtension.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = AD754C97306A53E500E6F742 /* WidgetExtension.xcconfig */; };
 		AD8231623068EE6B0043E710 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD8231613068EE6B0043E710 /* WidgetKit.framework */; };
 		AD8231643068EE6B0043E710 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD8231633068EE6B0043E710 /* SwiftUI.framework */; };
 		AD8231713068EE6C0043E710 /* VIELichWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AD8231603068EE6B0043E710 /* VIELichWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -321,7 +320,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 2700;
-				LastUpgradeCheck = 2700;
+				LastUpgradeCheck = 2710;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
 					331C80D4294CF70F00263BE5 = {
@@ -392,7 +391,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AD754C98306A53E500E6F742 /* WidgetExtension.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
