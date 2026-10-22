@@ -1,7 +1,7 @@
 name: vie_lich
 description: App lịch Việt cho người Việt
 publish_to: 'none'
-version: 2.0.1+19
+version: 2.0.1+20
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -28,7 +28,7 @@ dependencies:
   table_calendar: ^3.1.2
 
   # Media
-  image_picker: ^1.1.2
+  image_picker: ^1.2.4
   path_provider: ^2.1.5
   file_picker: ^13.0.0
   audioplayers: ^6.1.0

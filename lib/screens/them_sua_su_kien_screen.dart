@@ -106,7 +106,11 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
   Future<void> _chonMedia() async {
     try {
       final picker = ImagePicker();
-      final List<XFile> files = await picker.pickMultipleMedia();
+      final List<XFile> files = await picker.pickMultipleMedia(
+        maxWidth: 1920, // Giới hạn chiều rộng tối đa
+        maxHeight: 1920, // Giới hạn chiều cao tối đa
+        imageQuality: 85, // Nén ảnh (0-100)
+      );
 
       if (files.isEmpty) return;
 
