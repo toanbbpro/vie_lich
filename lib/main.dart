@@ -33,59 +33,32 @@ final ValueNotifier<bool> isWidgetMode = ValueNotifier<bool>(true);
 // ============================================================
 // ALARM IDS — Android
 // ============================================================
-const int kDailyAlarmId = 0; // Chạy 00:01 mỗi ngày
-const int kPeriodicAlarmId = 1; // Backup mỗi 6h
+const int kDailyAlarmId = 0;
+const int kPeriodicAlarmId = 1;
 
-// SharedPreferences keys
 const String kPrefLastUpdate = 'widget_last_update_date';
 const String kPrefPermissionAsked = 'permission_asked_v1';
 
-// ============================================================
-// FORMAT DATE — YYYY-MM-DD để so sánh
-// ============================================================
 String _formatDate(DateTime d) {
   return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
-// ============================================================
-// REQUEST PERMISSIONS LẦN ĐẦU — Android + iOS
-// Chỉ hỏi 1 lần duy nhất, sau đó dùng nút trong Cài đặt
-// ============================================================
 Future<void> _requestPermissionsFirstLaunch() async {
   if (!Platform.isAndroid && !Platform.isIOS) return;
 
   try {
     final prefs = await SharedPreferences.getInstance();
     final asked = prefs.getBool(kPrefPermissionAsked) ?? false;
-    if (asked) {
-      debugPrint('🔔 [Permission] Đã hỏi lần trước, bỏ qua');
-      return;
-    }
+    if (asked) return;
 
-    // Đợi UI render xong + app ổn định
     await Future.delayed(const Duration(milliseconds: 900));
-
-    debugPrint('🔔 [Permission] Bắt đầu request lần đầu');
-
-    // Request từng cái để có log rõ ràng
-    final notifResult = await Permission.notification.request();
-    debugPrint('🔔 [Permission] notification: $notifResult');
-
-    // Chỉ request camera nếu cần (dùng cho QR scanner)
-    // Không request audio ở đây — sẽ request khi user chọn file nhạc
-
-    // Đánh dấu đã hỏi — dù user cho hay từ chối
+    await Permission.notification.request();
     await prefs.setBool(kPrefPermissionAsked, true);
-    debugPrint('🔔 [Permission] Đã đánh dấu hoàn tất');
   } catch (e) {
     debugPrint('❌ [Permission] Lỗi: $e');
   }
 }
 
-// ============================================================
-// BACKGROUND CALLBACK — chạy trong isolate riêng
-// PHẢI là top-level function duy nhất trong project
-// ============================================================
 @pragma('vm:entry-point')
 Future<void> widgetUpdateCallback() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -118,15 +91,11 @@ Future<void> widgetUpdateCallback() async {
   }
 }
 
-// ============================================================
-// SCHEDULE DAILY — 00:01 mỗi ngày
-// ============================================================
 Future<void> _scheduleWidgetDailyUpdate() async {
   if (!Platform.isAndroid) return;
 
   try {
     final now = DateTime.now();
-
     DateTime nextMidnight;
     if (now.hour == 0 && now.minute < 1) {
       nextMidnight = DateTime(now.year, now.month, now.day, 0, 1);
@@ -144,22 +113,17 @@ Future<void> _scheduleWidgetDailyUpdate() async {
       wakeup: true,
       rescheduleOnReboot: true,
     );
-
     debugPrint('⏰ [Widget] Daily scheduled: $nextMidnight');
   } catch (e) {
     debugPrint('❌ [Widget] Schedule daily lỗi: $e');
   }
 }
 
-// ============================================================
-// SCHEDULE PERIODIC BACKUP — mỗi 6h
-// ============================================================
 Future<void> _scheduleWidgetPeriodicBackup() async {
   if (!Platform.isAndroid) return;
 
   try {
     await AndroidAlarmManager.cancel(kPeriodicAlarmId);
-
     await AndroidAlarmManager.periodic(
       const Duration(hours: 6),
       kPeriodicAlarmId,
@@ -168,19 +132,14 @@ Future<void> _scheduleWidgetPeriodicBackup() async {
       wakeup: true,
       rescheduleOnReboot: true,
     );
-
     debugPrint('⏰ [Widget] Backup scheduled: every 6h');
   } catch (e) {
     debugPrint('❌ [Widget] Schedule backup lỗi: $e');
   }
 }
 
-// ============================================================
-// PUBLIC API
-// ============================================================
 Future<void> scheduleWidgetUpdates() async {
   if (!Platform.isAndroid) return;
-
   await _scheduleWidgetDailyUpdate();
   await _scheduleWidgetPeriodicBackup();
 }
@@ -188,17 +147,11 @@ Future<void> scheduleWidgetUpdates() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // KHOÁ XOAY MÀN HÌNH
   if (Platform.isAndroid || Platform.isIOS) {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
-  }
-
-  // EDGE-TO-EDGE
-  if (Platform.isAndroid || Platform.isIOS) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -211,7 +164,6 @@ void main() async {
     );
   }
 
-  // Window config
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
     WindowOptions windowOptions = const WindowOptions(
@@ -241,7 +193,6 @@ void main() async {
   }
 
   await initializeDateFormatting('vi', null);
-
   await Hive.initFlutter();
   Hive.registerAdapter(SuKienAdapter());
   final box = await Hive.openBox<SuKien>('suKienBox');
@@ -254,12 +205,9 @@ void main() async {
 
   DeepLinkService.init();
 
-  // Android alarm manager
   if (Platform.isAndroid) {
     try {
-      final initialized = await AndroidAlarmManager.initialize();
-      debugPrint('✅ [Alarm] initialize = $initialized');
-
+      await AndroidAlarmManager.initialize();
       await scheduleWidgetUpdates();
     } catch (e, st) {
       debugPrint('❌ [Alarm] Init/Schedule lỗi: $e\n$st');
@@ -269,8 +217,7 @@ void main() async {
   runApp(const MyApp());
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    const bool isPlayStore =
-        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (isPlayStore && Platform.isAndroid) {
       await AppUpdateService.autoUpdateFlow();
     }
@@ -279,7 +226,6 @@ void main() async {
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -293,19 +239,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // 👇 Request permission lần đầu — Android/iOS
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _requestPermissionsFirstLaunch();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (Platform.isMacOS) {
-        debugPrint('⏳ [Flutter] Đợi MainFlutterWindow register...');
         await Future.delayed(const Duration(milliseconds: 1500));
         await _capNhatWidgetVoiRetry();
       } else if (Platform.isAndroid || Platform.isIOS) {
         await WidgetService.capNhatWidget();
-
         if (Platform.isAndroid) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
@@ -316,7 +259,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (Platform.isWindows || Platform.isMacOS) {
       _initSystemTray();
     }
-
     _kiemTraFlexibleUpdateDaTai();
   }
 
@@ -330,23 +272,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-
     if (state == AppLifecycleState.resumed && Platform.isAndroid) {
-      debugPrint('📱 [Lifecycle] Resumed → reschedule widget daily alarm');
       _scheduleWidgetDailyUpdate();
     }
   }
 
   Future<void> _kiemTraFlexibleUpdateDaTai() async {
     if (!Platform.isAndroid) return;
-
-    const bool isPlayStore =
-        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (!isPlayStore) return;
-
     final info = await AppUpdateService.checkForUpdate();
     if (info?.installStatus == InstallStatus.downloaded) {
-      debugPrint('📦 [Update] Flexible update đã tải xong, cài đặt...');
       await AppUpdateService.completeFlexibleUpdate();
     }
   }
@@ -354,171 +290,92 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _capNhatWidgetVoiRetry() async {
     const int maxRetries = 5;
     const Duration retryDelay = Duration(milliseconds: 800);
-
     for (int i = 0; i < maxRetries; i++) {
       try {
-        debugPrint('📱 [Flutter] Gọi capNhatWidget lần ${i + 1}/$maxRetries');
         await WidgetService.capNhatWidget();
-        debugPrint('✅ [Flutter] capNhatWidget thành công');
         return;
       } catch (e) {
-        debugPrint('⚠️ [Flutter] capNhatWidget lỗi lần ${i + 1}: $e');
-        if (i < maxRetries - 1) {
-          await Future.delayed(retryDelay);
-        }
+        if (i < maxRetries - 1) await Future.delayed(retryDelay);
       }
     }
-    debugPrint('❌ [Flutter] capNhatWidget thất bại sau $maxRetries lần thử');
   }
 
   Future<void> _initSystemTray() async {
     try {
       String iconPath = '';
-
       if (Platform.isWindows) {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final candidates = [
           '$exeDir\\app_icon.ico',
           '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
-          '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_logo_v2.ico',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) {
-            iconPath = p;
-            debugPrint('✅ Tray icon (Windows): $p');
-            break;
-          }
+          if (File(p).existsSync()) { iconPath = p; break; }
         }
       } else if (Platform.isMacOS) {
         final exeFile = File(Platform.resolvedExecutable);
         final appDir = exeFile.parent.parent.parent.path;
-
         final candidates = [
           '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/tray_mac.png',
-          '$appDir/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
           '$appDir/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) {
-            iconPath = p;
-            debugPrint('✅ Tray icon (macOS): $p');
-            break;
-          }
+          if (File(p).existsSync()) { iconPath = p; break; }
         }
       }
 
-      if (iconPath.isEmpty) {
-        debugPrint('⚠️ Không tìm thấy icon tray');
-        return;
-      }
-
+      if (iconPath.isEmpty) return;
       _trayIcon = TrayIcon.create();
-      if (_trayIcon == null) {
-        debugPrint('❌ Không tạo được TrayIcon');
-        return;
-      }
+      if (_trayIcon == null) return;
 
       _trayIcon!.icon = ImageAsset.fromAsset(iconPath);
       _trayIcon!.setTooltip('VIE Lịch');
-      debugPrint('✅ setIcon + setTooltip OK');
-
       await _rebuildTrayMenu();
 
       _trayIcon!.addListener((event) {
-        if (Platform.isMacOS) {
-          if (event is TrayIconClickedEvent) {
-            debugPrint('🖱️ Tray icon LEFT click (macOS) → menu');
-            _trayIcon?.openContextMenu();
-          }
+        if (Platform.isMacOS && event is TrayIconClickedEvent) {
+          _trayIcon?.openContextMenu();
         } else if (Platform.isWindows) {
           if (event is TrayIconRightClickedEvent) {
-            debugPrint('🖱️ Tray icon RIGHT click (Windows) → menu');
             _trayIcon?.openContextMenu();
           } else if (event is TrayIconDoubleClickedEvent) {
-            debugPrint('🖱️ Tray icon DOUBLE click (Windows) → app mode');
             _switchToAppMode();
           }
         }
       });
-
       _trayIcon!.setVisible(true);
-      debugPrint('✅ System tray khởi tạo thành công');
-    } catch (e, st) {
-      debugPrint('❌ Init system tray lỗi: $e\n$st');
+    } catch (e) {
+      debugPrint('❌ Init system tray lỗi: $e');
     }
   }
 
   Future<void> _rebuildTrayMenu() async {
     _trayMenu = Menu.create();
-    if (_trayMenu == null) {
-      debugPrint('⚠️ Không tạo được Menu');
-      return;
-    }
+    if (_trayMenu == null) return;
 
     if (Platform.isWindows) {
-      final openAppItem = MenuItem.createWithLabelAndType(
-        'Mở ứng dụng quản lý',
-        MenuItemType.normal,
-      );
-      openAppItem?.addListener((event) {
-        if (event is MenuItemClickedEvent) {
-          _switchToAppMode();
-        }
-      });
+      final openAppItem = MenuItem.createWithLabelAndType('Mở ứng dụng quản lý', MenuItemType.normal);
+      openAppItem?.addListener((event) { if (event is MenuItemClickedEvent) _switchToAppMode(); });
       _trayMenu!.addItem(openAppItem!);
 
-      final openWidgetItem = MenuItem.createWithLabelAndType(
-        'Hiện Widget Lịch',
-        MenuItemType.normal,
-      );
-      openWidgetItem?.addListener((event) {
-        if (event is MenuItemClickedEvent) {
-          _switchToWidgetMode();
-        }
-      });
+      final openWidgetItem = MenuItem.createWithLabelAndType('Hiện Widget Lịch', MenuItemType.normal);
+      openWidgetItem?.addListener((event) { if (event is MenuItemClickedEvent) _switchToWidgetMode(); });
       _trayMenu!.addItem(openWidgetItem!);
-
       _trayMenu!.addSeparator();
-
-      final exitItem = MenuItem.createWithLabelAndType(
-        'Thoát ứng dụng',
-        MenuItemType.normal,
-      );
-      exitItem?.addListener((event) {
-        if (event is MenuItemClickedEvent) {
-          windowManager.destroy();
-        }
-      });
-      _trayMenu!.addItem(exitItem!);
     } else if (Platform.isMacOS) {
-      final openItem = MenuItem.createWithLabelAndType(
-        'Mở cửa sổ Lịch',
-        MenuItemType.normal,
-      );
+      final openItem = MenuItem.createWithLabelAndType('Mở cửa sổ Lịch', MenuItemType.normal);
       openItem?.addListener((event) {
-        if (event is MenuItemClickedEvent) {
-          windowManager.show();
-          windowManager.focus();
-        }
+        if (event is MenuItemClickedEvent) { windowManager.show(); windowManager.focus(); }
       });
       _trayMenu!.addItem(openItem!);
-
       _trayMenu!.addSeparator();
-
-      final exitItem = MenuItem.createWithLabelAndType(
-        'Thoát ứng dụng',
-        MenuItemType.normal,
-      );
-      exitItem?.addListener((event) {
-        if (event is MenuItemClickedEvent) {
-          windowManager.destroy();
-        }
-      });
-      _trayMenu!.addItem(exitItem!);
     }
 
+    final exitItem = MenuItem.createWithLabelAndType('Thoát ứng dụng', MenuItemType.normal);
+    exitItem?.addListener((event) { if (event is MenuItemClickedEvent) windowManager.destroy(); });
+    _trayMenu!.addItem(exitItem!);
+
     _trayIcon?.setContextMenu(_trayMenu!);
-    debugPrint('✅ setContextMenu OK');
   }
 
   Future<void> _switchToAppMode() async {
@@ -553,10 +410,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           useMaterial3: true,
         ),
         locale: const Locale('vi', 'VN'),
-        supportedLocales: const [
-          Locale('vi', 'VN'),
-          Locale('en', 'US'),
-        ],
+        supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -566,9 +420,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ? ValueListenableBuilder<bool>(
                 valueListenable: isWidgetMode,
                 builder: (context, isWidget, child) {
-                  return isWidget
-                      ? const DesktopWidgetScreen()
-                      : const MainScreen();
+                  return isWidget ? const DesktopWidgetScreen() : const MainScreen();
                 },
               )
             : const MainScreen(),
@@ -580,7 +432,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
-
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
@@ -591,13 +442,9 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    const bool isPlayStore =
-        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
-
+    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isPlayStore) {
-        GithubUpdateService.checkUpdate(context);
-      }
+      if (!isPlayStore) GithubUpdateService.checkUpdate(context);
     });
   }
 
@@ -610,87 +457,48 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop =
-        Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    // 👇 SỬA: Dùng MediaQuery để quyết định giao diện Tablet / Desktop
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth >= 600;
 
     return Scaffold(
       extendBody: false,
-      body: isDesktop
+      body: isWideScreen
           ? Row(
               children: [
                 NavigationRail(
                   selectedIndex: _selectedIndex,
-                  onDestinationSelected: (index) {
-                    setState(() => _selectedIndex = index);
-                  },
+                  onDestinationSelected: (index) => setState(() => _selectedIndex = index),
                   labelType: NavigationRailLabelType.all,
                   selectedIconTheme: const IconThemeData(color: Colors.red),
-                  selectedLabelTextStyle: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  selectedLabelTextStyle: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.today_outlined),
-                      selectedIcon: Icon(Icons.today),
-                      label: Text('Lịch ngày'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.calendar_month_outlined),
-                      selectedIcon: Icon(Icons.calendar_month),
-                      label: Text('Lịch tháng'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.notifications_outlined),
-                      selectedIcon: Icon(Icons.notifications),
-                      label: Text('Nhắc lịch'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: Text('Cài đặt'),
-                    ),
+                    NavigationRailDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: Text('Lịch ngày')),
+                    NavigationRailDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: Text('Lịch tháng')),
+                    NavigationRailDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: Text('Nhắc lịch')),
+                    NavigationRailDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: Text('Cài đặt')),
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
-                Expanded(
-                  child: IndexedStack(
-                    index: _selectedIndex,
-                    children: _screens,
-                  ),
-                ),
+                Expanded(child: IndexedStack(index: _selectedIndex, children: _screens)),
               ],
             )
           : IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: !isDesktop
+      bottomNavigationBar: !isWideScreen
           ? NavigationBar(
               selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                setState(() => _selectedIndex = index);
-              },
+              onDestinationSelected: (index) => setState(() => _selectedIndex = index),
               destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.today),
-                  label: 'Lịch ngày',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.calendar_month),
-                  label: 'Lịch tháng',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.notifications),
-                  label: 'Nhắc lịch',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings),
-                  label: 'Cài đặt',
-                ),
+                NavigationDestination(icon: Icon(Icons.today), label: 'Lịch ngày'),
+                NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Lịch tháng'),
+                NavigationDestination(icon: Icon(Icons.notifications), label: 'Nhắc lịch'),
+                NavigationDestination(icon: Icon(Icons.settings), label: 'Cài đặt'),
               ],
             )
           : null,
     );
   }
-}
+} // 👈 Đã thêm dấu } bị thiếu ở đây
 
 class DesktopWidgetScreen extends StatelessWidget {
   const DesktopWidgetScreen({super.key});
@@ -700,7 +508,6 @@ class DesktopWidgetScreen extends StatelessWidget {
     return Consumer<SuKienProvider>(
       builder: (context, suKienProvider, child) {
         final danhSachSuKien = suKienProvider.danhSachSuKien;
-
         final now = DateTime.now();
         final todayOnly = DateTime(now.year, now.month, now.day);
 
@@ -708,29 +515,21 @@ class DesktopWidgetScreen extends StatelessWidget {
         List<int> ngayCoSuKienHienTai = [];
 
         final amHienTai = AmLichHelper.duongSangAm(now);
-        final int namAmHienTai =
-            amHienTai != null ? amHienTai.getYear() : now.year;
+        final int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
 
         for (var sk in danhSachSuKien) {
           int namAmTinhToan = sk.namAm ?? namAmHienTai;
-          DateTime? ngayDuong =
-              AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
+          DateTime? ngayDuong = AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
 
           if (sk.namAm == null && ngayDuong != null) {
-            DateTime dateOnly =
-                DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
+            DateTime dateOnly = DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
             if (dateOnly.isBefore(todayOnly)) {
-              ngayDuong = AmLichHelper.amSangDuong(
-                  namAmHienTai + 1, sk.thangAm, sk.ngayAm);
+              ngayDuong = AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
             }
           }
 
           if (ngayDuong != null) {
-            dsDaChuyenDoi.add({
-              'ten': sk.ten,
-              'ngayDuong': ngayDuong,
-              'tag': sk.tag ?? 'event',
-            });
+            dsDaChuyenDoi.add({'ten': sk.ten, 'ngayDuong': ngayDuong, 'tag': sk.tag ?? 'event'});
             if (ngayDuong.month == now.month && ngayDuong.year == now.year) {
               ngayCoSuKienHienTai.add(ngayDuong.day);
             }
@@ -742,27 +541,20 @@ class DesktopWidgetScreen extends StatelessWidget {
         String loaiSuKienGanNhat = "event";
 
         List<Map<String, dynamic>> suKienSapToi = dsDaChuyenDoi.where((sk) {
-          DateTime ngayDuong = sk['ngayDuong'];
-          DateTime dateOnly =
-              DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
-          return dateOnly.isAfter(todayOnly) ||
-              dateOnly.isAtSameMomentAs(todayOnly);
+          DateTime dateOnly = DateTime(sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
+          return dateOnly.isAfter(todayOnly) || dateOnly.isAtSameMomentAs(todayOnly);
         }).toList();
 
         if (suKienSapToi.isNotEmpty) {
-          suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime)
-              .compareTo(b['ngayDuong'] as DateTime));
+          suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
           var skGanNhat = suKienSapToi.first;
           DateTime dateSK = skGanNhat['ngayDuong'];
 
           tenSuKienGanNhat = skGanNhat['ten'];
           loaiSuKienGanNhat = skGanNhat['tag'];
 
-          int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day)
-              .difference(todayOnly)
-              .inDays;
-          String ngayText =
-              '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
+          int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day).difference(todayOnly).inDays;
+          String ngayText = '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
 
           if (soNgayConLai == 0) {
             thoiGianSuKienGanNhat = 'Hôm nay - $ngayText';
@@ -777,19 +569,11 @@ class DesktopWidgetScreen extends StatelessWidget {
           backgroundColor: Colors.transparent,
           body: Center(
             child: GestureDetector(
-              onPanStart: (details) {
-                windowManager.startDragging();
-              },
+              onPanStart: (details) => windowManager.startDragging(),
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 child: HomeScreenWidgetUI(
                   thangDuyet: now.month,
