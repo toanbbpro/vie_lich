@@ -13,6 +13,7 @@ import 'dart:io';
 
 import '../models/su_kien.dart';
 import '../providers/su_kien_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/app_update_service.dart';
 import '../services/backup_service.dart';
 import '../services/github_update_service.dart';
@@ -290,6 +291,42 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
+  void _hienThiDialogSaoLuuKhoiPhuc() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sao lưu & Khôi phục'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
+              title: const Text('Sao lưu dữ liệu'),
+              subtitle: const Text('Xuất file lưu trữ ra ngoài'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _saoLuuDuLieu();
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.cloud_download_outlined, color: Colors.green),
+              title: const Text('Khôi phục dữ liệu'),
+              subtitle: const Text('Nhập dữ liệu từ file đã lưu'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _khoiPhucDuLieu();
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _kiemTraCapNhatPlayStore() async {
     final info = await AppUpdateService.checkForUpdate();
     if (!mounted) return;
@@ -333,6 +370,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   }
 
   void _hienThiDialogUngHo() {
+    final theme = Theme.of(context);
     const bankId = 'tpbank';
     const accountNo = '91196797979';
     const accountName = 'LE THANH TOAN';
@@ -342,30 +380,59 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.all(24),
+        contentPadding: const EdgeInsets.all(20),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [Icon(Icons.coffee, size: 28, color: Colors.brown), SizedBox(width: 8), Text('Ủng hộ tác giả', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87))],
+              children: [
+                const Icon(Icons.coffee, size: 28, color: Colors.brown),
+                const SizedBox(width: 8),
+                Text(
+                  'Ủng hộ tác giả',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            const Text('Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé!', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.grey)),
+            Text(
+              'Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant),
+            ),
             const SizedBox(height: 20),
-            Container(
-              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  qrUrl, height: 250, width: 250, fit: BoxFit.contain,
-                  loadingBuilder: (context, child, loadingProgress) => loadingProgress == null ? child : const SizedBox(height: 250, width: 250, child: Center(child: CircularProgressIndicator())),
-                  errorBuilder: (_, __, ___) => const SizedBox(height: 250, width: 250, child: Center(child: Text('Lỗi tải mã QR.\nVui lòng kiểm tra mạng.', textAlign: TextAlign.center))),
+            
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                qrUrl,
+                height: 280,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) => loadingProgress == null
+                    ? child
+                    : const SizedBox(
+                        height: 280,
+                        width: double.infinity,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                errorBuilder: (_, __, ___) => Container(
+                  height: 280,
+                  width: double.infinity,
+                  alignment: Alignment.center,
+                  color: theme.colorScheme.surfaceContainerHighest, // 👈 ĐÃ SỬA TẠI ĐÂY
+                  child: Text(
+                    'Lỗi tải mã QR.\nVui lòng kiểm tra mạng.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
                 ),
               ),
             ),
+            
+            const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () {
                 Clipboard.setData(const ClipboardData(text: accountNo));
@@ -373,7 +440,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
               },
               icon: const Icon(Icons.copy, size: 14),
               label: const Text('Copy STK: $accountNo'),
-              style: OutlinedButton.styleFrom(backgroundColor: const Color(0xFFF5EBE1), minimumSize: const Size(double.infinity, 30)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 36),
+              ),
             ),
           ],
         ),
@@ -436,7 +505,11 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                      child: Row(children: [Icon(Icons.code, size: 18, color: Colors.grey.shade600), const SizedBox(width: 6), Text('Website', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, decoration: TextDecoration.underline, decorationColor: Colors.blue.shade700))]),
+                      child: Row(children: [
+                        Icon(Icons.language, size: 18, color: Colors.grey.shade600),
+                        const SizedBox(width: 6), 
+                        Text('Website', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, decoration: TextDecoration.underline, decorationColor: Colors.blue.shade700))
+                      ]),
                     ),
                   ),
                 ],
@@ -457,15 +530,13 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     final theme = Theme.of(context);
     const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
 
-    // 👇 SỬA: Bọc ListView trong Center và ConstrainedBox để tránh bị kéo giãn trên Tablet
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
             child: ListView(
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               children: [
                 _SectionCard(
                   title: 'Âm thanh thông báo',
@@ -500,7 +571,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                           ),
                         ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _SectionCard(
                   title: 'Cấu hình',
                   topPadding: 20,
@@ -508,13 +579,41 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                     children: [
                       _ItemCauHinh(icon: Icons.notifications_active_outlined, iconBg: Colors.pink.shade50, iconColor: Colors.pink.shade300, title: 'Cấp quyền thông báo', onTap: _xinQuyenThongBao),
                       const Divider(height: 1, indent: 16, endIndent: 16),
-                      _ItemCauHinh(icon: Icons.cloud_upload_outlined, iconBg: Colors.blue.shade50, iconColor: Colors.blue, title: 'Sao lưu dữ liệu', onTap: _saoLuuDuLieu),
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      _ItemCauHinh(icon: Icons.cloud_download_outlined, iconBg: Colors.green.shade50, iconColor: Colors.green, title: 'Khôi phục dữ liệu', onTap: _khoiPhucDuLieu),
+                      _ItemCauHinh(icon: Icons.sync, iconBg: Colors.blue.shade50, iconColor: Colors.blue, title: 'Sao lưu / Khôi phục dữ liệu', onTap: _hienThiDialogSaoLuuKhoiPhuc),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                
+                const SizedBox(height: 12),
+                _SectionCard(
+                  title: 'Giao diện',
+                  topPadding: 20,
+                  child: Consumer<ThemeProvider>(
+                    builder: (context, themeProvider, _) {
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.orange.shade50,
+                          child: const Icon(Icons.palette_outlined, color: Colors.orange),
+                        ),
+                        title: const Text('Giao diện sáng tối', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+                        trailing: DropdownButton<ThemeMode>(
+                          value: themeProvider.themeMode,
+                          underline: const SizedBox(),
+                          onChanged: (mode) {
+                            if (mode != null) themeProvider.setThemeMode(mode);
+                          },
+                          items: const [
+                            DropdownMenuItem(value: ThemeMode.light, child: Text('Sáng')),
+                            DropdownMenuItem(value: ThemeMode.dark, child: Text('Tối')),
+                            DropdownMenuItem(value: ThemeMode.system, child: Text('Theo thiết bị')),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 12),
                 _SectionCard(
                   title: 'Thông tin',
                   child: Padding(
@@ -540,37 +639,47 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Center(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              if (isPlayStore) {
-                                await _kiemTraCapNhatPlayStore();
-                              } else {
-                                if (!mounted) return;
-                                GithubUpdateService.checkUpdate(context, showNoUpdate: true);
-                              }
-                            },
-                            icon: const Icon(Icons.system_update_outlined, size: 16),
-                            label: const Text('Kiểm tra cập nhật', style: TextStyle(fontSize: 13)),
-                            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             OutlinedButton.icon(
-                              onPressed: _hienThiDialogUngHo,
-                              icon: const Icon(Icons.coffee, size: 16),
-                              label: const Text('Ủng hộ', style: TextStyle(fontSize: 13)),
-                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                              onPressed: () async {
+                                if (isPlayStore) {
+                                  await _kiemTraCapNhatPlayStore();
+                                } else {
+                                  if (!mounted) return;
+                                  GithubUpdateService.checkUpdate(context, showNoUpdate: true);
+                                }
+                              },
+                              icon: const Icon(Icons.system_update_outlined, size: 16),
+                              label: const Text('Cập nhật', style: TextStyle(fontSize: 12)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             OutlinedButton.icon(
                               onPressed: _hienThiDialogThongTin,
                               icon: const Icon(Icons.info_outline, size: 16),
-                              label: const Text('Thông tin', style: TextStyle(fontSize: 13)),
-                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
+                              label: const Text('Thông tin', style: TextStyle(fontSize: 12)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: _hienThiDialogUngHo,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Icon(Icons.coffee, size: 16),
                             ),
                           ],
                         ),
@@ -587,7 +696,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   }
 }
 
-// Các Widget phụ (_SectionCard, _AmHeThongTile, _OCaiDatAmTuChinh, _ItemCauHinh) giữ nguyên
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
@@ -629,7 +737,7 @@ class _AmHeThongTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 72,
+      height: 64,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -665,7 +773,7 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
   Widget build(BuildContext context) {
     final coFile = tenFile != null;
     return SizedBox(
-      height: 72,
+      height: 64,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

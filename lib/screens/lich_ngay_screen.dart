@@ -44,17 +44,20 @@ class _GoldGradientBorder extends StatelessWidget {
   final Widget child;
   final double borderWidth;
   final double radius;
-  final Color? innerColor;
 
-  const _GoldGradientBorder({required this.child, this.borderWidth = 1.5, this.radius = 16.0, this.innerColor});
+  const _GoldGradientBorder({required this.child, this.borderWidth = 1.5, this.radius = 16.0});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Nếu là Dark Mode thì dùng màu xám đen, ngược lại dùng màu kem
+    final defaultColor = isDark ? const Color(0xFF2C2C2C) : kInnerKem;
+
     return Container(
       padding: EdgeInsets.all(borderWidth),
       decoration: BoxDecoration(gradient: kGoldGradient, borderRadius: BorderRadius.circular(radius)),
       child: Container(
-        decoration: BoxDecoration(color: innerColor ?? kInnerKem, borderRadius: BorderRadius.circular(radius - borderWidth)),
+        decoration: BoxDecoration(color: defaultColor, borderRadius: BorderRadius.circular(radius - borderWidth)),
         child: child,
       ),
     );
@@ -104,6 +107,7 @@ class _LichNgayScreenState extends State<LichNgayScreen> with SingleTickerProvid
     final isMobile = Platform.isAndroid || Platform.isIOS;
     final isMacOS = Platform.isMacOS;
     final hasNav = !isMobile;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final bgAsset = isMobile ? 'assets/backgrounds/vie_lich_bg_mobile.png' : 'assets/backgrounds/vie_lich_bg_desktop.png';
 
@@ -128,7 +132,7 @@ class _LichNgayScreenState extends State<LichNgayScreen> with SingleTickerProvid
         final lunar = AmLichHelper.duongSangAm(ngay);
 
         return Scaffold(
-          backgroundColor: const Color(0xFFFAF3E8),
+          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFFAF3E8),
           body: LayoutBuilder(
             builder: (context, constraints) {
               final size = Size(constraints.maxWidth, constraints.maxHeight);
@@ -158,9 +162,20 @@ class _LichNgayScreenState extends State<LichNgayScreen> with SingleTickerProvid
                 },
                 child: Stack(
                   children: [
+                    // 1. BACKGROUND IMAGE
                     Positioned.fill(
-                      child: Image.asset(bgAsset, fit: BoxFit.cover, alignment: Alignment.center, errorBuilder: (_, __, ___) => Container(color: const Color(0xFFFAF3E8))),
+                      child: Image.asset(bgAsset, fit: BoxFit.cover, alignment: Alignment.center, errorBuilder: (_, __, ___) => Container(color: isDark ? const Color(0xFF121212) : const Color(0xFFFAF3E8))),
                     ),
+                    
+                    // 👇 LỚP PHỦ TỐI CHO DARK MODE
+                    if (isDark)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withValues(alpha: 0.65),
+                        ),
+                      ),
+
+                    // 2. RIPPLE
                     Positioned.fill(
                       child: IgnorePointer(
                         child: RepaintBoundary(
@@ -175,6 +190,7 @@ class _LichNgayScreenState extends State<LichNgayScreen> with SingleTickerProvid
                         ),
                       ),
                     ),
+                    // 3. NÚT TRỐNG ĐỒNG
                     Positioned(
                       left: buttonCenter.dx - buttonSize / 2,
                       top: buttonCenter.dy - buttonSize / 2,
@@ -185,7 +201,7 @@ class _LichNgayScreenState extends State<LichNgayScreen> with SingleTickerProvid
                       ),
                     ),
                     
-                    // 👇 ĐÃ BỎ SingleChildScrollView ĐỂ TRÁNH LỖI UNBOUNDED HEIGHT
+                    // 4. CONTENT
                     SafeArea(
                       child: LayoutBuilder(
                         builder: (context, c2) {
@@ -221,6 +237,7 @@ class _LichNgayScreenState extends State<LichNgayScreen> with SingleTickerProvid
                       ),
                     ),
 
+                    // 5. NAV BUTTONS
                     if (hasNav) ...[
                       Positioned(
                         left: kNavButtonEdge,
@@ -359,8 +376,15 @@ class _LichDoiBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final red = Colors.red.shade600;
-    final blue = const Color(0xFF1565C0);
+    final blue = isDark ? Colors.blue.shade300 : const Color(0xFF1565C0);
+    
+    // 👇 Màu chữ thay đổi theo Theme
+    final metaTextColor = isDark ? Colors.amber.shade200 : const Color(0xFF7B3F00);
+    final metaRedColor = isDark ? Colors.red.shade300 : const Color(0xFF9B2C2C);
+
     final thuWords = thu.split(' ');
     final thuDisplay = thuWords.length >= 2 ? '${thuWords[0]}\n${thuWords.sublist(1).join(' ')}' : thu;
     final tenThangAm = _tenThangAmChu(thangAm);
@@ -423,7 +447,6 @@ class _LichDoiBlock extends StatelessWidget {
             _GoldGradientBorder(
               borderWidth: 1.5,
               radius: 16,
-              innerColor: kInnerKem,
               child: SizedBox(
                 height: (h * 0.18).clamp(70.0, 110.0),
                 child: Padding(
@@ -434,7 +457,7 @@ class _LichDoiBlock extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.only(right: 14),
                         alignment: Alignment.centerRight,
-                        child: Text(thuDisplay, textAlign: TextAlign.right, style: TextStyle(fontSize: thuFontSize, fontWeight: FontWeight.w600, color: const Color(0xFF7B3F00), height: 1.15)),
+                        child: Text(thuDisplay, textAlign: TextAlign.right, style: TextStyle(fontSize: thuFontSize, fontWeight: FontWeight.w600, color: metaTextColor, height: 1.15)),
                       ),
                       Container(width: 1.5, decoration: const BoxDecoration(gradient: kGoldVerticalGradient)),
                       Expanded(
@@ -446,14 +469,14 @@ class _LichDoiBlock extends StatelessWidget {
                               Expanded(
                                 child: Align(
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Ngày ${ngay.day} tháng ${ngay.month} năm ${ngay.year}', style: TextStyle(fontSize: metaFontSize, fontWeight: FontWeight.w600, color: const Color(0xFF7B3F00), height: 1.15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  child: Text('Ngày ${ngay.day} tháng ${ngay.month} năm ${ngay.year}', style: TextStyle(fontSize: metaFontSize, fontWeight: FontWeight.w600, color: metaTextColor, height: 1.15), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ),
                               ),
                               Container(height: 1, decoration: const BoxDecoration(gradient: kGoldVerticalGradient)),
                               Expanded(
                                 child: Align(
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Ngày $ngayAm tháng $tenThangAm năm $canChiNam', style: TextStyle(fontSize: metaFontSize, color: const Color(0xFF9B2C2C), height: 1.15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  child: Text('Ngày $ngayAm tháng $tenThangAm năm $canChiNam', style: TextStyle(fontSize: metaFontSize, color: metaRedColor, height: 1.15), maxLines: 1, overflow: TextOverflow.ellipsis),
                                 ),
                               ),
                             ],
@@ -502,16 +525,22 @@ class _NgayLeCompact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: Colors.amber.shade50.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange.shade200, width: 1)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF3E2723) : Colors.amber.shade50.withValues(alpha: 0.85), 
+        borderRadius: BorderRadius.circular(12), 
+        border: Border.all(color: isDark ? Colors.orange.shade900 : Colors.orange.shade200, width: 1)
+      ),
       child: Row(
         children: [
-          const Icon(Icons.celebration, color: Colors.orange, size: 18),
+          Icon(Icons.celebration, color: isDark ? Colors.orange.shade300 : Colors.orange, size: 18),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(dsLe.join(' • '), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF8B4513)), maxLines: 2, overflow: TextOverflow.ellipsis),
+            child: Text(dsLe.join(' • '), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: isDark ? Colors.orange.shade200 : const Color(0xFF8B4513)), maxLines: 2, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -526,10 +555,12 @@ class _NutXemTietKhiSao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.amber.shade200 : const Color(0xFF7B3F00);
+
     return _GoldGradientBorder(
       borderWidth: 1.5,
       radius: 14,
-      innerColor: kInnerKem,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -539,10 +570,10 @@ class _NutXemTietKhiSao extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.wb_sunny_outlined, size: 18, color: Color(0xFF7B3F00)),
-                SizedBox(width: 8),
-                Text('Xem tiết khí & sao tốt xấu', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF7B3F00))),
+              children: [
+                Icon(Icons.wb_sunny_outlined, size: 18, color: textColor),
+                const SizedBox(width: 8),
+                Text('Xem tiết khí & sao tốt xấu', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor)),
               ],
             ),
           ),

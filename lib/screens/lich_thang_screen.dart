@@ -232,20 +232,30 @@ class _ONgay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark; // 👈 Kiểm tra Dark Mode
     final isCN = date.weekday == 7;
-    Color colorDuong = isCN ? Colors.red.shade700 : Colors.black87;
-    Color colorAm = Colors.red;
+
+    // 👇 SỬA MÀU SỐ DƯƠNG LỊCH TẠI ĐÂY
+    Color colorDuong;
+    Color colorAm;
+    if (isDark) {
+      colorDuong = isCN ? Colors.red.shade300 : Colors.white; // Trắng sáng hoặc đỏ nhạt
+      colorAm = Colors.red.shade300;
+    } else {
+      colorDuong = isCN ? Colors.red.shade700 : Colors.black87;
+      colorAm = Colors.red;
+    }
+
     if (!isCurrentMonth) {
       colorDuong = colorDuong.withValues(alpha: 0.35);
       colorAm = colorAm.withValues(alpha: 0.35);
     }
 
-    // 👇 SỬA LỖI: Thêm ngoặc nhọn cho câu lệnh if/else
     Color? bg;
     if (isSelected) {
       bg = theme.colorScheme.primaryContainer;
     } else if (isToday) {
-      bg = theme.colorScheme.primary.withValues(alpha: 0.08);
+      bg = theme.colorScheme.primary.withValues(alpha: 0.15);
     }
 
     String ngayAmText = amLich.day == 1 ? '1/${amLich.month}' : '${amLich.day}';

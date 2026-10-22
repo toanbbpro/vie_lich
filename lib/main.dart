@@ -15,6 +15,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
 import 'providers/su_kien_provider.dart';
+import 'providers/theme_provider.dart'; // 👈 Thêm import
 import 'services/app_update_service.dart';
 import 'services/github_update_service.dart';
 import 'services/notification_service.dart';
@@ -30,9 +31,6 @@ import 'widgets/home_screen_widget_ui.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<bool> isWidgetMode = ValueNotifier<bool>(true);
 
-// ============================================================
-// ALARM IDS — Android
-// ============================================================
 const int kDailyAlarmId = 0;
 const int kPeriodicAlarmId = 1;
 
@@ -401,30 +399,46 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       providers: [
         ChangeNotifierProvider(create: (_) => LichProvider()),
         ChangeNotifierProvider(create: (_) => SuKienProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()), // 👈 Thêm Provider
       ],
-      child: MaterialApp(
-        navigatorKey: navigatorKey,
-        title: 'Âm lịch Việt Nam',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
-          useMaterial3: true,
-        ),
-        locale: const Locale('vi', 'VN'),
-        supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: Platform.isWindows
-            ? ValueListenableBuilder<bool>(
-                valueListenable: isWidgetMode,
-                builder: (context, isWidget, child) {
-                  return isWidget ? const DesktopWidgetScreen() : const MainScreen();
-                },
-              )
-            : const MainScreen(),
-        debugShowCheckedModeBanner: false,
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            navigatorKey: navigatorKey,
+            title: 'Âm lịch Việt Nam',
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.red,
+                brightness: Brightness.light,
+              ),
+              useMaterial3: true,
+            ),
+            darkTheme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.red,
+                brightness: Brightness.dark,
+              ),
+              useMaterial3: true,
+            ),
+            themeMode: themeProvider.themeMode, // 👈 Áp dụng ThemeMode
+            locale: const Locale('vi', 'VN'),
+            supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: Platform.isWindows
+                ? ValueListenableBuilder<bool>(
+                    valueListenable: isWidgetMode,
+                    builder: (context, isWidget, child) {
+                      return isWidget ? const DesktopWidgetScreen() : const MainScreen();
+                    },
+                  )
+                : const MainScreen(),
+            debugShowCheckedModeBanner: false,
+          );
+        },
       ),
     );
   }
@@ -457,7 +471,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 👇 SỬA: Dùng MediaQuery để quyết định giao diện Tablet / Desktop
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth >= 600;
 
@@ -498,7 +511,7 @@ class _MainScreenState extends State<MainScreen> {
           : null,
     );
   }
-} // 👈 Đã thêm dấu } bị thiếu ở đây
+}
 
 class DesktopWidgetScreen extends StatelessWidget {
   const DesktopWidgetScreen({super.key});

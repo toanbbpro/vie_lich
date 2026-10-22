@@ -152,7 +152,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isEditing ? 'Đã cập nhật nhắc lịch' : 'Đã lưu nhắc lịch')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_isEditing ? 'Đã cập nhật lịch nhắc' : 'Đã lưu lịch nhắc')));
     if (dongManHinh) Navigator.pop(context);
   }
 
@@ -160,7 +160,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     final xacNhan = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Xóa sự kiện'),
+        title: const Text('Xóa lịch nhắc'),
         content: Text('Bạn có chắc chắn muốn xóa "${widget.suKien!.ten}" không?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
@@ -228,7 +228,7 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Sửa nhắc lịch ${widget.suKien!.ten}' : 'Thêm nhắc lịch', maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(_isEditing ? 'Sửa lịch nhắc ${widget.suKien!.ten}' : 'Thêm lịch nhắc', maxLines: 1, overflow: TextOverflow.ellipsis),
         centerTitle: true,
         actions: [
           Padding(
@@ -260,8 +260,8 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                 children: [
                   TextFormField(
                     controller: _tenController,
-                    decoration: const InputDecoration(labelText: 'Tên nhắc lịch *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.label_outline)),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập tên nhắc lịch' : null,
+                    decoration: const InputDecoration(labelText: 'Tên lịch nhắc *', border: OutlineInputBorder(), prefixIcon: Icon(Icons.label_outline)),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập tên lịch nhắc' : null,
                   ),
                   const SizedBox(height: 16),
                   Row(

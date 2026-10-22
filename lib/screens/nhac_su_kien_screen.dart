@@ -311,7 +311,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 16),
             Text('Chưa có lịch nào', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
             const SizedBox(height: 8),
-            Text('Nhấn nút "Thêm lịch" bên dưới để tạo nhắc ngày giỗ, lễ theo âm lịch.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
+            Text('Nhấn nút "Thêm lịch" bên dưới để tạo lịch nhắc ngày giỗ, lễ theo âm lịch.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade600)),
           ],
         ),
       ),
