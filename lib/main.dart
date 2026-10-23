@@ -150,16 +150,6 @@ void main() async {
       DeviceOrientation.portraitUp,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-      ),
-    );
   }
 
   if (Platform.isWindows) {
@@ -215,7 +205,8 @@ void main() async {
   runApp(const MyApp());
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore =
+        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (isPlayStore && Platform.isAndroid) {
       await AppUpdateService.autoUpdateFlow();
     }
@@ -277,7 +268,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _kiemTraFlexibleUpdateDaTai() async {
     if (!Platform.isAndroid) return;
-    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore =
+        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (!isPlayStore) return;
     final info = await AppUpdateService.checkForUpdate();
     if (info?.installStatus == InstallStatus.downloaded) {
@@ -308,7 +300,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) { iconPath = p; break; }
+          if (File(p).existsSync()) {
+            iconPath = p;
+            break;
+          }
         }
       } else if (Platform.isMacOS) {
         final exeFile = File(Platform.resolvedExecutable);
@@ -318,7 +313,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           '$appDir/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) { iconPath = p; break; }
+          if (File(p).existsSync()) {
+            iconPath = p;
+            break;
+          }
         }
       }
 
@@ -352,25 +350,38 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (_trayMenu == null) return;
 
     if (Platform.isWindows) {
-      final openAppItem = MenuItem.createWithLabelAndType('Mở ứng dụng quản lý', MenuItemType.normal);
-      openAppItem?.addListener((event) { if (event is MenuItemClickedEvent) _switchToAppMode(); });
+      final openAppItem = MenuItem.createWithLabelAndType(
+          'Mở ứng dụng quản lý', MenuItemType.normal);
+      openAppItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) _switchToAppMode();
+      });
       _trayMenu!.addItem(openAppItem!);
 
-      final openWidgetItem = MenuItem.createWithLabelAndType('Hiện Widget Lịch', MenuItemType.normal);
-      openWidgetItem?.addListener((event) { if (event is MenuItemClickedEvent) _switchToWidgetMode(); });
+      final openWidgetItem = MenuItem.createWithLabelAndType(
+          'Hiện Widget Lịch', MenuItemType.normal);
+      openWidgetItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) _switchToWidgetMode();
+      });
       _trayMenu!.addItem(openWidgetItem!);
       _trayMenu!.addSeparator();
     } else if (Platform.isMacOS) {
-      final openItem = MenuItem.createWithLabelAndType('Mở cửa sổ Lịch', MenuItemType.normal);
+      final openItem = MenuItem.createWithLabelAndType(
+          'Mở cửa sổ Lịch', MenuItemType.normal);
       openItem?.addListener((event) {
-        if (event is MenuItemClickedEvent) { windowManager.show(); windowManager.focus(); }
+        if (event is MenuItemClickedEvent) {
+          windowManager.show();
+          windowManager.focus();
+        }
       });
       _trayMenu!.addItem(openItem!);
       _trayMenu!.addSeparator();
     }
 
-    final exitItem = MenuItem.createWithLabelAndType('Thoát ứng dụng', MenuItemType.normal);
-    exitItem?.addListener((event) { if (event is MenuItemClickedEvent) windowManager.destroy(); });
+    final exitItem =
+        MenuItem.createWithLabelAndType('Thoát ứng dụng', MenuItemType.normal);
+    exitItem?.addListener((event) {
+      if (event is MenuItemClickedEvent) windowManager.destroy();
+    });
     _trayMenu!.addItem(exitItem!);
 
     _trayIcon?.setContextMenu(_trayMenu!);
@@ -399,7 +410,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       providers: [
         ChangeNotifierProvider(create: (_) => LichProvider()),
         ChangeNotifierProvider(create: (_) => SuKienProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()), // 👈 Thêm Provider
+        ChangeNotifierProvider(
+            create: (_) => ThemeProvider()), // 👈 Thêm Provider
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -432,7 +444,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 ? ValueListenableBuilder<bool>(
                     valueListenable: isWidgetMode,
                     builder: (context, isWidget, child) {
-                      return isWidget ? const DesktopWidgetScreen() : const MainScreen();
+                      return isWidget
+                          ? const DesktopWidgetScreen()
+                          : const MainScreen();
                     },
                   )
                 : const MainScreen(),
@@ -456,7 +470,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore =
+        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isPlayStore) GithubUpdateService.checkUpdate(context);
     });
@@ -481,31 +496,52 @@ class _MainScreenState extends State<MainScreen> {
               children: [
                 NavigationRail(
                   selectedIndex: _selectedIndex,
-                  onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+                  onDestinationSelected: (index) =>
+                      setState(() => _selectedIndex = index),
                   labelType: NavigationRailLabelType.all,
                   selectedIconTheme: const IconThemeData(color: Colors.red),
-                  selectedLabelTextStyle: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  selectedLabelTextStyle: const TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.bold),
                   destinations: const [
-                    NavigationRailDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: Text('Lịch ngày')),
-                    NavigationRailDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: Text('Lịch tháng')),
-                    NavigationRailDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: Text('Nhắc lịch')),
-                    NavigationRailDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: Text('Cài đặt')),
+                    NavigationRailDestination(
+                        icon: Icon(Icons.today_outlined),
+                        selectedIcon: Icon(Icons.today),
+                        label: Text('Lịch ngày')),
+                    NavigationRailDestination(
+                        icon: Icon(Icons.calendar_month_outlined),
+                        selectedIcon: Icon(Icons.calendar_month),
+                        label: Text('Lịch tháng')),
+                    NavigationRailDestination(
+                        icon: Icon(Icons.notifications_outlined),
+                        selectedIcon: Icon(Icons.notifications),
+                        label: Text('Nhắc lịch')),
+                    NavigationRailDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings),
+                        label: Text('Cài đặt')),
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
-                Expanded(child: IndexedStack(index: _selectedIndex, children: _screens)),
+                Expanded(
+                    child: IndexedStack(
+                        index: _selectedIndex, children: _screens)),
               ],
             )
           : IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: !isWideScreen
           ? NavigationBar(
               selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+              onDestinationSelected: (index) =>
+                  setState(() => _selectedIndex = index),
               destinations: const [
-                NavigationDestination(icon: Icon(Icons.today), label: 'Lịch ngày'),
-                NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Lịch tháng'),
-                NavigationDestination(icon: Icon(Icons.notifications), label: 'Nhắc lịch'),
-                NavigationDestination(icon: Icon(Icons.settings), label: 'Cài đặt'),
+                NavigationDestination(
+                    icon: Icon(Icons.today), label: 'Lịch ngày'),
+                NavigationDestination(
+                    icon: Icon(Icons.calendar_month), label: 'Lịch tháng'),
+                NavigationDestination(
+                    icon: Icon(Icons.notifications), label: 'Nhắc lịch'),
+                NavigationDestination(
+                    icon: Icon(Icons.settings), label: 'Cài đặt'),
               ],
             )
           : null,
@@ -528,21 +564,29 @@ class DesktopWidgetScreen extends StatelessWidget {
         List<int> ngayCoSuKienHienTai = [];
 
         final amHienTai = AmLichHelper.duongSangAm(now);
-        final int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
+        final int namAmHienTai =
+            amHienTai != null ? amHienTai.getYear() : now.year;
 
         for (var sk in danhSachSuKien) {
           int namAmTinhToan = sk.namAm ?? namAmHienTai;
-          DateTime? ngayDuong = AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
+          DateTime? ngayDuong =
+              AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
 
           if (sk.namAm == null && ngayDuong != null) {
-            DateTime dateOnly = DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
+            DateTime dateOnly =
+                DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
             if (dateOnly.isBefore(todayOnly)) {
-              ngayDuong = AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
+              ngayDuong = AmLichHelper.amSangDuong(
+                  namAmHienTai + 1, sk.thangAm, sk.ngayAm);
             }
           }
 
           if (ngayDuong != null) {
-            dsDaChuyenDoi.add({'ten': sk.ten, 'ngayDuong': ngayDuong, 'tag': sk.tag ?? 'event'});
+            dsDaChuyenDoi.add({
+              'ten': sk.ten,
+              'ngayDuong': ngayDuong,
+              'tag': sk.tag ?? 'event'
+            });
             if (ngayDuong.month == now.month && ngayDuong.year == now.year) {
               ngayCoSuKienHienTai.add(ngayDuong.day);
             }
@@ -554,20 +598,26 @@ class DesktopWidgetScreen extends StatelessWidget {
         String loaiSuKienGanNhat = "event";
 
         List<Map<String, dynamic>> suKienSapToi = dsDaChuyenDoi.where((sk) {
-          DateTime dateOnly = DateTime(sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
-          return dateOnly.isAfter(todayOnly) || dateOnly.isAtSameMomentAs(todayOnly);
+          DateTime dateOnly = DateTime(
+              sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
+          return dateOnly.isAfter(todayOnly) ||
+              dateOnly.isAtSameMomentAs(todayOnly);
         }).toList();
 
         if (suKienSapToi.isNotEmpty) {
-          suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
+          suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime)
+              .compareTo(b['ngayDuong'] as DateTime));
           var skGanNhat = suKienSapToi.first;
           DateTime dateSK = skGanNhat['ngayDuong'];
 
           tenSuKienGanNhat = skGanNhat['ten'];
           loaiSuKienGanNhat = skGanNhat['tag'];
 
-          int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day).difference(todayOnly).inDays;
-          String ngayText = '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
+          int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day)
+              .difference(todayOnly)
+              .inDays;
+          String ngayText =
+              '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
 
           if (soNgayConLai == 0) {
             thoiGianSuKienGanNhat = 'Hôm nay - $ngayText';
@@ -586,7 +636,12 @@ class DesktopWidgetScreen extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ],
                 ),
                 child: HomeScreenWidgetUI(
                   thangDuyet: now.month,
