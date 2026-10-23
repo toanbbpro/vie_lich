@@ -75,15 +75,26 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadSoundSetting() async {
-    final type = await SoundSettings.getType();
-    final name = await SoundSettings.getCustomFileName();
-    if (!mounted) return;
-    setState(() {
-      _soundType = type;
-      _customFileName = name;
-      _loadingSound = false;
-    });
+    Future<void> _loadSoundSetting() async {
+    try {
+      final type = await SoundSettings.getType();
+      final name = await SoundSettings.getCustomFileName();
+      if (!mounted) return;
+      setState(() {
+        _soundType = type;
+        _customFileName = name;
+        _loadingSound = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Lỗi load âm thanh: $e');
+      if (!mounted) return;
+      // Nếu có lỗi, fallback về âm hệ thống để không bị kẹt vòng xoay
+      setState(() {
+        _soundType = SoundType.system;
+        _customFileName = null;
+        _loadingSound = false;
+      });
+    }
   }
 
   Future<void> _togglePhatThu() async {

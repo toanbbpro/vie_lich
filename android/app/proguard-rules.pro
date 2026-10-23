@@ -11,3 +11,11 @@
 -keep class androidx.activity.EdgeToEdge { public static *** enable*(...); }
 -keepnames class androidx.activity.ComponentActivity
 -keepnames class androidx.activity.SystemBarStyle
+
+# Giữ lại toàn bộ class của shared_preferences (do dùng Pigeon/Reflection)
+-keep class io.flutter.plugins.sharedpreferences.** { *; }
+-keep class androidx.preferences.** { *; }
+
+# Đề phòng các plugin khác dùng cơ chế tương tự
+-keep class io.flutter.plugins.pathprovider.** { *; }
+-keep class com.toanbb.vie_lich.** { *; }
