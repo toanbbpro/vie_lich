@@ -3,19 +3,23 @@ import 'dart:convert';
 import 'dart:io' show Platform, pid, Process, ProcessSignal, ProcessStartMode, File, Directory;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // cho SystemChrome
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
 import 'providers/su_kien_provider.dart';
+import 'providers/theme_provider.dart';
 import 'services/app_update_service.dart';
 import 'services/github_update_service.dart';
 import 'services/windows_update_service.dart';
@@ -37,12 +41,22 @@ const Size kMainSize = Size(1000, 700);
 const double kSnapThreshold = 60.0;
 const double kSnapMargin = 20.0;
 
-// ============================================================
-// FILE-BASED IPC
-// ============================================================
+const int kDailyAlarmId = 0;
+const int kPeriodicAlarmId = 1;
+
+const String kPrefLastUpdate = 'widget_last_update_date';
+const String kPrefPermissionAsked = 'permission_asked_v1';
+
 const String kStateFile = 'widget_state.json';
 const String kEventsFile = 'widget_events.json';
 
+String _formatDate(DateTime d) {
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+// ============================================================
+// FILE-BASED IPC — giữa main window ↔ widget window
+// ============================================================
 String? _getDataDir() {
   if (Platform.isWindows) {
     final appData = Platform.environment['APPDATA'];
@@ -121,27 +135,80 @@ void _forceExit() {
 }
 
 // ============================================================
-// ENTRY POINT
+// ANDROID PERMISSIONS & ALARM HELPERS
+// ============================================================
+Future<void> _requestPermissionsFirstLaunch() async {
+  if (!Platform.isAndroid && !Platform.isIOS) return;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final asked = prefs.getBool(kPrefPermissionAsked) ?? false;
+    if (asked) return;
+    await Future.delayed(const Duration(milliseconds: 900));
+    await Permission.notification.request();
+    await prefs.setBool(kPrefPermissionAsked, true);
+  } catch (e) {
+    debugPrint('❌ [Permission] Lỗi: $e');
+  }
+}
+
+Future<void> _scheduleWidgetDailyUpdate() async {
+  if (!Platform.isAndroid) return;
+  try {
+    final now = DateTime.now();
+    DateTime nextMidnight;
+    if (now.hour == 0 && now.minute < 1) {
+      nextMidnight = DateTime(now.year, now.month, now.day, 0, 1);
+    } else {
+      nextMidnight = DateTime(now.year, now.month, now.day + 1, 0, 1);
+    }
+    await AndroidAlarmManager.cancel(kDailyAlarmId);
+    await AndroidAlarmManager.oneShotAt(
+      nextMidnight,
+      kDailyAlarmId,
+      widgetUpdateCallback, // import từ widget_service.dart
+      exact: true,
+      wakeup: true,
+      rescheduleOnReboot: true,
+    );
+    debugPrint('⏰ [Widget] Daily scheduled: $nextMidnight');
+  } catch (e) {
+    debugPrint('❌ [Widget] Schedule daily lỗi: $e');
+  }
+}
+
+Future<void> _scheduleWidgetPeriodicBackup() async {
+  if (!Platform.isAndroid) return;
+  try {
+    await AndroidAlarmManager.cancel(kPeriodicAlarmId);
+    await AndroidAlarmManager.periodic(
+      const Duration(hours: 6),
+      kPeriodicAlarmId,
+      widgetUpdateCallback, // import từ widget_service.dart
+      exact: false,
+      wakeup: true,
+      rescheduleOnReboot: true,
+    );
+    debugPrint('⏰ [Widget] Backup scheduled: every 6h');
+  } catch (e) {
+    debugPrint('❌ [Widget] Schedule backup lỗi: $e');
+  }
+}
+
+Future<void> scheduleWidgetUpdates() async {
+  if (!Platform.isAndroid) return;
+  await _scheduleWidgetDailyUpdate();
+  await _scheduleWidgetPeriodicBackup();
+}
+
+// ============================================================
+// MAIN ENTRY POINT
 // ============================================================
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // ============================================================
-  // KHOÁ XOAY MÀN HÌNH — chỉ mobile (Android + iOS)
-  // Chỉ cho phép portrait (dọc) để tránh overflow layout
-  // ============================================================
-  if (Platform.isAndroid || Platform.isIOS) {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-  }
 
-  // ============================================================
-  // EDGE-TO-EDGE — Android 15+ (API 35+)
-  // ============================================================
   if (Platform.isAndroid || Platform.isIOS) {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -153,6 +220,8 @@ Future<void> main(List<String> args) async {
       ),
     );
   }
+
+  // Widget window? → chạy mode widget riêng
   final windowController = await WindowController.fromCurrentEngine();
   final windowArgs = windowController.arguments;
 
@@ -166,53 +235,48 @@ Future<void> main(List<String> args) async {
 
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
-    await windowManager.setPreventClose(true);
-    const opts = WindowOptions(
+    const windowOptions = WindowOptions(
       size: kMainSize,
+      minimumSize: Size(800, 600),
       center: true,
+      title: 'VIE Lịch',
       titleBarStyle: TitleBarStyle.normal,
     );
-    windowManager.waitUntilReadyToShow(opts, () async {
-      await windowManager.hide();
-    });
-  } else if (Platform.isMacOS) {
-    await windowManager.ensureInitialized();
-    const opts = WindowOptions(
-      size: Size(1000, 700),
-      minimumSize: Size(600, 700),
-      center: true,
-      titleBarStyle: TitleBarStyle.normal,
-    );
-    windowManager.waitUntilReadyToShow(opts, () async {
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
       await windowManager.focus();
     });
   }
 
   await initializeDateFormatting('vi', null);
-
   await Hive.initFlutter();
   Hive.registerAdapter(SuKienAdapter());
-  final box = await Hive.openBox<SuKien>('suKienBox');
+  await Hive.openBox<SuKien>('suKienBox');
 
-  // Notification: CHỈ Android, iOS, macOS
-  // Windows dùng Go helper (vie_lich_helper.exe) đọc schedule.json
   try {
     if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
       await NotificationService.init();
-      await NotificationService.khoiPhucLich(box.values.toList());
     }
   } catch (e) {
-    debugPrint('⚠️ NotificationService init lỗi: $e');
+    debugPrint('❌ Init notification lỗi: $e');
   }
 
   DeepLinkService.init();
 
+  // Android: alarm manager để update widget mobile hàng ngày
+  if (Platform.isAndroid) {
+    try {
+      await AndroidAlarmManager.initialize();
+      await scheduleWidgetUpdates();
+    } catch (e, st) {
+      debugPrint('❌ [Alarm] Init/Schedule lỗi: $e\n$st');
+    }
+  }
+
   runApp(const MainApp());
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    const bool isPlayStore =
-        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (isPlayStore && Platform.isAndroid) {
       await AppUpdateService.autoUpdateFlow();
     }
@@ -231,15 +295,13 @@ class MainApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LichProvider()),
         ChangeNotifierProvider(create: (_) => SuKienProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: const _MainAppContent(),
     );
   }
 }
 
-// ============================================================
-// _MAIN APP CONTENT
-// ============================================================
 class _MainAppContent extends StatefulWidget {
   const _MainAppContent();
 
@@ -248,7 +310,7 @@ class _MainAppContent extends StatefulWidget {
 }
 
 class _MainAppContentState extends State<_MainAppContent>
-    with WindowListener {
+    with WindowListener, WidgetsBindingObserver {
   TrayIcon? _trayIcon;
   Menu? _trayMenu;
 
@@ -271,6 +333,7 @@ class _MainAppContentState extends State<_MainAppContent>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     if (Platform.isWindows) {
       windowManager.addListener(this);
@@ -280,13 +343,21 @@ class _MainAppContentState extends State<_MainAppContent>
     _kiemTraFlexibleUpdateDaTai();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed && Platform.isAndroid) {
+      _scheduleWidgetDailyUpdate();
+    }
+  }
+
   Future<void> _bootstrap() async {
     try {
       if (Platform.isWindows) {
         await _loadSavedState();
         await _updateState({'visible': true});
         _widgetEnabled = true;
-        debugPrint('📍 Reset visible=true khi khởi động');
+        debugPrint('📝 Reset visible=true khi khởi động');
       }
     } catch (e) {
       debugPrint('❌ Load state lỗi: $e');
@@ -301,6 +372,9 @@ class _MainAppContentState extends State<_MainAppContent>
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Permission (mobile)
+      await _requestPermissionsFirstLaunch();
+
       try {
         if (Platform.isMacOS) {
           debugPrint('⏳ [Flutter] Đợi MainFlutterWindow register MethodChannel...');
@@ -308,6 +382,10 @@ class _MainAppContentState extends State<_MainAppContent>
           await _capNhatWidgetVoiRetry();
         } else if (Platform.isAndroid || Platform.isIOS) {
           await WidgetService.capNhatWidget();
+          if (Platform.isAndroid) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
+          }
         } else if (Platform.isWindows) {
           await _loadScreenInfo();
           await _createWidgetWindow();
@@ -316,7 +394,7 @@ class _MainAppContentState extends State<_MainAppContent>
         debugPrint('❌ Widget init lỗi: $e');
       }
 
-      // Ghi schedule cho Go helper đọc — sau khi mọi thứ đã ready
+      // Windows: ghi schedule.json + start helper
       if (Platform.isWindows) {
         try {
           await Future.delayed(const Duration(milliseconds: 1000));
@@ -325,8 +403,6 @@ class _MainAppContentState extends State<_MainAppContent>
         } catch (e) {
           debugPrint('⚠️ Ghi schedule lỗi: $e');
         }
-
-        // Start helper nếu chưa chạy
         await _startHelperIfNotRunning();
       }
     });
@@ -351,19 +427,18 @@ class _MainAppContentState extends State<_MainAppContent>
     if (Platform.isWindows) {
       windowManager.removeListener(this);
     }
+    WidgetsBinding.instance.removeObserver(this);
     _trayIcon?.dispose();
     _suKienProvider?.removeListener(_onDataChanged);
     super.dispose();
   }
 
   // ============================================================
-  // HELPER AUTO-START
+  // HELPER AUTO-START (Windows)
   // ============================================================
   Future<void> _startHelperIfNotRunning() async {
     if (!Platform.isWindows) return;
-
     try {
-      // Check helper đang chạy chưa
       final result = await Process.run(
         'tasklist',
         ['/FI', 'IMAGENAME eq vie_lich_helper.exe', '/NH'],
@@ -375,7 +450,6 @@ class _MainAppContentState extends State<_MainAppContent>
         return;
       }
 
-      // Tìm helper exe cạnh vie_lich.exe
       final exeDir = File(Platform.resolvedExecutable).parent.path;
       final helperPath = '$exeDir\\vie_lich_helper.exe';
 
@@ -384,15 +458,12 @@ class _MainAppContentState extends State<_MainAppContent>
         return;
       }
 
-      // Start helper ở chế độ detached — không phụ thuộc process cha
-      // Khi user tắt vie_lich.exe, helper vẫn chạy độc lập
       await Process.start(
         helperPath,
         [],
         mode: ProcessStartMode.detached,
         workingDirectory: exeDir,
       );
-
       debugPrint('🚀 Đã start helper: $helperPath');
     } catch (e) {
       debugPrint('❌ Start helper lỗi: $e');
@@ -407,8 +478,7 @@ class _MainAppContentState extends State<_MainAppContent>
     _widgetLocked = state['locked'] as bool? ?? false;
     _savedWidgetX = (state['x'] as num?)?.toDouble() ?? 100.0;
     _savedWidgetY = (state['y'] as num?)?.toDouble() ?? 100.0;
-    debugPrint('📍 Loaded state: pos=($_savedWidgetX, $_savedWidgetY) '
-        'locked=$_widgetLocked');
+    debugPrint('📝 Loaded state: pos=($_savedWidgetX, $_savedWidgetY) locked=$_widgetLocked');
     if (mounted) setState(() {});
   }
 
@@ -433,8 +503,7 @@ class _MainAppContentState extends State<_MainAppContent>
         _workAreaWidth = size.width;
         _workAreaHeight = size.height;
       }
-
-      debugPrint('📐 Work area: ${_workAreaWidth.toInt()}x${_workAreaHeight.toInt()}');
+      debugPrint('🖥 Work area: ${_workAreaWidth.toInt()}x${_workAreaHeight.toInt()}');
     } catch (e) {
       debugPrint('⚠️ Lỗi screen info: $e');
       _workAreaWidth = 1920;
@@ -445,7 +514,7 @@ class _MainAppContentState extends State<_MainAppContent>
 
   Future<void> _toggleWidgetLock() async {
     final newState = !_widgetLocked;
-    debugPrint('🔐 Toggle lock: $_widgetLocked → $newState');
+    debugPrint('🔒 Toggle lock: $_widgetLocked → $newState');
     setState(() => _widgetLocked = newState);
     await _updateState({'locked': newState});
     await _rebuildTrayMenu();
@@ -455,7 +524,6 @@ class _MainAppContentState extends State<_MainAppContent>
     if (!Platform.isWindows) return;
 
     final events = _suKienProvider?.danhSachSuKien ?? [];
-
     final newHash = events.map((e) => '${e.id}:${e.ten}').toList();
     if (_listEquals(newHash, _lastEventHash)) return;
     _lastEventHash = newHash;
@@ -463,7 +531,6 @@ class _MainAppContentState extends State<_MainAppContent>
     final jsonList = events.map((e) => e.toJson()).toList();
     _writeEvents(jsonList);
 
-    // Ghi schedule cho Go helper — mỗi khi data thay đổi
     ScheduleWriter.writeAll();
   }
 
@@ -479,9 +546,7 @@ class _MainAppContentState extends State<_MainAppContent>
     if (_workAreaWidth == 0 || _workAreaHeight == 0) {
       await _loadScreenInfo();
     }
-
-    debugPrint('📍 Tạo widget tại ($_savedWidgetX, $_savedWidgetY) '
-        'locked=$_widgetLocked');
+    debugPrint('📝 Tạo widget tại ($_savedWidgetX, $_savedWidgetY) locked=$_widgetLocked');
 
     try {
       final controller = await WindowController.create(
@@ -501,10 +566,8 @@ class _MainAppContentState extends State<_MainAppContent>
           }),
         ),
       );
-
       _widgetController = controller;
       _widgetEnabled = true;
-
       debugPrint('✅ Đã tạo widget (id=${controller.windowId})');
 
       await Future.delayed(const Duration(milliseconds: 500));
@@ -545,10 +608,8 @@ class _MainAppContentState extends State<_MainAppContent>
 
   Future<void> _kiemTraFlexibleUpdateDaTai() async {
     if (!Platform.isAndroid) return;
-    const bool isPlayStore =
-        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (!isPlayStore) return;
-
     final info = await AppUpdateService.checkForUpdate();
     if (info?.installStatus == InstallStatus.downloaded) {
       await AppUpdateService.completeFlexibleUpdate();
@@ -556,35 +617,34 @@ class _MainAppContentState extends State<_MainAppContent>
   }
 
   Future<void> _capNhatWidgetVoiRetry() async {
-    for (int i = 0; i < 5; i++) {
+    const int maxRetries = 5;
+    const Duration retryDelay = Duration(milliseconds: 800);
+    for (int i = 0; i < maxRetries; i++) {
       try {
         await WidgetService.capNhatWidget();
         return;
-      } catch (_) {
-        if (i < 4) await Future.delayed(const Duration(milliseconds: 800));
+      } catch (e) {
+        debugPrint('⚠️ [Flutter] capNhatWidget lỗi lần ${i + 1}: $e');
+        if (i < maxRetries - 1) await Future.delayed(retryDelay);
       }
     }
+    debugPrint('❌ [Flutter] capNhatWidget thất bại sau $maxRetries lần thử');
   }
 
   // ============================================================
-  // SYSTEM TRAY — Native API (tray_manager 0.7.0)
+  // SYSTEM TRAY
   // ============================================================
   Future<void> _initSystemTray() async {
     try {
       String iconPath = '';
-
       if (Platform.isWindows) {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final candidates = [
-          '$exeDir\\app_icon.ico',
+          '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
           '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) {
-            iconPath = p;
-            debugPrint('✅ Tray icon (Windows): $p');
-            break;
-          }
+          if (File(p).existsSync()) { iconPath = p; debugPrint('✅ Tray icon (Windows): $p'); break; }
         }
       } else if (Platform.isMacOS) {
         final exeFile = File(Platform.resolvedExecutable);
@@ -594,11 +654,7 @@ class _MainAppContentState extends State<_MainAppContent>
           '$appDir/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) {
-            iconPath = p;
-            debugPrint('✅ Tray icon (macOS): $p');
-            break;
-          }
+          if (File(p).existsSync()) { iconPath = p; debugPrint('✅ Tray icon (macOS): $p'); break; }
         }
       }
 
@@ -615,19 +671,14 @@ class _MainAppContentState extends State<_MainAppContent>
 
       _trayIcon!.icon = ImageAsset.fromAsset(iconPath);
       _trayIcon!.setTooltip('VIE Lịch');
-      debugPrint('✅ setIcon + setTooltip OK');
-
       await _rebuildTrayMenu();
 
       _trayIcon!.addListener((event) {
         if (event is TrayIconClickedEvent) {
-          debugPrint('🖱️ Tray icon LEFT click');
           _openMainWindow();
         } else if (event is TrayIconRightClickedEvent) {
-          debugPrint('🖱️ Tray icon RIGHT click → popup menu');
           _trayIcon?.openContextMenu();
         } else if (event is TrayIconDoubleClickedEvent) {
-          debugPrint('🖱️ Tray icon DOUBLE click');
           _openMainWindow();
         }
       });
@@ -639,15 +690,13 @@ class _MainAppContentState extends State<_MainAppContent>
     }
   }
 
-  Future<void> _rebuildTrayMenu() async {
+    Future<void> _rebuildTrayMenu() async {
     _trayMenu = Menu.create();
     if (_trayMenu == null) {
-      debugPrint('⚠️ Không tạo được Menu');
       return;
     }
 
     if (Platform.isWindows) {
-      // Item 1: Hiện/ẩn widget
       final toggleWidgetItem = MenuItem.createWithLabelAndType(
         'Hiện Widget Lịch',
         MenuItemType.checkbox,
@@ -667,7 +716,6 @@ class _MainAppContentState extends State<_MainAppContent>
       });
       _trayMenu!.addItem(toggleWidgetItem!);
 
-      // Item 2: Khóa vị trí
       final toggleLockItem = MenuItem.createWithLabelAndType(
         'Khóa vị trí Widget',
         MenuItemType.checkbox,
@@ -682,7 +730,6 @@ class _MainAppContentState extends State<_MainAppContent>
       });
       _trayMenu!.addItem(toggleLockItem!);
 
-      // Item 3: Mở cửa sổ quản lý
       final openMainItem = MenuItem.createWithLabelAndType(
         'Mở cửa sổ quản lý',
         MenuItemType.normal,
@@ -696,7 +743,6 @@ class _MainAppContentState extends State<_MainAppContent>
 
       _trayMenu!.addSeparator();
 
-      // Item 4: Thoát ứng dụng (helper vẫn chạy ngầm)
       final exitItem = MenuItem.createWithLabelAndType(
         'Thoát ứng dụng',
         MenuItemType.normal,
@@ -735,7 +781,6 @@ class _MainAppContentState extends State<_MainAppContent>
     }
 
     _trayIcon?.setContextMenu(_trayMenu!);
-    debugPrint('✅ setContextMenu OK');
   }
 
   Future<void> _openMainWindow() async {
@@ -746,31 +791,37 @@ class _MainAppContentState extends State<_MainAppContent>
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      title: 'Âm lịch Việt Nam',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
-        useMaterial3: true,
-      ),
-      locale: const Locale('vi', 'VN'),
-      supportedLocales: const [
-        Locale('vi', 'VN'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      home: const MainScreen(),
-      debugShowCheckedModeBanner: false,
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'Âm lịch Việt Nam',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.red, brightness: Brightness.light),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.red, brightness: Brightness.dark),
+            useMaterial3: true,
+          ),
+          themeMode: themeProvider.themeMode,
+          locale: const Locale('vi', 'VN'),
+          supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const MainScreen(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }
 
 // ============================================================
-// WIDGET WINDOW APP
+// WIDGET WINDOW APP (Windows — cửa sổ Flutter riêng)
 // ============================================================
 class WidgetWindowApp extends StatefulWidget {
   final WindowController windowController;
@@ -818,7 +869,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
       _x = (config['x'] as num?)?.toDouble() ?? 100;
       _y = (config['y'] as num?)?.toDouble() ?? 100;
       _isLocked = (config['locked'] as bool?) ?? false;
-
       _screenX = (config['screenX'] as num?)?.toDouble() ?? 0;
       _screenY = (config['screenY'] as num?)?.toDouble() ?? 0;
       _screenWidth = (config['screenWidth'] as num?)?.toDouble() ?? 1920;
@@ -827,7 +877,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     } catch (_) {}
 
     debugPrint('🔧 Widget init: locked=$_isLocked pos=($_x, $_y)');
-
     _init();
     _startPolling();
   }
@@ -844,7 +893,7 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
 
     final locked = state['locked'] as bool? ?? false;
     if (locked != _isLocked) {
-      debugPrint('🔐 Widget nhận lock = $locked (từ file)');
+      debugPrint('🔒 Widget nhận lock = $locked (từ file)');
       if (mounted) setState(() => _isLocked = locked);
     }
 
@@ -867,13 +916,11 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
 
     try {
       final events = rawEvents.map((e) => SuKien.fromJson(e)).toList();
-
       bool needsUpdate = events.length != _events.length;
       if (!needsUpdate && events.isNotEmpty && _events.isNotEmpty) {
         needsUpdate = events.first.id != _events.first.id ||
             events.last.id != _events.last.id;
       }
-
       if (needsUpdate && mounted) {
         setState(() => _events = events);
         debugPrint('📅 Widget cập nhật ${events.length} events');
@@ -900,7 +947,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
       if (mounted) setState(() => _ready = true);
       return;
     }
-
     try {
       await windowManager.ensureInitialized();
       windowManager.addListener(this);
@@ -931,7 +977,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   @override
   void onWindowMove() {
     if (_isLocked || _snapping) return;
-
     _snapTimer?.cancel();
     _snapTimer = Timer(const Duration(milliseconds: 300), () async {
       await _snapToEdge();
@@ -951,7 +996,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     try {
       final position = await windowManager.getPosition();
       final size = await windowManager.getSize();
-
       final scale = _scaleFactor <= 0 ? 1.0 : _scaleFactor;
       final workArea = Rect.fromLTWH(
         _screenX / scale,
@@ -971,7 +1015,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
         newX = workArea.right - size.width - kSnapMargin;
         changed = true;
       }
-
       if (position.dy <= workArea.top + kSnapThreshold) {
         newY = workArea.top + kSnapMargin;
         changed = true;
@@ -1024,8 +1067,7 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     final todayOnly = DateTime(now.year, now.month, now.day);
 
     final amHienTai = AmLichHelper.duongSangAm(now);
-    final int namAmHienTai =
-        amHienTai != null ? amHienTai.getYear() : now.year;
+    final int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
 
     final dsDaChuyenDoi = <Map<String, dynamic>>[];
     final ngayCoSuKien = <int>[];
@@ -1036,11 +1078,9 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
           AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
 
       if (sk.namAm == null && ngayDuong != null) {
-        final dateOnly =
-            DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
+        final dateOnly = DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
         if (dateOnly.isBefore(todayOnly)) {
-          ngayDuong = AmLichHelper.amSangDuong(
-              namAmHienTai + 1, sk.thangAm, sk.ngayAm);
+          ngayDuong = AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
         }
       }
 
@@ -1067,11 +1107,9 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     }).toList();
 
     if (suKienSapToi.isNotEmpty) {
-      suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime)
-          .compareTo(b['ngayDuong'] as DateTime));
+      suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
       final skGanNhat = suKienSapToi.first;
       final dateSK = skGanNhat['ngayDuong'] as DateTime;
-
       tenSK = skGanNhat['ten'] as String;
       loaiSK = skGanNhat['tag'] as String;
 
@@ -1080,7 +1118,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
           .inDays;
       final ngayText =
           '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
-
       if (soNgay == 0) {
         thoiGianSK = 'Hôm nay - $ngayText';
       } else if (soNgay == 1) {
@@ -1113,27 +1150,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    const bool isPlayStore =
-        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      if (Platform.isWindows) {
-        await WindowsUpdateService.checkUpdate(
-          context,
-          respectSkip: true,
-        );
-      } else if (!isPlayStore) {
-        GithubUpdateService.checkUpdate(context);
-      }
-    });
-  }
-
-  static const List<Widget> _screens = [
+  final _screens = const [
     LichNgayScreen(),
     LichThangScreen(),
     NhacSuKienScreen(),
@@ -1141,82 +1158,62 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (Platform.isWindows) {
+        await WindowsUpdateService.checkUpdate(context, respectSkip: true);
+      } else if (!isPlayStore) {
+        GithubUpdateService.checkUpdate(context);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isDesktop =
-        Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth >= 600;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: isDesktop
+      extendBody: false,
+      body: isDesktop || isWideScreen
           ? Row(
               children: [
                 NavigationRail(
                   selectedIndex: _selectedIndex,
-                  onDestinationSelected: (index) {
-                    setState(() => _selectedIndex = index);
-                  },
+                  onDestinationSelected: (index) => setState(() => _selectedIndex = index),
                   labelType: NavigationRailLabelType.all,
                   selectedIconTheme: const IconThemeData(color: Colors.red),
-                  selectedLabelTextStyle: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  selectedLabelTextStyle: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.today_outlined),
-                      selectedIcon: Icon(Icons.today),
-                      label: Text('Lịch ngày'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.calendar_month_outlined),
-                      selectedIcon: Icon(Icons.calendar_month),
-                      label: Text('Lịch tháng'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.notifications_outlined),
-                      selectedIcon: Icon(Icons.notifications),
-                      label: Text('Nhắc lịch'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: Text('Cài đặt'),
-                    ),
+                    NavigationRailDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: Text('Lịch ngày')),
+                    NavigationRailDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: Text('Lịch tháng')),
+                    NavigationRailDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: Text('Nhắc lịch')),
+                    NavigationRailDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: Text('Cài đặt')),
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
-                Expanded(
-                  child: IndexedStack(
-                    index: _selectedIndex,
-                    children: _screens,
-                  ),
-                ),
+                Expanded(child: IndexedStack(index: _selectedIndex, children: _screens)),
               ],
             )
           : IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: !isDesktop
+      bottomNavigationBar: !isDesktop && !isWideScreen
           ? NavigationBar(
               selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                setState(() => _selectedIndex = index);
-              },
+              onDestinationSelected: (index) => setState(() => _selectedIndex = index),
               destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.today),
-                  label: 'Lịch ngày',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.calendar_month),
-                  label: 'Lịch tháng',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.notifications),
-                  label: 'Nhắc lịch',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.settings),
-                  label: 'Cài đặt',
-                ),
+                NavigationDestination(icon: Icon(Icons.today), label: 'Lịch ngày'),
+                NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Lịch tháng'),
+                NavigationDestination(icon: Icon(Icons.notifications), label: 'Nhắc lịch'),
+                NavigationDestination(icon: Icon(Icons.settings), label: 'Cài đặt'),
               ],
             )
           : null,

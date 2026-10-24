@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_ce/hive.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tyme/tyme.dart';
 import 'package:home_widget/home_widget.dart';
 import '../widgets/home_screen_widget_ui.dart';
@@ -36,8 +38,7 @@ class WidgetService {
       List<Map<String, dynamic>> dsDaChuyenDoi = [];
 
       LunarDay? amHienTai = AmLichHelper.duongSangAm(now);
-      int namAmHienTai =
-          amHienTai != null ? amHienTai.getYear() : now.year;
+      int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
       DateTime todayOnly = DateTime(now.year, now.month, now.day);
 
       for (var sk in danhSachSuKien) {
@@ -102,9 +103,6 @@ class WidgetService {
       debugPrint("Lỗi khi đọc sự kiện Hive cho Widget: $e");
     }
 
-    // ============================================================
-    // ANDROID / iOS: giữ nguyên cách cũ
-    // ============================================================
     String nextEventText = thoiGianSuKienGanNhat.isEmpty
         ? tenSuKienGanNhat
         : "$tenSuKienGanNhat\n($thoiGianSuKienGanNhat)";
@@ -131,9 +129,6 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>('next_event', nextEventText);
       await HomeWidget.updateWidget(iOSName: macOSWidgetName);
     } else if (Platform.isMacOS) {
-      // ============================================================
-      // macOS: build JSON đầy đủ rồi gửi qua MethodChannel
-      // ============================================================
       final jsonData = _buildMacOSWidgetJson(
         now: now,
         ngayCoSuKien: ngayCoSuKienHienTai,
@@ -154,8 +149,6 @@ class WidgetService {
     }
   }
 
-  /// Build JSON data cho widget macOS.
-  /// Trả về string JSON đã encode.
   static String _buildMacOSWidgetJson({
     required DateTime now,
     required List<int> ngayCoSuKien,
@@ -163,12 +156,10 @@ class WidgetService {
     required String thoiGianSuKien,
     required String loaiSuKien,
   }) {
-    // Thông tin ngày hiện tại
     final amHienTai = AmLichHelper.duongSangAm(now);
 
-    // Danh sách ô lịch đầy đủ (bắt đầu từ thứ Hai của tuần chứa ngày 1)
     final ngayDauThang = DateTime(now.year, now.month, 1);
-    final offset = ngayDauThang.weekday - 1; // 0 = Thứ Hai
+    final offset = ngayDauThang.weekday - 1;
     final ngayBatDau = ngayDauThang.subtract(Duration(days: offset));
     final soNgayTrongThang = DateTime(now.year, now.month + 1, 0).day;
     final tongO = offset + soNgayTrongThang;
@@ -201,8 +192,10 @@ class WidgetService {
       'thu': _thuNames[now.weekday - 1],
       'ngayAm': amHienTai?.getDay() ?? 0,
       'thangAm': amHienTai?.getMonth() ?? 0,
+      // FIX: trước đây là targetDay.year — biến không tồn tại, gây compile error
       'namAm': amHienTai?.getYear() ?? now.year,
-      'canChiNam': AmLichHelper.layCanChiNam(amHienTai!),
+      'canChiNam':
+          amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
       'dsO': dsO,
       'tenSuKien': tenSuKien,
       'thoiGianSuKien': thoiGianSuKien,
@@ -210,5 +203,56 @@ class WidgetService {
     };
 
     return jsonEncode(map);
+  }
+}
+
+// ============================================================
+// BACKGROUND CALLBACK — Android AlarmManager (isolate riêng)
+// Có tự reschedule daily để alarm chạy tiếp ngày hôm sau.
+// ============================================================
+@pragma('vm:entry-point')
+Future<void> widgetUpdateCallback() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('⏰ [Widget BG] Callback fired — ${DateTime.now()}');
+
+  try {
+    await Hive.initFlutter();
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(SuKienAdapter());
+    }
+    if (!Hive.isBoxOpen('suKienBox')) {
+      await Hive.openBox<SuKien>('suKienBox');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final lastUpdate = prefs.getString('widget_last_update_date');
+
+    if (lastUpdate == today) {
+      debugPrint('⏭️ [Widget BG] Đã update hôm nay ($today), skip');
+    } else {
+      await WidgetService.capNhatWidget();
+      await prefs.setString('widget_last_update_date', today);
+      debugPrint('✅ [Widget BG] Đã update widget cho ngày $today');
+    }
+
+    // Tự reschedule daily cho ngày mai
+    if (Platform.isAndroid) {
+      final nextMidnight = DateTime(now.year, now.month, now.day + 1, 0, 1);
+      await AndroidAlarmManager.cancel(0);
+      await AndroidAlarmManager.oneShotAt(
+        nextMidnight,
+        0,
+        widgetUpdateCallback,
+        exact: true,
+        wakeup: true,
+        rescheduleOnReboot: true,
+      );
+      debugPrint('⏰ [Widget BG] Đã schedule lần tiếp theo: $nextMidnight');
+    }
+  } catch (e, st) {
+    debugPrint('❌ [Widget BG] Lỗi: $e\n$st');
   }
 }

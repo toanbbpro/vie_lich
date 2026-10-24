@@ -47,7 +47,7 @@ class GithubUpdateService {
           final assets = data['assets'] as List;
           for (var asset in assets) {
             final name = asset['name'].toString().toLowerCase();
-            if (name.endsWith('.zip') && name.contains('app')) {
+            if (name.endsWith('.zip') && (name.contains('macos') || name.contains('app'))) {
               macOSZipUrl = asset['browser_download_url'];
               break;
             }

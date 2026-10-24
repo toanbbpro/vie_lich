@@ -116,6 +116,11 @@ lib/firebase_options.dart
 # FVM (nếu dùng Flutter Version Management)
 # ==============================================================
 .fvm/
+# Build outputs
+android/build/
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+macos/Flutter/GeneratedPluginRegistrant.swift
 
 # ==============================================================
 # Generated plugin Windows files

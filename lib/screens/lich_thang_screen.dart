@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +9,6 @@ import '../utils/lunar_vn.dart';
 
 class LichThangScreen extends StatefulWidget {
   const LichThangScreen({super.key});
-
   @override
   State<LichThangScreen> createState() => _LichThangScreenState();
 }
@@ -28,29 +26,20 @@ class _LichThangScreenState extends State<LichThangScreen> {
 
   LunarDate _layAmLich(DateTime date) {
     final key = '${date.year}-${date.month}-${date.day}';
-    return _cacheAmLich.putIfAbsent(
-      key,
-      () => LunarSolarConverter.solarToLunar(date),
-    );
+    return _cacheAmLich.putIfAbsent(key, () => LunarSolarConverter.solarToLunar(date));
   }
 
   void _thangTruoc() {
-    setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
-    });
+    setState(() => _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1));
   }
 
   void _thangSau() {
-    setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
-    });
+    setState(() => _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1));
   }
 
   void _veHomNay() {
     final now = DateTime.now();
-    setState(() {
-      _focusedMonth = DateTime(now.year, now.month, 1);
-    });
+    setState(() => _focusedMonth = DateTime(now.year, now.month, 1));
     Provider.of<LichProvider>(context, listen: false).chonNgay(now);
   }
 
@@ -69,7 +58,6 @@ class _LichThangScreenState extends State<LichThangScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<LichProvider>(context);
     final selectedDate = provider.selectedDate;
-
     final suKienProvider = Provider.of<SuKienProvider>(context);
     final cacNgayCoSuKien = suKienProvider.cacNgayCoSuKienDuongLich;
 
@@ -77,35 +65,25 @@ class _LichThangScreenState extends State<LichThangScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // Xác định thiết bị Desktop để giới hạn chiều rộng
-    final isDesktop = Platform.isMacOS || Platform.isWindows || Platform.isLinux;
-
+    // 👇 Dùng LayoutBuilder thay vì MediaQuery để phản hồi theo widget cha
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lịch tháng'),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.today),
-            tooltip: 'Hôm nay',
-            onPressed: _veHomNay,
-          ),
+          IconButton(icon: const Icon(Icons.today), tooltip: 'Hôm nay', onPressed: _veHomNay),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            // ĐÃ SỬA: Giới hạn bề ngang trên Desktop ở mức tối đa 600px để ô lịch vuông vắn
-            constraints: BoxConstraints(maxWidth: isDesktop ? 600 : double.infinity),
-            child: Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWideScreen = constraints.maxWidth >= 700;
+
+          // Hàm dựng Grid Lịch
+          Widget buildCalendar() {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _HeaderThang(
-                  thang: _focusedMonth.month,
-                  nam: _focusedMonth.year,
-                  onPrev: _thangTruoc,
-                  onNext: _thangSau,
-                ),
+                _HeaderThang(thang: _focusedMonth.month, nam: _focusedMonth.year, onPrev: _thangTruoc, onNext: _thangSau),
                 const _HeaderThu(),
                 GridView.builder(
                   shrinkWrap: true,
@@ -113,7 +91,7 @@ class _LichThangScreenState extends State<LichThangScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 7,
-                    childAspectRatio: 1.0, 
+                    childAspectRatio: 1.0,
                     crossAxisSpacing: 2,
                     mainAxisSpacing: 2,
                   ),
@@ -124,7 +102,6 @@ class _LichThangScreenState extends State<LichThangScreen> {
                     final isCurrentMonth = date.month == _focusedMonth.month && date.year == _focusedMonth.year;
                     final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
                     final isSelected = date.year == selectedDate.year && date.month == selectedDate.month && date.day == selectedDate.day;
-
                     final dateOnly = DateTime(date.year, date.month, date.day);
                     final hasEvent = cacNgayCoSuKien.contains(dateOnly);
 
@@ -135,85 +112,96 @@ class _LichThangScreenState extends State<LichThangScreen> {
                       isToday: isToday,
                       isSelected: isSelected,
                       hasEvent: hasEvent,
-                      onTap: () {
-                        provider.chonNgay(date);
-                      },
+                      onTap: () => provider.chonNgay(date),
                     );
                   },
                 ),
-                const SizedBox(height: 12),
-                _ChiTietNgayChon(
-                  ngay: selectedDate,
-                  amLich: _layAmLich(selectedDate),
-                ),
-                const SizedBox(height: 16),
               ],
-            ),
-          ),
-        ),
+            );
+          }
+
+          if (isWideScreen) {
+            // Giao diện Tablet/Landscape: Chia 2 cột
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: SingleChildScrollView(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: buildCalendar(),
+                      ),
+                    ),
+                  ),
+                ),
+                const VerticalDivider(thickness: 1, width: 1),
+                Expanded(
+                  flex: 2,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(top: 16, bottom: 16),
+                    child: _ChiTietNgayChon(ngay: selectedDate, amLich: _layAmLich(selectedDate)),
+                  ),
+                ),
+              ],
+            );
+          } else {
+            // Giao diện Mobile dọc
+            return SingleChildScrollView(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      buildCalendar(),
+                      const SizedBox(height: 12),
+                      _ChiTietNgayChon(ngay: selectedDate, amLich: _layAmLich(selectedDate)),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+        },
       ),
     );
   }
 }
 
-/// ===== HEADER ĐIỀU HƯỚNG THÁNG =====
 class _HeaderThang extends StatelessWidget {
   final int thang;
   final int nam;
   final VoidCallback onPrev;
   final VoidCallback onNext;
-
-  const _HeaderThang({
-    required this.thang,
-    required this.nam,
-    required this.onPrev,
-    required this.onNext,
-  });
+  const _HeaderThang({required this.thang, required this.nam, required this.onPrev, required this.onNext});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
-      ),
+      decoration: BoxDecoration(color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            onPressed: onPrev,
-            icon: const Icon(Icons.chevron_left, size: 28),
-            tooltip: 'Tháng trước',
-          ),
-          Text(
-            'Tháng $thang, $nam',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          IconButton(
-            onPressed: onNext,
-            icon: const Icon(Icons.chevron_right, size: 28),
-            tooltip: 'Tháng sau',
-          ),
+          IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left, size: 28), tooltip: 'Tháng trước'),
+          Text('Tháng $thang, $nam', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+          IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right, size: 28), tooltip: 'Tháng sau'),
         ],
       ),
     );
   }
 }
 
-/// ===== HEADER THỨ TRONG TUẦN =====
 class _HeaderThu extends StatelessWidget {
   const _HeaderThu();
-
   @override
   Widget build(BuildContext context) {
     const thu = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -222,14 +210,7 @@ class _HeaderThu extends StatelessWidget {
           final isCN = i == 6;
           return Expanded(
             child: Center(
-              child: Text(
-                thu[i],
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: isCN ? Colors.red : theme.colorScheme.primary,
-                ),
-              ),
+              child: Text(thu[i], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isCN ? Colors.red : theme.colorScheme.primary)),
             ),
           );
         }),
@@ -238,7 +219,6 @@ class _HeaderThu extends StatelessWidget {
   }
 }
 
-/// ===== Ô NGÀY =====
 class _ONgay extends StatelessWidget {
   final DateTime date;
   final LunarDate amLich;
@@ -247,24 +227,25 @@ class _ONgay extends StatelessWidget {
   final bool isSelected;
   final bool hasEvent; 
   final VoidCallback onTap;
-
-  const _ONgay({
-    required this.date,
-    required this.amLich,
-    required this.isCurrentMonth,
-    required this.isToday,
-    required this.isSelected,
-    this.hasEvent = false,
-    required this.onTap,
-  });
+  const _ONgay({required this.date, required this.amLich, required this.isCurrentMonth, required this.isToday, required this.isSelected, this.hasEvent = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark; // 👈 Kiểm tra Dark Mode
     final isCN = date.weekday == 7;
 
-    Color colorDuong = isCN ? Colors.red.shade700 : Colors.black87;
-    Color colorAm = Colors.red;
+    // 👇 SỬA MÀU SỐ DƯƠNG LỊCH TẠI ĐÂY
+    Color colorDuong;
+    Color colorAm;
+    if (isDark) {
+      colorDuong = isCN ? Colors.red.shade300 : Colors.white; // Trắng sáng hoặc đỏ nhạt
+      colorAm = Colors.red.shade300;
+    } else {
+      colorDuong = isCN ? Colors.red.shade700 : Colors.black87;
+      colorAm = Colors.red;
+    }
+
     if (!isCurrentMonth) {
       colorDuong = colorDuong.withValues(alpha: 0.35);
       colorAm = colorAm.withValues(alpha: 0.35);
@@ -274,16 +255,10 @@ class _ONgay extends StatelessWidget {
     if (isSelected) {
       bg = theme.colorScheme.primaryContainer;
     } else if (isToday) {
-      bg = theme.colorScheme.primary.withValues(alpha: 0.08);
+      bg = theme.colorScheme.primary.withValues(alpha: 0.15);
     }
 
-    String ngayAmText;
-    if (amLich.day == 1) {
-      ngayAmText = '1/${amLich.month}';
-    } else {
-      ngayAmText = '${amLich.day}';
-    }
-
+    String ngayAmText = amLich.day == 1 ? '1/${amLich.month}' : '${amLich.day}';
     final isDauThangAm = amLich.day == 1;
     final isRam = amLich.day == 15;
 
@@ -294,64 +269,24 @@ class _ONgay extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(6),
-          border: isToday
-              ? Border.all(color: theme.colorScheme.primary, width: 1.5)
-              : null,
+          border: isToday ? Border.all(color: theme.colorScheme.primary, width: 1.5) : null,
         ),
         padding: const EdgeInsets.all(2),
         child: Stack(
           children: [
-            Positioned(
-              top: 2,
-              left: 4,
-              child: Text(
-                '${date.day}',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: colorDuong,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 2,
-              right: 4,
-              child: Text(
-                ngayAmText,
-                style: TextStyle(
-                  fontSize: isDauThangAm ? 10 : 11,
-                  color: colorAm,
-                  fontWeight: (isDauThangAm || isRam)
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                ),
-              ),
-            ),
+            Positioned(top: 2, left: 4, child: Text('${date.day}', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: colorDuong))),
+            Positioned(bottom: 2, right: 4, child: Text(ngayAmText, style: TextStyle(fontSize: isDauThangAm ? 10 : 11, color: colorAm, fontWeight: (isDauThangAm || isRam) ? FontWeight.bold : FontWeight.normal))),
             if (isDauThangAm || isRam)
               Positioned(
                 bottom: 4,
                 left: 4,
-                child: Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isRam ? Colors.orange : Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+                child: Container(width: 4, height: 4, decoration: BoxDecoration(color: isRam ? Colors.orange : Colors.red, shape: BoxShape.circle)),
               ),
             if (hasEvent)
               Positioned(
                 top: 4,
                 right: 4,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade700,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+                child: Container(width: 6, height: 6, decoration: BoxDecoration(color: Colors.blue.shade700, shape: BoxShape.circle)),
               ),
           ],
         ),
@@ -360,11 +295,9 @@ class _ONgay extends StatelessWidget {
   }
 }
 
-/// ===== CHI TIẾT NGÀY ĐƯỢC CHỌN =====
 class _ChiTietNgayChon extends StatelessWidget {
   final DateTime ngay;
   final LunarDate amLich;
-
   const _ChiTietNgayChon({required this.ngay, required this.amLich});
 
   @override
@@ -382,69 +315,29 @@ class _ChiTietNgayChon extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              thu,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
-              ),
-            ),
+            Text(thu, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
             const SizedBox(height: 6),
-            Text(
-              'Âm lịch: ${AmLichHelper.layTenNgay(amLich.day)} '
-              '${AmLichHelper.layTenThang(amLich.month).toLowerCase()}, '
-              'năm ${amLich.canChiYear}'
-              '${amLich.isLeap ? ' (nhuận)' : ''}',
-              style: const TextStyle(fontSize: 14, color: Colors.red),
-            ),
+            Text('Âm lịch: ${AmLichHelper.layTenNgay(amLich.day)} ${AmLichHelper.layTenThang(amLich.month).toLowerCase()}, năm ${amLich.canChiYear}${amLich.isLeap ? ' (nhuận)' : ''}', style: const TextStyle(fontSize: 14, color: Colors.red)),
             if (lunarDay != null) ...[
               const SizedBox(height: 4),
-              Text(
-                AmLichHelper.layChuoiCanChiDayDu(lunarDay),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
+              Text(AmLichHelper.layChuoiCanChiDayDu(lunarDay), style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: theme.colorScheme.primary)),
             ],
             if (tietKhi.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.wb_sunny_outlined, size: 14, color: Colors.orange.shade700),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Tiết khí: $tietKhi',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ],
-              ),
+              Row(children: [Icon(Icons.wb_sunny_outlined, size: 14, color: Colors.orange.shade700), const SizedBox(width: 4), Text('Tiết khí: $tietKhi', style: const TextStyle(fontSize: 13))]),
             ],
             if (dsLe.isNotEmpty) ...[
               const SizedBox(height: 8),
-              ...dsLe.map(
-                (le) => Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.celebration, size: 14, color: Colors.orange),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          le,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.orange,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              ...dsLe.map((le) => Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.celebration, size: 14, color: Colors.orange),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(le, style: const TextStyle(fontSize: 13, color: Colors.orange, fontWeight: FontWeight.w500))),
+                      ],
+                    ),
+                  )),
             ],
           ],
         ),
