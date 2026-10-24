@@ -26,6 +26,7 @@ import 'services/windows_update_service.dart';
 import 'services/notification_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/schedule_writer.dart';
+import 'services/auto_start_service.dart';
 import 'screens/lich_ngay_screen.dart';
 import 'screens/lich_thang_screen.dart';
 import 'screens/nhac_su_kien_screen.dart';
@@ -242,9 +243,15 @@ Future<void> main(List<String> args) async {
       title: 'VIE Lịch',
       titleBarStyle: TitleBarStyle.normal,
     );
+    final isAutoStart = args.contains(AutoStartService.startupArg);
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
+      if (isAutoStart) {
+        // Auto-start: KHÔNG show main window, chỉ widget hiện
+        debugPrint('🚀 [AutoStart] Launch từ shortcut → ẩn main window');
+      } else {
+        await windowManager.show();
+        await windowManager.focus();
+      }
     });
   }
 
@@ -317,6 +324,7 @@ class _MainAppContentState extends State<_MainAppContent>
   WindowController? _widgetController;
   bool _widgetEnabled = true;
   bool _widgetLocked = false;
+  bool _autoStartEnabled = false;
 
   double _savedWidgetX = 100.0;
   double _savedWidgetY = 100.0;
@@ -358,6 +366,15 @@ class _MainAppContentState extends State<_MainAppContent>
         await _updateState({'visible': true});
         _widgetEnabled = true;
         debugPrint('📝 Reset visible=true khi khởi động');
+
+        // Đọc trạng thái auto-start từ filesystem (source-of-truth)
+        _autoStartEnabled = await AutoStartService.isEnabled();
+        debugPrint('🚀 [AutoStart] Trạng thái: $_autoStartEnabled');
+
+        // Nếu shortcut tồn tại, refresh path (user có thể đã di chuyển folder app)
+        if (_autoStartEnabled) {
+          await AutoStartService.refreshIfStale();
+        }
       }
     } catch (e) {
       debugPrint('❌ Load state lỗi: $e');
@@ -520,6 +537,27 @@ class _MainAppContentState extends State<_MainAppContent>
     await _rebuildTrayMenu();
   }
 
+  Future<void> _toggleAutoStart() async {
+    final newState = !_autoStartEnabled;
+    debugPrint('🚀 [AutoStart] Toggle: $_autoStartEnabled → $newState');
+
+    final ok = newState
+        ? await AutoStartService.enable()
+        : await AutoStartService.disable();
+
+    if (!ok) {
+      debugPrint('❌ [AutoStart] Thao tác thất bại, giữ nguyên state');
+      return;
+    }
+
+    // Đọc lại từ filesystem để chắc chắn
+    final actual = await AutoStartService.isEnabled();
+    setState(() => _autoStartEnabled = actual);
+    await _rebuildTrayMenu();
+
+    debugPrint('${actual ? "✅" : "⏹️"} [AutoStart] Enabled=$actual');
+  }
+
   void _onDataChanged() {
     if (!Platform.isWindows) return;
 
@@ -644,7 +682,11 @@ class _MainAppContentState extends State<_MainAppContent>
           '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) { iconPath = p; debugPrint('✅ Tray icon (Windows): $p'); break; }
+          if (File(p).existsSync()) {
+            iconPath = p;
+            debugPrint('✅ Tray icon (Windows): $p');
+            break;
+          }
         }
       } else if (Platform.isMacOS) {
         final exeFile = File(Platform.resolvedExecutable);
@@ -654,7 +696,11 @@ class _MainAppContentState extends State<_MainAppContent>
           '$appDir/Frameworks/App.framework/Resources/flutter_assets/assets/icon/vie_lich_logo.png',
         ];
         for (final p in candidates) {
-          if (File(p).existsSync()) { iconPath = p; debugPrint('✅ Tray icon (macOS): $p'); break; }
+          if (File(p).existsSync()) {
+            iconPath = p;
+            debugPrint('✅ Tray icon (macOS): $p');
+            break;
+          }
         }
       }
 
@@ -690,7 +736,7 @@ class _MainAppContentState extends State<_MainAppContent>
     }
   }
 
-    Future<void> _rebuildTrayMenu() async {
+  Future<void> _rebuildTrayMenu() async {
     _trayMenu = Menu.create();
     if (_trayMenu == null) {
       return;
@@ -729,6 +775,21 @@ class _MainAppContentState extends State<_MainAppContent>
         }
       });
       _trayMenu!.addItem(toggleLockItem!);
+
+      // NEW: Khởi động cùng Windows
+      final toggleAutoStartItem = MenuItem.createWithLabelAndType(
+        'Khởi động cùng Windows',
+        MenuItemType.checkbox,
+      );
+      toggleAutoStartItem?.state = _autoStartEnabled
+          ? MenuItemState.checked
+          : MenuItemState.unchecked;
+      toggleAutoStartItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          _toggleAutoStart();
+        }
+      });
+      _trayMenu!.addItem(toggleAutoStartItem!);
 
       final openMainItem = MenuItem.createWithLabelAndType(
         'Mở cửa sổ quản lý',
