@@ -25,7 +25,7 @@
     }
     html {
       scroll-behavior: smooth;
-      scroll-snap-type: y mandatory;
+      scroll-snap-type: y proximity;
       overscroll-behavior-y: none;
     }
     .snap-section {
@@ -80,7 +80,7 @@
         <a href="#download" data-nav="download" class="nav-link hover:text-red-600 transition">Tải về</a>
         <a href="#screenshots" data-nav="screenshots" class="nav-link hover:text-red-600 transition">Giao diện</a>
         <a href="#features" data-nav="features" class="nav-link hover:text-red-600 transition">Tính năng</a>
-        <a href="https://toanbbpro.github.io/vie_lich/privacy.html" class="text-slate-700 hover:text-red-600 font-semibold transition flex items-center gap-1.5">
+        <a href="/privacy.html" class="text-slate-700 hover:text-red-600 font-semibold transition flex items-center gap-1.5">
           <i class="fa-solid fa-shield-halved text-xs text-slate-500"></i> Quyền riêng tư
         </a>
       </nav>
@@ -129,14 +129,11 @@
   </aside>
 
   <!-- ================= SECTION 1: HERO ================= -->
-  <!-- Background: Lưới công nghệ mờ + Quầng sáng Mesh Đỏ & Vàng truyền thống -->
   <section id="hero" class="snap-section relative overflow-hidden bg-white">
-    <!-- Lớp nền trang trí -->
     <div class="absolute inset-0 bg-grid-pattern pointer-events-none"></div>
     <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[550px] h-[320px] bg-gradient-to-tr from-red-200/50 via-amber-100/40 to-transparent rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute bottom-10 left-1/2 -translate-x-1/2 w-[320px] h-[320px] bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Nội dung chính -->
     <div class="relative z-10 full-screen-section flex flex-col justify-between pt-20 md:pt-24 pb-4 md:pb-8 px-6 max-w-5xl mx-auto text-center">
       <div class="my-auto">
         <span class="bg-red-50/90 backdrop-blur-xs text-red-600 border border-red-200/80 text-[11px] font-semibold px-3.5 py-1 rounded-full uppercase tracking-wider inline-block shadow-2xs">
@@ -151,14 +148,12 @@
           Lịch vạn niên tinh gọn, tra cứu ngày hoàng đạo, can chi, tiết khí<br/>Tạo và quản lý nhắc việc theo lịch âm tiện lợi trên mọi thiết bị.<br/> Hỗ trợ chia sẻ nhắc việc lịch âm giữa các thiết bị đa nền tảng.<br/> Có widget lịch tháng âm dương đẹp, tiện lợi.
         </p>
 
-        <!-- Duy nhất 1 nút tải về trỏ xuống mục Download -->
         <div class="mt-5 md:mt-7 flex justify-center items-center">
           <a href="#download" class="inline-flex items-center gap-2.5 px-6 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-red-500/25 transition hover:scale-[1.02]">
             <i class="fa-solid fa-download"></i> Tải ứng dụng ngay
           </a>
         </div>
 
-        <!-- Hero Phone Mockup Image (Cũng hỗ trợ bấm phóng to Lightbox) -->
         <div class="mt-6 md:mt-8 flex justify-center">
           <div onclick="openLightbox(0)" title="Bấm để phóng to" class="group cursor-pointer relative p-1.5 bg-slate-900 rounded-[2.2rem] shadow-2xl shadow-slate-900/20 border-3 border-slate-800 max-w-[175px] sm:max-w-[210px] transition duration-300 hover:scale-[1.03]">
             <img 
@@ -173,7 +168,6 @@
         </div>
       </div>
 
-      <!-- Scroll down indicator -->
       <a href="#download" class="inline-block text-slate-400 hover:text-slate-700 transition animate-bounce py-1 md:py-2">
         <i class="fa-solid fa-chevron-down text-sm"></i>
       </a>
@@ -181,14 +175,11 @@
   </section>
 
   <!-- ================= SECTION 2: DOWNLOAD ================= -->
-  <!-- Background: Xám đá dịu mắt + Họa tiết chấm bi (Dot Pattern) làm nổi bật các nút tải màu đen -->
   <section id="download" class="snap-section relative overflow-hidden bg-slate-100/90 border-y border-slate-200/80">
-    <!-- Lớp nền trang trí -->
     <div class="absolute inset-0 bg-dot-pattern opacity-75 pointer-events-none"></div>
     <div class="absolute -top-32 -right-32 w-96 h-96 bg-red-100/60 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-100/60 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Nội dung chính -->
     <div class="relative z-10 full-screen-section flex flex-col justify-between pt-20 pb-4 md:py-20 px-6 max-w-5xl mx-auto">
       <div class="my-auto">
         <div class="text-center mb-5 md:mb-8">
@@ -199,7 +190,6 @@
           </p>
         </div>
 
-        <!-- Store Badges Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3.5">
           <!-- Google Play -->
           <a href="https://play.google.com/store/apps/details?id=com.toanbb.vie_lich" target="_blank" class="flex items-center gap-3.5 p-3 sm:p-3.5 px-4 bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-500 rounded-xl text-white transition shadow-md hover:shadow-lg hover:scale-[1.01]">
@@ -261,7 +251,6 @@
           </a>
         </div>
 
-        <!-- iOS Note -->
         <div class="mt-4 sm:mt-5 bg-amber-50/90 backdrop-blur-xs border border-amber-200/90 rounded-xl p-3 sm:p-3.5 px-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-2xs">
           <div class="flex items-center gap-2.5 text-amber-950">
             <i class="fa-brands fa-apple text-amber-600 text-base"></i>
@@ -272,7 +261,6 @@
         </div>
       </div>
 
-      <!-- Scroll down indicator -->
       <a href="#screenshots" class="text-center text-slate-400 hover:text-slate-700 transition animate-bounce py-1 md:py-2">
         <i class="fa-solid fa-chevron-down text-sm"></i>
       </a>
@@ -280,12 +268,9 @@
   </section>
 
   <!-- ================= SECTION 3: SCREENSHOTS ================= -->
-  <!-- Background: Nền trắng sạch sẽ kết hợp dải sáng Spotlight trung tâm tôn vinh bộ ảnh giao diện -->
   <section id="screenshots" class="snap-section relative overflow-hidden bg-white">
-    <!-- Lớp nền trang trí -->
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-5xl h-72 bg-gradient-to-r from-red-100/50 via-amber-100/60 to-orange-100/50 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Nội dung chính -->
     <div class="relative z-10 full-screen-section flex flex-col justify-between pt-20 pb-4 md:py-20 px-6 max-w-7xl mx-auto">
       <div class="my-auto w-full">
         <div class="text-center mb-6 md:mb-8">
@@ -294,9 +279,7 @@
           <p class="text-slate-500 mt-1 text-xs md:text-sm">Chạm vào từng hình ảnh để phóng to xem chi tiết giao diện</p>
         </div>
 
-        <!-- Gallery cuộn ngang -->
         <div class="flex gap-5 overflow-x-auto no-scrollbar pb-4 px-2 snap-x snap-mandatory">
-          <!-- Item 1 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="0">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/9ffd5359-5c26-404e-9ba8-0c92a6efbfd6" alt="Trang chủ / Hôm nay" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -307,7 +290,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Trang chủ / Hôm nay</span>
           </div>
 
-          <!-- Item 2 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="1">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/60a400ca-21f3-4fff-ae17-bffd6841ea53" alt="Lịch tháng" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -318,7 +300,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Lịch tháng</span>
           </div>
 
-          <!-- Item 3 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="2">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/b5a6b8a1-7f1c-4b4c-8f21-a266439c0816" alt="Danh sách nhắc lịch" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -329,7 +310,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Danh sách nhắc lịch</span>
           </div>
 
-          <!-- Item 4 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="3">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/695b26e3-5ac7-42bb-88e4-d7b92cb32fdd" alt="Cấu hình cài đặt" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -340,7 +320,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Cấu hình cài đặt</span>
           </div>
 
-          <!-- Item 5 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="4">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/7ee90435-af65-41b3-8666-231273956c54" alt="Thêm / sửa nhắc lịch" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -351,7 +330,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Thêm / sửa nhắc lịch</span>
           </div>
 
-          <!-- Item 6 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="5">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/a045277a-20a5-4e63-9629-108872f7110e" alt="Chia sẻ QR code" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -362,7 +340,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Chia sẻ QR code</span>
           </div>
 
-          <!-- Item 7 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="6">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/a65aec95-7284-41c9-816c-5e2faf31c6b8" alt="Buy me a coffee" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -373,7 +350,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Buy me a coffee</span>
           </div>
 
-          <!-- Item 8 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="7">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/1486733a-7537-456a-bc39-f564dbaf9ecc" alt="Thông báo" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -384,7 +360,6 @@
             <span class="block mt-2.5 text-xs font-medium text-slate-600 group-hover:text-red-600 transition">Thông báo</span>
           </div>
 
-          <!-- Item 9 -->
           <div class="screenshot-item flex-shrink-0 snap-center text-center group cursor-pointer" data-index="8">
             <div class="relative p-1.5 bg-slate-900 rounded-[1.8rem] shadow-lg group-hover:shadow-xl group-hover:-translate-y-1 transition duration-300 border border-slate-800 w-[190px] sm:w-[200px]">
               <img src="https://github.com/user-attachments/assets/2eb75b1e-4e77-4dc0-b58a-179691a431e8" alt="Tự động cập nhật" class="rounded-[1.4rem] w-full h-auto object-cover" />
@@ -397,7 +372,6 @@
         </div>
       </div>
 
-      <!-- Scroll down indicator -->
       <a href="#features" class="text-center text-slate-400 hover:text-slate-700 transition animate-bounce py-1 md:py-2">
         <i class="fa-solid fa-chevron-down text-sm"></i>
       </a>
@@ -405,62 +379,124 @@
   </section>
 
   <!-- ================= SECTION 4: FEATURES & FOOTER ================= -->
-  <!-- Background: Gradient ấm (Slate -> Red/Amber) + Thẻ Glassmorphism trong suốt -->
-  <section id="features" class="snap-section relative overflow-hidden bg-gradient-to-b from-slate-50 via-red-50/25 to-amber-50/40 border-t border-slate-200/70">
-    <!-- Lớp nền trang trí -->
+  <!-- Features section không còn snap + full-screen vì đã mở rộng lên 9 cards (dài hơn 1 viewport) -->
+  <section id="features" class="relative overflow-hidden bg-gradient-to-b from-slate-50 via-red-50/25 to-amber-50/40 border-t border-slate-200/70">
     <div class="absolute top-12 left-10 w-80 h-80 bg-red-200/30 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute bottom-16 right-10 w-80 h-80 bg-amber-200/30 rounded-full blur-3xl pointer-events-none"></div>
 
-    <!-- Nội dung chính -->
-    <div class="relative z-10 full-screen-section flex flex-col justify-between pt-20 px-6 max-w-6xl mx-auto">
-      <div class="my-auto">
-        <div class="text-center mb-6 md:mb-10">
-          <span class="text-xs font-bold text-red-600 uppercase tracking-widest">Tiện ích</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Tính năng nổi bật</h2>
-          <p class="text-slate-500 mt-1 text-xs md:text-sm">Được thiết kế đáp ứng đúng nhu cầu văn hóa và sinh hoạt của người Việt</p>
+    <div class="relative z-10 py-20 px-6 max-w-6xl mx-auto">
+      <div class="text-center mb-8 md:mb-12">
+        <span class="text-xs font-bold text-red-600 uppercase tracking-widest">Tiện ích</span>
+        <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 mt-1">Tính năng nổi bật</h2>
+        <p class="text-slate-500 mt-2 text-xs md:text-sm max-w-2xl mx-auto">Được thiết kế đáp ứng đúng nhu cầu văn hóa và sinh hoạt của người Việt, tối ưu cho mọi nền tảng</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <!-- Feature 1: Lịch Âm -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-red-50 text-red-600 border border-red-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-moon"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Lịch Âm Chuẩn Xác</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Thuật toán tính lịch âm theo múi giờ Việt Nam, đầy đủ can chi ngày/tháng/năm, tiết khí và các ngày lễ truyền thống.
+          </p>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-4 sm:gap-6">
-          <!-- Feature 1 -->
-          <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
-            <div class="w-10 h-10 sm:w-11 sm:h-11 bg-red-50 text-red-600 border border-red-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
-              <i class="fa-solid fa-moon"></i>
-            </div>
-            <h3 class="text-base font-bold text-slate-900 mb-1">Lịch Âm Chuẩn Xác</h3>
-            <p class="text-slate-600 text-xs leading-relaxed">
-              Thuật toán tính lịch âm theo múi giờ Việt Nam, đầy đủ can chi ngày/tháng/năm, tiết khí và các ngày lễ truyền thống.
-            </p>
+        <!-- Feature 2: Nhắc lịch -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-star"></i>
           </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Nhắc Lịch Âm Tự Động</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Nhắc giỗ chạp, rằm, mùng một tự động hàng năm. Hỗ trợ xuất sang lịch hệ thống và sao lưu/khôi phục qua JSON.
+          </p>
+        </div>
 
-          <!-- Feature 2 -->
-          <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
-            <div class="w-10 h-10 sm:w-11 sm:h-11 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
-              <i class="fa-solid fa-star"></i>
-            </div>
-            <h3 class="text-base font-bold text-slate-900 mb-1">Nhắc Lịch Âm Tự Động</h3>
-            <p class="text-slate-600 text-xs leading-relaxed">
-              Nhắc các ngày giỗ chạp, rằm, mùng một tự động hàng năm, hỗ trợ chia sẻ qua mã QR và xuất file sao lưu JSON.
-            </p>
+        <!-- Feature 3: Dark mode -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-palette"></i>
           </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Giao Diện Sáng / Tối</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Tùy chọn chế độ Sáng, Tối hoặc theo hệ thống. Tự động ghi nhớ lựa chọn và áp dụng nhất quán trên mọi màn hình.
+          </p>
+        </div>
 
-          <!-- Feature 3 -->
-          <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
-            <div class="w-10 h-10 sm:w-11 sm:h-11 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
-              <i class="fa-solid fa-shield-halved"></i>
-            </div>
-            <h3 class="text-base font-bold text-slate-900 mb-1">Gọn Nhẹ & Riêng Tư</h3>
-            <p class="text-slate-600 text-xs leading-relaxed">
-              Không chèn quảng cáo, bảo mật dữ liệu cá nhân hoàn toàn trên máy, hỗ trợ cập nhật trực tiếp qua GitHub.
-            </p>
+        <!-- Feature 4: Auto update -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-arrows-rotate"></i>
           </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Tự Động Cập Nhật</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Windows tự tải ZIP, thay thế và khởi động lại bản mới. Mac/Android nhận thông báo cập nhật trực tiếp qua GitHub Releases.
+          </p>
+        </div>
+
+        <!-- Feature 5: Media -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-pink-50 text-pink-600 border border-pink-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-photo-film"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Đa Phương Tiện</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Đính kèm nhiều ảnh và video vào mỗi sự kiện, xem thumbnail và phát trực tiếp trong app với trình phát gọn nhẹ.
+          </p>
+        </div>
+
+        <!-- Feature 6: Windows auto-start -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-cyan-50 text-cyan-600 border border-cyan-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-rocket"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Khởi Động Cùng Windows</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Bật/tắt từ menu tray chỉ với một click. App thu gọn xuống khay hệ thống, widget lịch luôn sẵn sàng khi bạn cần.
+          </p>
+        </div>
+
+        <!-- Feature 7: Widget -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-violet-50 text-violet-600 border border-violet-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-table-cells-large"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Widget Đa Nền Tảng</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Windows (kéo thả, snap cạnh màn hình, khóa vị trí), Android (home screen), macOS (Notification Center). Lịch tháng âm dương luôn hiển thị.
+          </p>
+        </div>
+
+        <!-- Feature 8: QR -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-purple-50 text-purple-600 border border-purple-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-qrcode"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Chia Sẻ QR Thông Minh</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Tạo QR chia sẻ nhiều sự kiện cùng lúc, quét nhận lịch nhanh với overlay camera đẹp và phản hồi tức thì.
+          </p>
+        </div>
+
+        <!-- Feature 9: Privacy -->
+        <div class="bg-white/85 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-white shadow-sm hover:shadow-md transition">
+          <div class="w-10 h-10 sm:w-11 sm:h-11 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl flex items-center justify-center text-lg mb-3 sm:mb-4 shadow-2xs">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mb-1">Gọn Nhẹ & Riêng Tư</h3>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            Không quảng cáo, dữ liệu lưu 100% trên máy. Mã nguồn mở, hỗ trợ âm thanh tùy chỉnh và không truy cập mạng ngoài khi cần cập nhật.
+          </p>
         </div>
       </div>
 
-      <!-- Integrated Footer -->
-      <footer class="w-full py-5 mt-6 md:mt-10 border-t border-slate-200/80 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-3">
+      <!-- Footer -->
+      <footer class="w-full py-6 mt-12 md:mt-16 border-t border-slate-200/80 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-3">
         <p>© 2026 Vie Lịch. Phát triển bởi <a href="https://github.com/toanbbpro" target="_blank" class="text-slate-700 font-medium hover:underline">toanbbpro</a>.</p>
         <div class="flex flex-wrap justify-center gap-4 sm:gap-5">
-          <a href="https://toanbbpro.github.io/vie_lich/privacy.html" class="text-red-600 font-semibold hover:underline">Chính sách quyền riêng tư</a>
+          <a href="/privacy.html" class="text-red-600 font-semibold hover:underline">Chính sách quyền riêng tư</a>
           <a href="https://github.com/toanbbpro/vie_lich/releases" target="_blank" class="hover:text-slate-800 transition">Bản phát hành</a>
           <a href="https://github.com/toanbbpro/vie_lich/blob/main/LICENSE" target="_blank" class="hover:text-slate-800 transition">License</a>
           <a href="https://github.com/toanbbpro/vie_lich/issues" target="_blank" class="hover:text-slate-800 transition">Báo lỗi / Góp ý</a>
@@ -471,17 +507,14 @@
 
   <!-- ================= LIGHTBOX MODAL (PHÓNG TO ẢNH) ================= -->
   <div id="lightbox" role="dialog" aria-modal="true" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/90 backdrop-blur-md opacity-0 transition-opacity duration-300 select-none">
-    <!-- Nút đóng góc trên bên phải -->
     <button id="lb-close" aria-label="Đóng" class="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition">
       <i class="fa-solid fa-xmark text-lg"></i>
     </button>
 
-    <!-- Nút Lùi (Previous) -->
     <button id="lb-prev" aria-label="Ảnh trước" class="absolute left-2 sm:left-6 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition active:scale-95">
       <i class="fa-solid fa-chevron-left text-base sm:text-lg"></i>
     </button>
 
-    <!-- Khung hiển thị ảnh và chú thích -->
     <div id="lb-content" class="relative flex flex-col items-center max-w-[90vw] max-h-[88dvh] transform scale-95 transition-transform duration-300">
       <div class="p-1.5 sm:p-2 bg-slate-900 rounded-[2rem] sm:rounded-[2.4rem] border-2 border-slate-700/80 shadow-2xl">
         <img id="lb-img" src="" alt="" class="max-h-[72dvh] sm:max-h-[76dvh] w-auto rounded-[1.6rem] sm:rounded-[2rem] object-contain block" />
@@ -492,7 +525,6 @@
       </div>
     </div>
 
-    <!-- Nút Tiến (Next) -->
     <button id="lb-next" aria-label="Ảnh tiếp theo" class="absolute right-2 sm:right-6 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition active:scale-95">
       <i class="fa-solid fa-chevron-right text-base sm:text-lg"></i>
     </button>
@@ -500,11 +532,9 @@
 
   <!-- Script điều khiển Lightbox, Navigation Dots & GitHub Releases -->
   <script>
-    // Danh sách dữ liệu ảnh dùng cho Lightbox
     const galleryItems = [];
     let currentImageIndex = 0;
 
-    // Hàm mở Lightbox toàn cục (để gọi được từ cả ảnh Hero)
     function openLightbox(index) {
       if (!galleryItems.length) return;
       currentImageIndex = (index + galleryItems.length) % galleryItems.length;
@@ -515,7 +545,7 @@
 
       lightbox.classList.remove('hidden');
       lightbox.classList.add('flex');
-      document.body.style.overflow = 'hidden'; // Khóa cuộn trang nền khi đang xem ảnh
+      document.body.style.overflow = 'hidden';
 
       requestAnimationFrame(() => {
         lightbox.classList.remove('opacity-0');
@@ -560,7 +590,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // 1. Khởi tạo dữ liệu và sự kiện cho Lightbox
       const screenshotCards = document.querySelectorAll('.screenshot-item');
       screenshotCards.forEach((card, idx) => {
         const img = card.querySelector('img');
@@ -584,12 +613,10 @@
         changeLightboxImage(1);
       });
 
-      // Bấm ra vùng nền tối bên ngoài khung điện thoại để đóng Lightbox
       lightbox.addEventListener('click', (e) => {
         if (e.target === lightbox) closeLightbox();
       });
 
-      // Hỗ trợ phím mũi tên Trái/Phải và phím ESC trên máy tính
       document.addEventListener('keydown', (e) => {
         if (lightbox.classList.contains('hidden')) return;
         if (e.key === 'Escape') closeLightbox();
@@ -597,7 +624,6 @@
         if (e.key === 'ArrowRight') changeLightboxImage(1);
       });
 
-      // Hỗ trợ vuốt ngang (Swipe trái/phải) trên màn hình cảm ứng điện thoại
       let touchStartX = 0;
       lightbox.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
@@ -607,12 +633,11 @@
         const touchEndX = e.changedTouches[0].screenX;
         const diff = touchStartX - touchEndX;
         if (Math.abs(diff) > 45) {
-          if (diff > 0) changeLightboxImage(1);  // Vuốt sang trái -> Ảnh kế tiếp
-          else changeLightboxImage(-1);          // Vuốt sang phải -> Ảnh trước đó
+          if (diff > 0) changeLightboxImage(1);
+          else changeLightboxImage(-1);
         }
       }, { passive: true });
 
-      // 2. Theo dõi section đang hiển thị để cập nhật Navigation Dots và Menu Header
       const sections = document.querySelectorAll('.snap-section');
       const dotNavs = document.querySelectorAll('.dot-nav');
       const navLinks = document.querySelectorAll('.nav-link');
@@ -643,12 +668,24 @@
           }
         });
       }, {
-        threshold: 0.5
+        threshold: 0.3
       });
 
       sections.forEach(section => observer.observe(section));
 
-      // 3. Tự động lấy thông tin bản phát hành mới nhất từ GitHub Releases
+      // Features section không snap nhưng vẫn cần update indicator khi user scroll vào
+      const featuresSection = document.getElementById('features');
+      if (featuresSection) {
+        const featuresObserver = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              updateActiveIndicator('features');
+            }
+          });
+        }, { threshold: 0.15 });
+        featuresObserver.observe(featuresSection);
+      }
+
       try {
         const response = await fetch('https://api.github.com/repos/toanbbpro/vie_lich/releases/latest');
         if (!response.ok) return;
