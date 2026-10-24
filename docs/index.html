@@ -25,7 +25,7 @@
     }
     html {
       scroll-behavior: smooth;
-      scroll-snap-type: y proximity;
+      scroll-snap-type: y mandatory;
       overscroll-behavior-y: none;
     }
     .snap-section {
@@ -590,6 +590,64 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
+      // ============================================================
+      // Snap mode toggle: mandatory cho 3 section đầu, none khi vào features
+      // ============================================================
+      const htmlEl = document.documentElement;
+      const screenshotsSection = document.getElementById('screenshots');
+
+      let snapDisabled = false;
+
+      function setSnapMode(disabled) {
+        if (disabled === snapDisabled) return;
+        snapDisabled = disabled;
+        htmlEl.style.scrollSnapType = disabled ? 'none' : 'y mandatory';
+      }
+
+      function getScreenshotsTop() {
+        return screenshotsSection.offsetTop;
+      }
+      function getScreenshotsBottom() {
+        return screenshotsSection.offsetTop + screenshotsSection.offsetHeight;
+      }
+      function getSnapOffThreshold() {
+        // Ngưỡng: scrollY của snap point cuối screenshots (bottom - viewport)
+        return getScreenshotsBottom() - window.innerHeight;
+      }
+
+      // Tắt snap khi user sắp scroll xuống khỏi snap point cuối screenshots
+      function maybeDisableSnap() {
+        if (snapDisabled) return;
+        if (window.scrollY >= getSnapOffThreshold() - 5) {
+          setSnapMode(true);
+        }
+      }
+
+      // Wheel fire trước scroll → tắt snap trước khi browser quyết định snap
+      window.addEventListener('wheel', (e) => {
+        if (e.deltaY > 0) maybeDisableSnap();
+      }, { passive: true });
+
+      // Touch (mobile/tablet)
+      window.addEventListener('touchmove', maybeDisableSnap, { passive: true });
+
+      // Scroll listener: bật lại snap khi đã scroll lên khỏi screenshots
+      // (dùng mốc screenshots TOP để tránh jump giữa screenshots)
+      window.addEventListener('scroll', () => {
+        if (!snapDisabled) return;
+        if (window.scrollY < getScreenshotsTop() - 5) {
+          setSnapMode(false);
+        }
+      }, { passive: true });
+
+      // Init: nếu URL hash trực tiếp vào features hoặc đã scroll sẵn vào features
+      if (window.scrollY >= getSnapOffThreshold() - 5) {
+        setSnapMode(true);
+      }
+      // ============================================================
+      // Hết block toggle snap mode
+      // ============================================================
+
       const screenshotCards = document.querySelectorAll('.screenshot-item');
       screenshotCards.forEach((card, idx) => {
         const img = card.querySelector('img');
