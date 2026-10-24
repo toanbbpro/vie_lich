@@ -166,7 +166,7 @@ Future<void> _scheduleWidgetDailyUpdate() async {
     await AndroidAlarmManager.oneShotAt(
       nextMidnight,
       kDailyAlarmId,
-      widgetUpdateCallback, // import từ widget_service.dart
+      widgetUpdateCallback,
       exact: true,
       wakeup: true,
       rescheduleOnReboot: true,
@@ -184,7 +184,7 @@ Future<void> _scheduleWidgetPeriodicBackup() async {
     await AndroidAlarmManager.periodic(
       const Duration(hours: 6),
       kPeriodicAlarmId,
-      widgetUpdateCallback, // import từ widget_service.dart
+      widgetUpdateCallback,
       exact: false,
       wakeup: true,
       rescheduleOnReboot: true,
@@ -236,6 +236,7 @@ Future<void> main(List<String> args) async {
 
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
+    await windowManager.setPreventClose(true);   // ← FIX: chặn destroy khi bấm X
     const windowOptions = WindowOptions(
       size: kMainSize,
       minimumSize: Size(800, 600),
@@ -246,23 +247,38 @@ Future<void> main(List<String> args) async {
     final isAutoStart = args.contains(AutoStartService.startupArg);
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       if (isAutoStart) {
-        // Auto-start: KHÔNG show main window, chỉ widget hiện
         debugPrint('🚀 [AutoStart] Launch từ shortcut → ẩn main window');
+        await windowManager.hide();
       } else {
         await windowManager.show();
         await windowManager.focus();
       }
+    });
+  } else if (Platform.isMacOS) {
+    // ← FIX: macOS window block (bản gốc có, tôi trước đó thiếu)
+    await windowManager.ensureInitialized();
+    const windowOptions = WindowOptions(
+      size: Size(1000, 700),
+      minimumSize: Size(600, 700),
+      center: true,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
     });
   }
 
   await initializeDateFormatting('vi', null);
   await Hive.initFlutter();
   Hive.registerAdapter(SuKienAdapter());
-  await Hive.openBox<SuKien>('suKienBox');
+  final box = await Hive.openBox<SuKien>('suKienBox');
 
   try {
     if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
       await NotificationService.init();
+      // ← FIX: khôi phục notification schedule sau reboot
+      await NotificationService.khoiPhucLich(box.values.toList());
     }
   } catch (e) {
     debugPrint('❌ Init notification lỗi: $e');
@@ -270,7 +286,6 @@ Future<void> main(List<String> args) async {
 
   DeepLinkService.init();
 
-  // Android: alarm manager để update widget mobile hàng ngày
   if (Platform.isAndroid) {
     try {
       await AndroidAlarmManager.initialize();
@@ -367,11 +382,9 @@ class _MainAppContentState extends State<_MainAppContent>
         _widgetEnabled = true;
         debugPrint('📝 Reset visible=true khi khởi động');
 
-        // Đọc trạng thái auto-start từ filesystem (source-of-truth)
         _autoStartEnabled = await AutoStartService.isEnabled();
         debugPrint('🚀 [AutoStart] Trạng thái: $_autoStartEnabled');
 
-        // Nếu shortcut tồn tại, refresh path (user có thể đã di chuyển folder app)
         if (_autoStartEnabled) {
           await AutoStartService.refreshIfStale();
         }
@@ -389,7 +402,6 @@ class _MainAppContentState extends State<_MainAppContent>
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Permission (mobile)
       await _requestPermissionsFirstLaunch();
 
       try {
@@ -411,7 +423,6 @@ class _MainAppContentState extends State<_MainAppContent>
         debugPrint('❌ Widget init lỗi: $e');
       }
 
-      // Windows: ghi schedule.json + start helper
       if (Platform.isWindows) {
         try {
           await Future.delayed(const Duration(milliseconds: 1000));
@@ -450,9 +461,6 @@ class _MainAppContentState extends State<_MainAppContent>
     super.dispose();
   }
 
-  // ============================================================
-  // HELPER AUTO-START (Windows)
-  // ============================================================
   Future<void> _startHelperIfNotRunning() async {
     if (!Platform.isWindows) return;
     try {
@@ -487,9 +495,6 @@ class _MainAppContentState extends State<_MainAppContent>
     }
   }
 
-  // ============================================================
-  // LOAD / SAVE STATE
-  // ============================================================
   Future<void> _loadSavedState() async {
     final state = await _readState();
     _widgetLocked = state['locked'] as bool? ?? false;
@@ -550,7 +555,6 @@ class _MainAppContentState extends State<_MainAppContent>
       return;
     }
 
-    // Đọc lại từ filesystem để chắc chắn
     final actual = await AutoStartService.isEnabled();
     setState(() => _autoStartEnabled = actual);
     await _rebuildTrayMenu();
@@ -669,16 +673,13 @@ class _MainAppContentState extends State<_MainAppContent>
     debugPrint('❌ [Flutter] capNhatWidget thất bại sau $maxRetries lần thử');
   }
 
-  // ============================================================
-  // SYSTEM TRAY
-  // ============================================================
   Future<void> _initSystemTray() async {
     try {
       String iconPath = '';
       if (Platform.isWindows) {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final candidates = [
-          '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
+          '$exeDir\\app_icon.ico',                                          // ← FIX: candidate đầu
           '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
         ];
         for (final p in candidates) {
@@ -776,7 +777,6 @@ class _MainAppContentState extends State<_MainAppContent>
       });
       _trayMenu!.addItem(toggleLockItem!);
 
-      // NEW: Khởi động cùng Windows
       final toggleAutoStartItem = MenuItem.createWithLabelAndType(
         'Khởi động cùng Windows',
         MenuItemType.checkbox,
