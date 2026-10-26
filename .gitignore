@@ -140,3 +140,5 @@ build/
 *.hive
 *.lock
 sukienbox.*
+
+.vscode/
