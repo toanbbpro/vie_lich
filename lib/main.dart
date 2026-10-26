@@ -866,6 +866,11 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   Timer? _pollTimer;
   bool _snapping = false;
 
+  // Lưu ngày hiện tại để phát hiện khi qua ngày mới (00:00)
+  int _lastKnownDay = DateTime.now().day;
+  int _lastKnownMonth = DateTime.now().month;
+  int _lastKnownYear = DateTime.now().year;
+
   @override
   void initState() {
     super.initState();
@@ -888,7 +893,24 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     _pollTimer = Timer.periodic(const Duration(milliseconds: 300), (_) async {
       await _pollState();
       await _pollEvents();
+      _checkDayChange();
     });
+  }
+
+  void _checkDayChange() {
+    final now = DateTime.now();
+    if (now.day != _lastKnownDay ||
+        now.month != _lastKnownMonth ||
+        now.year != _lastKnownYear) {
+      _lastKnownDay = now.day;
+      _lastKnownMonth = now.month;
+      _lastKnownYear = now.year;
+
+      if (mounted) {
+        setState(() {});
+        debugPrint('📅 Widget tự động cập nhật sang ngày mới: ${now.day}/${now.month}/${now.year}');
+      }
+    }
   }
 
   Future<void> _pollState() async {
