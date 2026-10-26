@@ -236,7 +236,7 @@ Future<void> main(List<String> args) async {
 
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
-    await windowManager.setPreventClose(true);   // ← FIX: chặn destroy khi bấm X
+    await windowManager.setPreventClose(true);
     const windowOptions = WindowOptions(
       size: kMainSize,
       minimumSize: Size(800, 600),
@@ -255,7 +255,6 @@ Future<void> main(List<String> args) async {
       }
     });
   } else if (Platform.isMacOS) {
-    // ← FIX: macOS window block (bản gốc có, tôi trước đó thiếu)
     await windowManager.ensureInitialized();
     const windowOptions = WindowOptions(
       size: Size(1000, 700),
@@ -277,7 +276,6 @@ Future<void> main(List<String> args) async {
   try {
     if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
       await NotificationService.init();
-      // ← FIX: khôi phục notification schedule sau reboot
       await NotificationService.khoiPhucLich(box.values.toList());
     }
   } catch (e) {
@@ -347,12 +345,6 @@ class _MainAppContentState extends State<_MainAppContent>
   SuKienProvider? _suKienProvider;
   List<String> _lastEventHash = [];
 
-  double _workAreaX = 0;
-  double _workAreaY = 0;
-  double _workAreaWidth = 0;
-  double _workAreaHeight = 0;
-  double _scaleFactor = 1.0;
-
   @override
   void initState() {
     super.initState();
@@ -416,7 +408,6 @@ class _MainAppContentState extends State<_MainAppContent>
             await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
           }
         } else if (Platform.isWindows) {
-          await _loadScreenInfo();
           await _createWidgetWindow();
         }
       } catch (e) {
@@ -504,36 +495,6 @@ class _MainAppContentState extends State<_MainAppContent>
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadScreenInfo() async {
-    if (!Platform.isWindows) return;
-    try {
-      final display = await ScreenRetriever.instance.getPrimaryDisplay();
-      final size = display.size;
-      final visiblePos = display.visiblePosition;
-      final visibleSize = display.visibleSize;
-
-      _scaleFactor = (display.scaleFactor ?? 1.0).toDouble();
-
-      if (visiblePos != null && visibleSize != null) {
-        _workAreaX = visiblePos.dx;
-        _workAreaY = visiblePos.dy;
-        _workAreaWidth = visibleSize.width;
-        _workAreaHeight = visibleSize.height;
-      } else {
-        _workAreaX = 0;
-        _workAreaY = 0;
-        _workAreaWidth = size.width;
-        _workAreaHeight = size.height;
-      }
-      debugPrint('🖥 Work area: ${_workAreaWidth.toInt()}x${_workAreaHeight.toInt()}');
-    } catch (e) {
-      debugPrint('⚠️ Lỗi screen info: $e');
-      _workAreaWidth = 1920;
-      _workAreaHeight = 1080;
-      _scaleFactor = 1.0;
-    }
-  }
-
   Future<void> _toggleWidgetLock() async {
     final newState = !_widgetLocked;
     debugPrint('🔒 Toggle lock: $_widgetLocked → $newState');
@@ -585,9 +546,6 @@ class _MainAppContentState extends State<_MainAppContent>
   }
 
   Future<void> _createWidgetWindow() async {
-    if (_workAreaWidth == 0 || _workAreaHeight == 0) {
-      await _loadScreenInfo();
-    }
     debugPrint('📝 Tạo widget tại ($_savedWidgetX, $_savedWidgetY) locked=$_widgetLocked');
 
     try {
@@ -600,11 +558,6 @@ class _MainAppContentState extends State<_MainAppContent>
             'x': _savedWidgetX,
             'y': _savedWidgetY,
             'locked': _widgetLocked,
-            'screenX': _workAreaX,
-            'screenY': _workAreaY,
-            'screenWidth': _workAreaWidth,
-            'screenHeight': _workAreaHeight,
-            'screenScale': _scaleFactor,
           }),
         ),
       );
@@ -679,7 +632,7 @@ class _MainAppContentState extends State<_MainAppContent>
       if (Platform.isWindows) {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final candidates = [
-          '$exeDir\\app_icon.ico',                                          // ← FIX: candidate đầu
+          '$exeDir\\app_icon.ico',
           '$exeDir\\data\\flutter_assets\\assets\\icon\\vie_lich_tray.ico',
         ];
         for (final p in candidates) {
@@ -913,12 +866,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   Timer? _pollTimer;
   bool _snapping = false;
 
-  double _screenX = 0;
-  double _screenY = 0;
-  double _screenWidth = 1920;
-  double _screenHeight = 1080;
-  double _scaleFactor = 1.0;
-
   @override
   void initState() {
     super.initState();
@@ -930,11 +877,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
       _x = (config['x'] as num?)?.toDouble() ?? 100;
       _y = (config['y'] as num?)?.toDouble() ?? 100;
       _isLocked = (config['locked'] as bool?) ?? false;
-      _screenX = (config['screenX'] as num?)?.toDouble() ?? 0;
-      _screenY = (config['screenY'] as num?)?.toDouble() ?? 0;
-      _screenWidth = (config['screenWidth'] as num?)?.toDouble() ?? 1920;
-      _screenHeight = (config['screenHeight'] as num?)?.toDouble() ?? 1080;
-      _scaleFactor = (config['screenScale'] as num?)?.toDouble() ?? 1.0;
     } catch (_) {}
 
     debugPrint('🔧 Widget init: locked=$_isLocked pos=($_x, $_y)');
@@ -1057,12 +999,47 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     try {
       final position = await windowManager.getPosition();
       final size = await windowManager.getSize();
-      final scale = _scaleFactor <= 0 ? 1.0 : _scaleFactor;
+
+      // Lấy primary display để biết scaleFactor của logical coordinate system
+      final primaryDisplay = await ScreenRetriever.instance.getPrimaryDisplay();
+      final primaryScale = (primaryDisplay.scaleFactor ?? 1.0) <= 0
+          ? 1.0
+          : primaryDisplay.scaleFactor!;
+
+      // Tâm widget trong physical coordinates
+      final centerPhysical = Offset(
+        (position.dx + size.width / 2) * primaryScale,
+        (position.dy + size.height / 2) * primaryScale,
+      );
+
+      // Tìm display đang chứa widget
+      final displays = await ScreenRetriever.instance.getAllDisplays();
+      Display? currentDisplay;
+      for (final d in displays) {
+        final vPos = d.visiblePosition ?? Offset.zero;
+        final vSize = d.visibleSize ?? d.size;
+        final rectPhysical = Rect.fromLTWH(
+          vPos.dx,
+          vPos.dy,
+          vSize.width,
+          vSize.height,
+        );
+        if (rectPhysical.contains(centerPhysical)) {
+          currentDisplay = d;
+          break;
+        }
+      }
+      currentDisplay ??= primaryDisplay;
+
+      final vPos = currentDisplay.visiblePosition ?? Offset.zero;
+      final vSize = currentDisplay.visibleSize ?? currentDisplay.size;
+
+      // Chuyển workArea về logical (theo scale của primary)
       final workArea = Rect.fromLTWH(
-        _screenX / scale,
-        _screenY / scale,
-        _screenWidth / scale,
-        _screenHeight / scale,
+        vPos.dx / primaryScale,
+        vPos.dy / primaryScale,
+        vSize.width / primaryScale,
+        vSize.height / primaryScale,
       );
 
       double newX = position.dx;
