@@ -15,7 +15,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'models/su_kien.dart';
 import 'providers/lich_provider.dart';
 import 'providers/su_kien_provider.dart';
-import 'providers/theme_provider.dart'; // 👈 Thêm import
+import 'providers/theme_provider.dart';
 import 'services/app_update_service.dart';
 import 'services/github_update_service.dart';
 import 'services/notification_service.dart';
@@ -30,6 +30,9 @@ import 'widgets/home_screen_widget_ui.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<bool> isWidgetMode = ValueNotifier<bool>(true);
+
+// BIẾN TOÀN CỤC MỚI: Lắng nghe sự kiện chuyển tab từ Widget
+final ValueNotifier<int> tabNotifier = ValueNotifier<int>(0);
 
 const int kDailyAlarmId = 0;
 const int kPeriodicAlarmId = 1;
@@ -71,16 +74,22 @@ Future<void> widgetUpdateCallback() async {
       await Hive.openBox<SuKien>('suKienBox');
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final today = _formatDate(DateTime.now());
-    final lastUpdate = prefs.getString(kPrefLastUpdate);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = _formatDate(DateTime.now());
+      final lastUpdate = prefs.getString(kPrefLastUpdate);
 
-    if (lastUpdate == today) {
-      debugPrint('⏭️ [Widget BG] Đã update hôm nay ($today), skip');
-    } else {
+      if (lastUpdate == today) {
+        debugPrint('⏭️ [Widget BG] Đã update hôm nay ($today), skip');
+      } else {
+        await WidgetService.capNhatWidget();
+        await prefs.setString(kPrefLastUpdate, today);
+        debugPrint('✅ [Widget BG] Đã update widget cho ngày $today');
+      }
+    } catch (e) {
+      debugPrint(
+          '⚠️ [Widget BG] Lỗi SharedPreferences, vẫn cố gắng update widget: $e');
       await WidgetService.capNhatWidget();
-      await prefs.setString(kPrefLastUpdate, today);
-      debugPrint('✅ [Widget BG] Đã update widget cho ngày $today');
     }
 
     await _scheduleWidgetDailyUpdate();
@@ -182,7 +191,11 @@ void main() async {
 
   await initializeDateFormatting('vi', null);
   await Hive.initFlutter();
-  Hive.registerAdapter(SuKienAdapter());
+
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(SuKienAdapter());
+  }
+
   final box = await Hive.openBox<SuKien>('suKienBox');
 
   if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
@@ -237,10 +250,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         await Future.delayed(const Duration(milliseconds: 1500));
         await _capNhatWidgetVoiRetry();
       } else if (Platform.isAndroid || Platform.isIOS) {
-        await WidgetService.capNhatWidget();
-        if (Platform.isAndroid) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
+        try {
+          await WidgetService.capNhatWidget();
+          if (Platform.isAndroid) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
+          }
+        } catch (e) {
+          debugPrint('Lỗi cập nhật widget ban đầu: $e');
         }
       }
     });
@@ -410,8 +427,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       providers: [
         ChangeNotifierProvider(create: (_) => LichProvider()),
         ChangeNotifierProvider(create: (_) => SuKienProvider()),
-        ChangeNotifierProvider(
-            create: (_) => ThemeProvider()), // 👈 Thêm Provider
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -432,7 +448,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               ),
               useMaterial3: true,
             ),
-            themeMode: themeProvider.themeMode, // 👈 Áp dụng ThemeMode
+            themeMode: themeProvider.themeMode,
             locale: const Locale('vi', 'VN'),
             supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
             localizationsDelegates: const [
@@ -470,11 +486,27 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    tabNotifier.addListener(_onTabChanged);
+
     const bool isPlayStore =
         bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isPlayStore) GithubUpdateService.checkUpdate(context);
     });
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = tabNotifier.value;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    tabNotifier.removeListener(_onTabChanged);
+    super.dispose();
   }
 
   static const List<Widget> _screens = [

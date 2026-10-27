@@ -1,11 +1,13 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:tyme/tyme.dart';
 import 'package:home_widget/home_widget.dart';
 import '../widgets/home_screen_widget_ui.dart';
+import '../widgets/home_screen_widget_ui_4x2.dart';
 import '../models/su_kien.dart';
 import '../utils/am_lich_helper.dart';
 
@@ -13,6 +15,8 @@ class WidgetService {
   static const String appGroupId = 'group.com.toanbb.vie_Lich';
   static const String macOSWidgetName = 'VIELichWidget';
   static const platform = MethodChannel('vie_lich_mac_widget');
+  static const String androidWidgetProvider =
+      'com.toanbb.vie_lich.HomeScreenWidgetProvider';
 
   static const List<String> _thuNames = [
     'Thứ Hai',
@@ -24,7 +28,6 @@ class WidgetService {
     'Chủ Nhật',
   ];
 
-  /// Số ngày pre-compute cho widget macOS
   static const int _macOSMultiDayCount = 7;
 
   static Future<void> capNhatWidget() async {
@@ -37,53 +40,108 @@ class WidgetService {
           : await Hive.openBox<SuKien>('suKienBox');
       danhSachSuKien = box.values.toList();
     } catch (e) {
-      debugPrint("Lỗi đọc sự kiện Hive cho Widget: $e");
+      debugPrint("❌ Lỗi đọc sự kiện Hive cho Widget: $e");
     }
 
-    // === Tính data cho NGÀY HÔM NAY (dùng cho Android/iOS) ===
     final todayData = _tinhDuLieuMotNgay(now, danhSachSuKien);
 
     String nextEventText = todayData['thoiGianSuKien'].isEmpty
         ? todayData['tenSuKien']
         : "${todayData['tenSuKien']}\n(${todayData['thoiGianSuKien']})";
 
-    // ============================================================
-    // ANDROID / iOS
-    // ============================================================
     if (Platform.isAndroid) {
-      await HomeWidget.renderFlutterWidget(
-        HomeScreenWidgetUI(
-          thangDuyet: now.month,
-          namDuyet: now.year,
-          tenSuKien: todayData['tenSuKien'],
-          thoiGianSuKien: todayData['thoiGianSuKien'],
-          loaiSuKien: todayData['loaiSuKien'],
-          ngayCoSuKien: (todayData['ngayCoSuKien'] as List).cast<int>(),
-        ),
-        key: 'widget_image',
-        logicalSize: const Size(500, 375),
-      );
-      await HomeWidget.updateWidget(
-        name: 'HomeScreenWidgetProvider',
-        androidName: 'HomeScreenWidgetProvider',
-      );
-    } else if (Platform.isIOS) {
-      await HomeWidget.setAppGroupId(appGroupId);
-      await HomeWidget.saveWidgetData<String>('next_event', nextEventText);
-      await HomeWidget.updateWidget(iOSName: macOSWidgetName);
-    } else if (Platform.isMacOS) {
-      // ============================================================
-      // macOS: gửi 7 ngày data
-      // ============================================================
-      final List<String> dayJsonList = [];
-      for (int i = 0; i < _macOSMultiDayCount; i++) {
-        final targetDay = now.add(Duration(days: i));
-        final dayJson = _buildDayJson(targetDay, danhSachSuKien);
-        dayJsonList.add(dayJson);
+      // ==========================================
+      // WIDGET 1: 4x3 (CŨ)
+      // ==========================================
+      try {
+        debugPrint('🔄 [Widget 4x3] Bắt đầu render...');
+        final success43 = await HomeWidget.renderFlutterWidget(
+          MediaQuery(
+            data: const MediaQueryData(
+                size: Size(500, 375), devicePixelRatio: 1.0),
+            child: HomeScreenWidgetUI(
+              thangDuyet: now.month,
+              namDuyet: now.year,
+              tenSuKien: todayData['tenSuKien'],
+              thoiGianSuKien: todayData['thoiGianSuKien'],
+              loaiSuKien: todayData['loaiSuKien'],
+              ngayCoSuKien: (todayData['ngayCoSuKien'] as List).cast<int>(),
+            ),
+          ),
+          key: 'widget_image',
+          logicalSize: const Size(500, 375),
+        );
+        debugPrint('✅ [Widget 4x3] Render kết quả: $success43');
+
+        await HomeWidget.updateWidget(
+          name: 'HomeScreenWidgetProvider',
+          qualifiedAndroidName: androidWidgetProvider,
+        );
+        debugPrint('✅ [Widget 4x3] Đã gửi lệnh cập nhật');
+      } catch (e, st) {
+        debugPrint('❌ [Widget 4x3] LỖI: $e\n$st');
       }
 
-      // Gửi array các string JSON (Swift sẽ decode thành [WidgetData])
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // ==========================================
+      // WIDGET 2: 4x2 (MỚI - VẠN NIÊN)
+      // ==========================================
       try {
+        debugPrint('🔄 [Widget 4x2] Bắt đầu render...');
+        final success42 = await HomeWidget.renderFlutterWidget(
+          MediaQuery(
+            data: const MediaQueryData(
+                size: Size(800, 360), devicePixelRatio: 1.0),
+            child: HomeScreenWidgetUI4x2(
+              thangDuyet: now.month,
+              namDuyet: now.year,
+              tenSuKien: todayData['tenSuKien'],
+              thoiGianSuKien: todayData['thoiGianSuKien'],
+              loaiSuKien: todayData['loaiSuKien'],
+              ngayCoSuKien: (todayData['ngayCoSuKien'] as List).cast<int>(),
+            ),
+          ),
+          key: 'widget_image_4x2',
+          logicalSize: const Size(800, 360),
+        );
+        debugPrint('✅ [Widget 4x2] Render kết quả: $success42');
+
+        final appDir = await getApplicationSupportDirectory();
+        final imageFile4x2 =
+            File('${appDir.path}/home_widget/widget_image_4x2.png');
+        if (await imageFile4x2.exists()) {
+          debugPrint(
+              '✅ [Widget 4x2] File ảnh: ${await imageFile4x2.length()} bytes');
+        } else {
+          debugPrint('❌ [Widget 4x2] File ảnh KHÔNG ĐƯỢC TẠO!');
+        }
+
+        await HomeWidget.updateWidget(
+          name: 'HomeScreenWidgetProvider4x2',
+          qualifiedAndroidName:
+              'com.toanbb.vie_lich.HomeScreenWidgetProvider4x2',
+        );
+        debugPrint('✅ [Widget 4x2] Đã gửi lệnh cập nhật');
+      } catch (e, st) {
+        debugPrint('❌ [Widget 4x2] LỖI: $e\n$st');
+      }
+    } else if (Platform.isIOS) {
+      try {
+        await HomeWidget.setAppGroupId(appGroupId);
+        await HomeWidget.saveWidgetData<String>('next_event', nextEventText);
+        await HomeWidget.updateWidget(iOSName: macOSWidgetName);
+      } catch (e) {
+        debugPrint('❌ [Widget iOS] Lỗi cập nhật widget: $e');
+      }
+    } else if (Platform.isMacOS) {
+      try {
+        final List<String> dayJsonList = [];
+        for (int i = 0; i < _macOSMultiDayCount; i++) {
+          final targetDay = now.add(Duration(days: i));
+          final dayJson = _buildDayJson(targetDay, danhSachSuKien);
+          dayJsonList.add(dayJson);
+        }
         await platform.invokeMethod('updateWidget', {
           'data': dayJsonList,
           'groupId': appGroupId,
@@ -91,13 +149,11 @@ class WidgetService {
         });
         debugPrint('✅ Gửi $_macOSMultiDayCount ngày cho widget macOS');
       } catch (e) {
-        debugPrint("Lỗi gửi dữ liệu Widget macOS: $e");
-        rethrow;
+        debugPrint("❌ Lỗi gửi dữ liệu Widget macOS: $e");
       }
     }
   }
 
-  /// Tính dữ liệu cần thiết cho widget của 1 ngày cụ thể
   static Map<String, dynamic> _tinhDuLieuMotNgay(
     DateTime targetDay,
     List<SuKien> danhSachSuKien,
@@ -129,11 +185,8 @@ class WidgetService {
       }
 
       if (ngayDuong != null) {
-        dsDaChuyenDoi.add({
-          'ten': sk.ten,
-          'ngayDuong': ngayDuong,
-          'tag': sk.tag ?? 'event',
-        });
+        dsDaChuyenDoi.add(
+            {'ten': sk.ten, 'ngayDuong': ngayDuong, 'tag': sk.tag ?? 'event'});
         if (ngayDuong.month == now.month && ngayDuong.year == now.year) {
           ngayCoSuKienHienTai.add(ngayDuong.day);
         }
@@ -141,9 +194,8 @@ class WidgetService {
     }
 
     List<Map<String, dynamic>> suKienSapToi = dsDaChuyenDoi.where((sk) {
-      DateTime ngayDuong = sk['ngayDuong'];
-      DateTime dateOnly =
-          DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
+      DateTime dateOnly = DateTime(
+          sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
       return dateOnly.isAfter(todayOnly) ||
           dateOnly.isAtSameMomentAs(todayOnly);
     }).toList();
@@ -160,15 +212,13 @@ class WidgetService {
       int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day)
           .difference(todayOnly)
           .inDays;
-      String ngayText =
-          '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
 
       if (soNgayConLai == 0) {
-        thoiGianSuKienGanNhat = 'Hôm nay - $ngayText';
+        thoiGianSuKienGanNhat = 'Hôm nay';
       } else if (soNgayConLai == 1) {
-        thoiGianSuKienGanNhat = 'Ngày mai - $ngayText';
+        thoiGianSuKienGanNhat = 'Ngày mai';
       } else {
-        thoiGianSuKienGanNhat = 'Còn $soNgayConLai ngày - $ngayText';
+        thoiGianSuKienGanNhat = 'Còn $soNgayConLai ngày';
       }
     }
 
@@ -180,14 +230,11 @@ class WidgetService {
     };
   }
 
-  /// Build JSON cho 1 ngày, trả về String
   static String _buildDayJson(DateTime targetDay, List<SuKien> danhSachSuKien) {
     final dayInfo = _tinhDuLieuMotNgay(targetDay, danhSachSuKien);
     final ngayCoSuKien = (dayInfo['ngayCoSuKien'] as List).cast<int>();
-
     final amHienTai = AmLichHelper.duongSangAm(targetDay);
 
-    // Lưới lịch của tháng chứa targetDay
     final ngayDauThang = DateTime(targetDay.year, targetDay.month, 1);
     final offset = ngayDauThang.weekday - 1;
     final ngayBatDau = ngayDauThang.subtract(Duration(days: offset));
@@ -217,7 +264,7 @@ class WidgetService {
       });
     }
 
-    final map = {
+    return jsonEncode({
       'thangDuong': targetDay.month,
       'namDuong': targetDay.year,
       'ngayDuong': targetDay.day,
@@ -231,8 +278,6 @@ class WidgetService {
       'tenSuKien': dayInfo['tenSuKien'],
       'thoiGianSuKien': dayInfo['thoiGianSuKien'],
       'loaiSuKien': dayInfo['loaiSuKien'],
-    };
-
-    return jsonEncode(map);
+    });
   }
 }
