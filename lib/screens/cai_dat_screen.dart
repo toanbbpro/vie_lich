@@ -57,7 +57,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     );
 
     _audioPlayer.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _dangPhat = false);
+      if (mounted) {
+        setState(() => _dangPhat = false);
+      }
     });
   }
 
@@ -75,7 +77,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     } catch (_) {}
   }
 
-    Future<void> _loadSoundSetting() async {
+  Future<void> _loadSoundSetting() async {
     try {
       final type = await SoundSettings.getType();
       final name = await SoundSettings.getCustomFileName();
@@ -88,7 +90,6 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     } catch (e) {
       debugPrint('❌ Lỗi load âm thanh: $e');
       if (!mounted) return;
-      // Nếu có lỗi, fallback về âm hệ thống để không bị kẹt vòng xoay
       setState(() {
         _soundType = SoundType.system;
         _customFileName = null;
@@ -100,7 +101,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   Future<void> _togglePhatThu() async {
     if (_dangPhat) {
       await _audioPlayer.stop();
-      if (mounted) setState(() => _dangPhat = false);
+      if (mounted) {
+        setState(() => _dangPhat = false);
+      }
       return;
     }
 
@@ -119,9 +122,13 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
 
       await _audioPlayer.stop();
       await _audioPlayer.play(DeviceFileSource(localPath));
-      if (mounted) setState(() => _dangPhat = true);
+      if (mounted) {
+        setState(() => _dangPhat = true);
+      }
     } catch (e) {
-      if (mounted) setState(() => _dangPhat = false);
+      if (mounted) {
+        setState(() => _dangPhat = false);
+      }
       _thongBao('Không phát được âm thanh: $e');
     }
   }
@@ -129,7 +136,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   Future<void> _dungAudio() async {
     if (_dangPhat) {
       await _audioPlayer.stop();
-      if (mounted) setState(() => _dangPhat = false);
+      if (mounted) {
+        setState(() => _dangPhat = false);
+      }
     }
   }
 
@@ -189,7 +198,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       }
 
       final originalName = sourcePath.split('/').last;
-      final success = await SoundSettings.saveCustomSound(sourcePath, originalName);
+      final success =
+          await SoundSettings.saveCustomSound(sourcePath, originalName);
       if (!success) {
         if (!mounted) return false;
         _thongBao('Lỗi lưu file âm thanh');
@@ -231,9 +241,16 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
 
   Future<void> _xinQuyenThongBao() async {
     if (Platform.isMacOS) {
-      final macOSPlugin = FlutterLocalNotificationsPlugin().resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
-      final granted = await macOSPlugin?.requestPermissions(alert: true, badge: true, sound: true);
-      if (mounted) _thongBao(granted == true ? 'Đã cấp quyền thông báo trên Mac!' : 'Chưa cấp quyền. Vui lòng mở System Settings.');
+      final macOSPlugin = FlutterLocalNotificationsPlugin()
+          .resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin>();
+      final granted = await macOSPlugin?.requestPermissions(
+          alert: true, badge: true, sound: true);
+      if (mounted) {
+        _thongBao(granted == true
+            ? 'Đã cấp quyền thông báo trên Mac!'
+            : 'Chưa cấp quyền. Vui lòng mở System Settings.');
+      }
       return;
     }
     final status = await Permission.notification.status;
@@ -246,7 +263,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     if (result.isGranted) {
       _thongBao('Đã cấp quyền thông báo');
     } else if (result.isPermanentlyDenied) {
-      _hienDialogMoCaiDat('Quyền thông báo bị từ chối vĩnh viễn. Vui lòng mở Cài đặt để bật thủ công.');
+      _hienDialogMoCaiDat(
+          'Quyền thông báo bị từ chối vĩnh viễn. Vui lòng mở Cài đặt để bật thủ công.');
     } else {
       _thongBao('Bạn đã từ chối quyền thông báo');
     }
@@ -259,8 +277,15 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
         title: const Text('Cần quyền'),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Để sau')),
-          FilledButton(onPressed: () { Navigator.pop(context); openAppSettings(); }, child: const Text('Mở Cài đặt')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Để sau')),
+          FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings();
+              },
+              child: const Text('Mở Cài đặt')),
         ],
       ),
     );
@@ -268,7 +293,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
 
   void _thongBao(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
 
   Future<void> _moUrl(String url) async {
@@ -283,7 +309,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   Future<void> _saoLuuDuLieu() async {
     final provider = Provider.of<SuKienProvider>(context, listen: false);
     final ok = await BackupService.taoBanSaoLuu(provider.danhSachSuKien);
-    if (ok && mounted) _thongBao('Đã tạo bản sao lưu hoàn tất');
+    if (ok && mounted) {
+      _thongBao('Đã tạo bản sao lưu hoàn tất');
+    }
   }
 
   Future<void> _khoiPhucDuLieu() async {
@@ -298,7 +326,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
         await provider.capNhatSuKien(sk);
         count++;
       }
-      if (mounted) _thongBao('Đã khôi phục $count lịch!');
+      if (mounted) {
+        _thongBao('Đã khôi phục $count lịch!');
+      }
     }
   }
 
@@ -311,7 +341,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
+              leading:
+                  const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
               title: const Text('Sao lưu dữ liệu'),
               subtitle: const Text('Xuất file lưu trữ ra ngoài'),
               onTap: () {
@@ -321,7 +352,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.cloud_download_outlined, color: Colors.green),
+              leading: const Icon(Icons.cloud_download_outlined,
+                  color: Colors.green),
               title: const Text('Khôi phục dữ liệu'),
               subtitle: const Text('Nhập dữ liệu từ file đã lưu'),
               onTap: () {
@@ -332,7 +364,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
         ],
       ),
     );
@@ -360,11 +393,20 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: const Text('Có bản cập nhật mới'),
-        content: const Text('Phiên bản mới đã có sẵn trên Google Play.\n\n• Cập nhật ngay: Tải ngầm, bạn tiếp tục dùng app.\n• Cập nhật buộc: Khởi động lại app để áp dụng ngay.'),
+        content: const Text(
+            'Phiên bản mới đã có sẵn trên Google Play.\n\n• Cập nhật ngay: Tải ngầm, bạn tiếp tục dùng app.\n• Cập nhật buộc: Khởi động lại app để áp dụng ngay.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, 'later'), child: const Text('Để sau')),
-          if (info.flexibleUpdateAllowed) TextButton(onPressed: () => Navigator.pop(context, 'flexible'), child: const Text('Cập nhật ngay')),
-          if (info.immediateUpdateAllowed) FilledButton(onPressed: () => Navigator.pop(context, 'immediate'), child: const Text('Cập nhật buộc')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, 'later'),
+              child: const Text('Để sau')),
+          if (info.flexibleUpdateAllowed)
+            TextButton(
+                onPressed: () => Navigator.pop(context, 'flexible'),
+                child: const Text('Cập nhật ngay')),
+          if (info.immediateUpdateAllowed)
+            FilledButton(
+                onPressed: () => Navigator.pop(context, 'immediate'),
+                child: const Text('Cập nhật buộc')),
         ],
       ),
     );
@@ -374,7 +416,9 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     if (luaChon == 'flexible') {
       final ok = await AppUpdateService.startFlexibleUpdate();
       if (!mounted) return;
-      if (ok) _thongBao('Đang tải bản cập nhật ở chế độ nền...');
+      if (ok) {
+        _thongBao('Đang tải bản cập nhật ở chế độ nền...');
+      }
     } else if (luaChon == 'immediate') {
       await AppUpdateService.startImmediateUpdate();
     }
@@ -386,78 +430,93 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     const accountNo = '91196797979';
     const accountName = 'LE THANH TOAN';
     const content = 'VIE Lich supporter';
-    final qrUrl = 'https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?&addInfo=${Uri.encodeComponent(content)}&accountName=${Uri.encodeComponent(accountName)}';
+    final qrUrl =
+        'https://img.vietqr.io/image/$bankId-$accountNo-compact2.png?&addInfo=${Uri.encodeComponent(content)}&accountName=${Uri.encodeComponent(accountName)}';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.all(20),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.coffee, size: 28, color: Colors.brown),
-                const SizedBox(width: 8),
-                Text(
-                  'Ủng hộ tác giả',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé!',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 20),
-            
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                qrUrl,
-                height: 280,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) => loadingProgress == null
-                    ? child
-                    : const SizedBox(
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.coffee, size: 28, color: Colors.brown),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Ủng hộ tác giả',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Nếu bạn thấy ứng dụng hữu ích, hãy mời mình một ly cà phê nhé!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 13, color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 20),
+              ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 300, maxHeight: 300),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    qrUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
                         height: 280,
-                        width: double.infinity,
+                        width: 280,
                         child: Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 280,
+                      width: 280,
+                      alignment: Alignment.center,
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      child: Text(
+                        'Lỗi tải mã QR.\nVui lòng kiểm tra mạng.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant),
                       ),
-                errorBuilder: (_, __, ___) => Container(
-                  height: 280,
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  color: theme.colorScheme.surfaceContainerHighest, // 👈 ĐÃ SỬA TẠI ĐÂY
-                  child: Text(
-                    'Lỗi tải mã QR.\nVui lòng kiểm tra mạng.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                    ),
                   ),
                 ),
               ),
-            ),
-            
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {
-                Clipboard.setData(const ClipboardData(text: accountNo));
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã sao chép số tài khoản')));
-              },
-              icon: const Icon(Icons.copy, size: 14),
-              label: const Text('Copy STK: $accountNo'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 36),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(const ClipboardData(text: accountNo));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Đã sao chép số tài khoản')));
+                },
+                icon: const Icon(Icons.copy, size: 14),
+                label: const Text('Copy STK: $accountNo'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 36),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng', style: TextStyle(fontWeight: FontWeight.bold)))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng',
+                  style: TextStyle(fontWeight: FontWeight.bold)))
+        ],
       ),
     );
   }
@@ -472,15 +531,22 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/icon/vie_lich_logo.png', width: 60, height: 60),
+              Image.asset('assets/icon/vie_lich_logo.png',
+                  width: 60, height: 60),
               const SizedBox(height: 10),
-              const Text('VIE Lịch', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+              const Text('VIE Lịch',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text('App lịch Việt cho người Việt', style: TextStyle(fontSize: 13, color: Colors.grey.shade700), textAlign: TextAlign.center),
+              Text('App lịch Việt cho người Việt',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
-              Text('Dùng thuật toán Hồ Ngọc Đức (UTC+7)', style: TextStyle(fontSize: 12, color: Colors.grey.shade600), textAlign: TextAlign.center),
+              Text('Dùng thuật toán Hồ Ngọc Đức (UTC+7)',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 12),
@@ -494,7 +560,12 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                     children: [
                       Icon(Icons.person, size: 18, color: Colors.grey.shade600),
                       const SizedBox(width: 8),
-                      Text('Tác giả: Toàn BB', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, decoration: TextDecoration.underline, decorationColor: Colors.blue.shade700)),
+                      Text('Tác giả: Toàn BB',
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue.shade700,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.blue.shade700)),
                     ],
                   ),
                 ),
@@ -504,34 +575,63 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   InkWell(
-                    onTap: () => _moUrl('mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng VIE Lịch'),
+                    onTap: () => _moUrl(
+                        'mailto:toanbb.dev@gmail.com?subject=Góp ý ứng dụng VIE Lịch'),
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                      child: Row(children: [Icon(Icons.email_outlined, size: 18, color: Colors.grey.shade600), const SizedBox(width: 6), Text('Email', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, decoration: TextDecoration.underline, decorationColor: Colors.blue.shade700))]),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 12),
+                      child: Row(children: [
+                        Icon(Icons.email_outlined,
+                            size: 18, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text('Email',
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue.shade700,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.blue.shade700))
+                      ]),
                     ),
                   ),
                   InkWell(
-                    onTap: () => _moUrl('https://toanbbpro.github.io/vie_lich/'),
+                    onTap: () =>
+                        _moUrl('https://toanbbpro.github.io/vie_lich/'),
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 12),
                       child: Row(children: [
-                        Icon(Icons.language, size: 18, color: Colors.grey.shade600),
-                        const SizedBox(width: 6), 
-                        Text('Website', style: TextStyle(fontSize: 14, color: Colors.blue.shade700, decoration: TextDecoration.underline, decorationColor: Colors.blue.shade700))
+                        Icon(Icons.language,
+                            size: 18, color: Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text('Website',
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue.shade700,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.blue.shade700))
                       ]),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              Text('Vibe code cùng Gemini và Deepseek chat', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade500), textAlign: TextAlign.center),
+              Text('Vibe code cùng Gemini và Deepseek chat',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey.shade500),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 8),
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Đóng'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng'))
+        ],
       ),
     );
   }
@@ -539,7 +639,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
+    const bool isPlayStore =
+        bool.fromEnvironment('PLAY_STORE', defaultValue: false);
 
     return Scaffold(
       body: SafeArea(
@@ -552,20 +653,32 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                 _SectionCard(
                   title: 'Âm thanh thông báo',
                   child: _loadingSound
-                      ? const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()))
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()))
                       : RadioGroup<SoundType>(
                           groupValue: _soundType,
                           onChanged: (v) {
                             if (v == SoundType.system) {
-                              if (_soundType != SoundType.system) _dungAmHeThong();
+                              if (_soundType != SoundType.system) {
+                                _dungAmHeThong();
+                              }
                             } else if (v == SoundType.custom) {
                               _xuLyChonAmTuChinh();
                             }
                           },
                           child: Column(
                             children: [
-                              _AmHeThongTile(theme: theme, laChon: _soundType == SoundType.system, onTap: () { if (_soundType != SoundType.system) _dungAmHeThong(); }),
-                              const Divider(height: 1, indent: 16, endIndent: 16),
+                              _AmHeThongTile(
+                                  theme: theme,
+                                  laChon: _soundType == SoundType.system,
+                                  onTap: () {
+                                    if (_soundType != SoundType.system) {
+                                      _dungAmHeThong();
+                                    }
+                                  }),
+                              const Divider(
+                                  height: 1, indent: 16, endIndent: 16),
                               _OCaiDatAmTuChinh(
                                 theme: theme,
                                 laChon: _soundType == SoundType.custom,
@@ -574,9 +687,13 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                                 onChonRadio: _xuLyChonAmTuChinh,
                                 onChonFile: () async {
                                   final daChon = await _chonFileAmThanh();
-                                  if (daChon && mounted) await _togglePhatThu();
+                                  if (daChon && mounted) {
+                                    await _togglePhatThu();
+                                  }
                                 },
-                                onTogglePhat: _customFileName != null ? _togglePhatThu : null,
+                                onTogglePhat: _customFileName != null
+                                    ? _togglePhatThu
+                                    : null,
                               ),
                             ],
                           ),
@@ -588,13 +705,22 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                   topPadding: 20,
                   child: Column(
                     children: [
-                      _ItemCauHinh(icon: Icons.notifications_active_outlined, iconBg: Colors.pink.shade50, iconColor: Colors.pink.shade300, title: 'Cấp quyền thông báo', onTap: _xinQuyenThongBao),
+                      _ItemCauHinh(
+                          icon: Icons.notifications_active_outlined,
+                          iconBg: Colors.pink.shade50,
+                          iconColor: Colors.pink.shade300,
+                          title: 'Cấp quyền thông báo',
+                          onTap: _xinQuyenThongBao),
                       const Divider(height: 1, indent: 16, endIndent: 16),
-                      _ItemCauHinh(icon: Icons.sync, iconBg: Colors.blue.shade50, iconColor: Colors.blue, title: 'Sao lưu / Khôi phục dữ liệu', onTap: _hienThiDialogSaoLuuKhoiPhuc),
+                      _ItemCauHinh(
+                          icon: Icons.sync,
+                          iconBg: Colors.blue.shade50,
+                          iconColor: Colors.blue,
+                          title: 'Sao lưu / Khôi phục dữ liệu',
+                          onTap: _hienThiDialogSaoLuuKhoiPhuc),
                     ],
                   ),
                 ),
-                
                 const SizedBox(height: 12),
                 _SectionCard(
                   title: 'Giao diện',
@@ -604,26 +730,34 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: Colors.orange.shade50,
-                          child: const Icon(Icons.palette_outlined, color: Colors.orange),
+                          child: const Icon(Icons.palette_outlined,
+                              color: Colors.orange),
                         ),
-                        title: const Text('Giao diện sáng tối', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+                        title: const Text('Giao diện sáng tối',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500, fontSize: 15)),
                         trailing: DropdownButton<ThemeMode>(
                           value: themeProvider.themeMode,
                           underline: const SizedBox(),
                           onChanged: (mode) {
-                            if (mode != null) themeProvider.setThemeMode(mode);
+                            if (mode != null) {
+                              themeProvider.setThemeMode(mode);
+                            }
                           },
                           items: const [
-                            DropdownMenuItem(value: ThemeMode.light, child: Text('Sáng')),
-                            DropdownMenuItem(value: ThemeMode.dark, child: Text('Tối')),
-                            DropdownMenuItem(value: ThemeMode.system, child: Text('Theo thiết bị')),
+                            DropdownMenuItem(
+                                value: ThemeMode.light, child: Text('Sáng')),
+                            DropdownMenuItem(
+                                value: ThemeMode.dark, child: Text('Tối')),
+                            DropdownMenuItem(
+                                value: ThemeMode.system,
+                                child: Text('Theo thiết bị')),
                           ],
                         ),
                       );
                     },
                   ),
                 ),
-
                 const SizedBox(height: 12),
                 _SectionCard(
                   title: 'Thông tin',
@@ -636,21 +770,27 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Image.asset('assets/icon/vie_lich_logo.png', width: 50, height: 50),
+                            Image.asset('assets/icon/vie_lich_logo.png',
+                                width: 50, height: 50),
                             const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('VIE Lịch', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                const Text('VIE Lịch',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
-                                Text('Phiên bản v$_version', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                Text('Phiên bản v$_version',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600)),
                               ],
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -660,13 +800,17 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                                   await _kiemTraCapNhatPlayStore();
                                 } else {
                                   if (!mounted) return;
-                                  GithubUpdateService.checkUpdate(context, showNoUpdate: true);
+                                  GithubUpdateService.checkUpdate(context,
+                                      showNoUpdate: true);
                                 }
                               },
-                              icon: const Icon(Icons.system_update_outlined, size: 16),
-                              label: const Text('Cập nhật', style: TextStyle(fontSize: 12)),
+                              icon: const Icon(Icons.system_update_outlined,
+                                  size: 16),
+                              label: const Text('Cập nhật',
+                                  style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
@@ -675,9 +819,11 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                             OutlinedButton.icon(
                               onPressed: _hienThiDialogThongTin,
                               icon: const Icon(Icons.info_outline, size: 16),
-                              label: const Text('Thông tin', style: TextStyle(fontSize: 12)),
+                              label: const Text('Thông tin',
+                                  style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
@@ -686,7 +832,8 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
                             OutlinedButton(
                               onPressed: _hienThiDialogUngHo,
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
@@ -711,7 +858,8 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
   final double topPadding;
-  const _SectionCard({required this.title, required this.child, this.topPadding = 8});
+  const _SectionCard(
+      {required this.title, required this.child, this.topPadding = 8});
 
   @override
   Widget build(BuildContext context) {
@@ -721,17 +869,35 @@ class _SectionCard extends StatelessWidget {
       children: [
         Container(
           margin: const EdgeInsets.only(top: 12),
-          decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.4), width: 1.5)),
+          decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  width: 1.5)),
           clipBehavior: Clip.antiAlias,
-          child: Material(color: Colors.transparent, child: Padding(padding: EdgeInsets.only(top: topPadding), child: child)),
+          child: Material(
+              color: Colors.transparent,
+              child: Padding(
+                  padding: EdgeInsets.only(top: topPadding), child: child)),
         ),
         Positioned(
           top: 0,
           left: 16,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.4), width: 1.5)),
-            child: Text(title.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: theme.colorScheme.primary)),
+            decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                    width: 1.5)),
+            child: Text(title.toUpperCase(),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                    color: theme.colorScheme.primary)),
           ),
         ),
       ],
@@ -743,7 +909,8 @@ class _AmHeThongTile extends StatelessWidget {
   final ThemeData theme;
   final bool laChon;
   final VoidCallback onTap;
-  const _AmHeThongTile({required this.theme, required this.laChon, required this.onTap});
+  const _AmHeThongTile(
+      {required this.theme, required this.laChon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -757,8 +924,16 @@ class _AmHeThongTile extends StatelessWidget {
             children: [
               const SizedBox(width: 12),
               IgnorePointer(child: Radio<SoundType>(value: SoundType.system)),
-              Expanded(child: Text('Âm hệ thống', style: const TextStyle(fontSize: 16))),
-              SizedBox(width: 52, height: double.infinity, child: Icon(laChon ? Icons.volume_up : Icons.volume_off_outlined, size: 26, color: laChon ? theme.colorScheme.primary : null)),
+              Expanded(
+                  child: Text('Âm hệ thống',
+                      style: const TextStyle(fontSize: 16))),
+              SizedBox(
+                  width: 52,
+                  height: double.infinity,
+                  child: Icon(
+                      laChon ? Icons.volume_up : Icons.volume_off_outlined,
+                      size: 26,
+                      color: laChon ? theme.colorScheme.primary : null)),
               const SizedBox(width: 52),
               const SizedBox(width: 4),
             ],
@@ -778,7 +953,14 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
   final VoidCallback onChonFile;
   final VoidCallback? onTogglePhat;
 
-  const _OCaiDatAmTuChinh({required this.theme, required this.laChon, required this.dangPhat, required this.tenFile, required this.onChonRadio, required this.onChonFile, required this.onTogglePhat});
+  const _OCaiDatAmTuChinh(
+      {required this.theme,
+      required this.laChon,
+      required this.dangPhat,
+      required this.tenFile,
+      required this.onChonRadio,
+      required this.onChonFile,
+      required this.onTogglePhat});
 
   @override
   Widget build(BuildContext context) {
@@ -800,7 +982,16 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
                   children: [
                     const Text('Âm tùy chỉnh', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 2),
-                    Text(tenFile ?? (dangPhat ? 'Đang phát...' : 'Chưa chọn file'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: coFile ? theme.colorScheme.primary : Colors.grey.shade600)),
+                    Text(
+                        tenFile ??
+                            (dangPhat ? 'Đang phát...' : 'Chưa chọn file'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: coFile
+                                ? theme.colorScheme.primary
+                                : Colors.grey.shade600)),
                   ],
                 ),
               ),
@@ -809,7 +1000,18 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
                 height: double.infinity,
                 child: Material(
                   color: Colors.transparent,
-                  child: InkWell(onTap: onTogglePhat, child: Icon(dangPhat ? Icons.stop_circle : Icons.play_circle_outline, size: 30, color: coFile ? (dangPhat ? Colors.red : theme.colorScheme.primary) : Colors.grey.shade400)),
+                  child: InkWell(
+                      onTap: onTogglePhat,
+                      child: Icon(
+                          dangPhat
+                              ? Icons.stop_circle
+                              : Icons.play_circle_outline,
+                          size: 30,
+                          color: coFile
+                              ? (dangPhat
+                                  ? Colors.red
+                                  : theme.colorScheme.primary)
+                              : Colors.grey.shade400)),
                 ),
               ),
               SizedBox(
@@ -817,7 +1019,10 @@ class _OCaiDatAmTuChinh extends StatelessWidget {
                 height: double.infinity,
                 child: Material(
                   color: Colors.transparent,
-                  child: InkWell(onTap: onChonFile, child: Icon(Icons.folder_open, size: 24, color: theme.colorScheme.primary)),
+                  child: InkWell(
+                      onTap: onChonFile,
+                      child: Icon(Icons.folder_open,
+                          size: 24, color: theme.colorScheme.primary)),
                 ),
               ),
               const SizedBox(width: 4),
@@ -836,13 +1041,21 @@ class _ItemCauHinh extends StatelessWidget {
   final String title;
   final VoidCallback onTap;
 
-  const _ItemCauHinh({required this.icon, required this.iconBg, required this.iconColor, required this.title, required this.onTap});
+  const _ItemCauHinh(
+      {required this.icon,
+      required this.iconBg,
+      required this.iconColor,
+      required this.title,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(backgroundColor: iconBg, child: Icon(icon, color: iconColor, size: 22)),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+      leading: CircleAvatar(
+          backgroundColor: iconBg,
+          child: Icon(icon, color: iconColor, size: 22)),
+      title: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
