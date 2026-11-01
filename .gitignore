@@ -121,3 +121,7 @@ android/build/
 **/generated_plugin_registrant.*
 **/generated_plugins.cmake
 macos/Flutter/GeneratedPluginRegistrant.swift
+
+# iOS/macOS Swift Package Manager
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+ios/Runner.xcworkspace/xcshareddata/swiftpm/
