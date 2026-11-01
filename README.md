@@ -106,7 +106,23 @@ flutter build apk --release --dart-define=PLAY_STORE=false
 flutter build ipa --release --export-method development
 ## MacOS
 flutter build macos --release
-## Windows - chỉ trên branch windows
+codesign --force --verbose --sign "Apple Development: toanbb.com@gmail.com (6T8GYFP8NH)" --entitlements macos/VIELichWidgetExtension.entitlements "build/macos/Build/Products/Release/VIE Lich.app/Contents/PlugIns/VIELichWidgetExtension.appex"
+codesign --force --verbose --sign "Apple Development: toanbb.com@gmail.com (6T8GYFP8NH)" "build/macos/Build/Products/Release/VIE Lich.app"
+#optional build dmg or zip .app
+ditto -c -k --sequesterRsrc --keepParent "build/macos/Build/Products/Release/VIE Lich.app" "/Users/toanlethanh/Desktop/VIE_Lich_v2.1.0_macos.zip"
+create-dmg \
+  --volname "VIE Lịch" \
+  --applescript-sleep-duration 15 \
+  --background "assets/backgrounds/dmg_bg.png" \
+  --window-pos 200 120 \
+  --window-size 600 335 \
+  --icon-size 100 \
+  --icon "VIE Lich.app" 150 185 \
+  --hide-extension "VIE Lich.app" \
+  --app-drop-link 450 185 \
+  "/Users/toanlethanh/Desktop/VIE_Lich_v2.1.2.dmg" \
+  "build/macos/Build/Products/Release/VIE Lich.app"
+## Windows - chỉ trên long-live branch windows
 flutter build windows --release
 ```
 </details>
