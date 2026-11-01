@@ -15,17 +15,10 @@ class WidgetService {
   static const String appGroupId = 'group.com.toanbb.vie_Lich';
   static const String macOSWidgetName = 'VIELichWidget';
   static const platform = MethodChannel('vie_lich_mac_widget');
-  static const String androidWidgetProvider =
-      'com.toanbb.vie_lich.HomeScreenWidgetProvider';
+  static const String androidWidgetProvider = 'com.toanbb.vie_lich.HomeScreenWidgetProvider';
 
   static const List<String> _thuNames = [
-    'Thứ Hai',
-    'Thứ Ba',
-    'Thứ Tư',
-    'Thứ Năm',
-    'Thứ Sáu',
-    'Thứ Bảy',
-    'Chủ Nhật',
+    'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật',
   ];
 
   static const int _macOSMultiDayCount = 7;
@@ -45,10 +38,6 @@ class WidgetService {
 
     final todayData = _tinhDuLieuMotNgay(now, danhSachSuKien);
 
-    String nextEventText = todayData['thoiGianSuKien'].isEmpty
-        ? todayData['tenSuKien']
-        : "${todayData['tenSuKien']}\n(${todayData['thoiGianSuKien']})";
-
     if (Platform.isAndroid) {
       // ==========================================
       // WIDGET 1: 4x3 (CŨ)
@@ -57,8 +46,7 @@ class WidgetService {
         debugPrint('🔄 [Widget 4x3] Bắt đầu render...');
         final success43 = await HomeWidget.renderFlutterWidget(
           MediaQuery(
-            data: const MediaQueryData(
-                size: Size(500, 375), devicePixelRatio: 1.0),
+            data: const MediaQueryData(size: Size(500, 375), devicePixelRatio: 1.0),
             child: HomeScreenWidgetUI(
               thangDuyet: now.month,
               namDuyet: now.year,
@@ -91,8 +79,7 @@ class WidgetService {
         debugPrint('🔄 [Widget 4x2] Bắt đầu render...');
         final success42 = await HomeWidget.renderFlutterWidget(
           MediaQuery(
-            data: const MediaQueryData(
-                size: Size(800, 360), devicePixelRatio: 1.0),
+            data: const MediaQueryData(size: Size(800, 360), devicePixelRatio: 1.0),
             child: HomeScreenWidgetUI4x2(
               thangDuyet: now.month,
               namDuyet: now.year,
@@ -108,32 +95,41 @@ class WidgetService {
         debugPrint('✅ [Widget 4x2] Render kết quả: $success42');
 
         final appDir = await getApplicationSupportDirectory();
-        final imageFile4x2 =
-            File('${appDir.path}/home_widget/widget_image_4x2.png');
+        final imageFile4x2 = File('${appDir.path}/home_widget/widget_image_4x2.png');
         if (await imageFile4x2.exists()) {
-          debugPrint(
-              '✅ [Widget 4x2] File ảnh: ${await imageFile4x2.length()} bytes');
+          debugPrint('✅ [Widget 4x2] File ảnh: ${await imageFile4x2.length()} bytes');
         } else {
           debugPrint('❌ [Widget 4x2] File ảnh KHÔNG ĐƯỢC TẠO!');
         }
 
         await HomeWidget.updateWidget(
           name: 'HomeScreenWidgetProvider4x2',
-          qualifiedAndroidName:
-              'com.toanbb.vie_lich.HomeScreenWidgetProvider4x2',
+          qualifiedAndroidName: 'com.toanbb.vie_lich.HomeScreenWidgetProvider4x2',
         );
         debugPrint('✅ [Widget 4x2] Đã gửi lệnh cập nhật');
       } catch (e, st) {
         debugPrint('❌ [Widget 4x2] LỖI: $e\n$st');
       }
+      
     } else if (Platform.isIOS) {
-      try {
-        await HomeWidget.setAppGroupId(appGroupId);
-        await HomeWidget.saveWidgetData<String>('next_event', nextEventText);
-        await HomeWidget.updateWidget(iOSName: macOSWidgetName);
-      } catch (e) {
-        debugPrint('❌ [Widget iOS] Lỗi cập nhật widget: $e');
-      }
+        try {
+          await HomeWidget.setAppGroupId(appGroupId);
+          
+          // Lấy dữ liệu 365 ngày (để widget tự chạy cả năm không cần mở app)
+          final List<dynamic> dayJsonList = []; 
+          for (int i = 0; i < 365; i++) { // Sửa thành 365 ngày
+            final targetDay = now.add(Duration(days: i));
+            final dayJsonString = _buildDayJson(targetDay, danhSachSuKien);
+            dayJsonList.add(jsonDecode(dayJsonString)); 
+          }
+          
+          // Lưu mảng JSON
+          await HomeWidget.saveWidgetData<String>('widget_data', jsonEncode(dayJsonList));
+          await HomeWidget.updateWidget(iOSName: 'VIELichWidget');
+          debugPrint('✅ [Widget iOS] Đã gửi dữ liệu cập nhật 365 ngày');
+        } catch (e) {
+          debugPrint('❌ [Widget iOS] Lỗi cập nhật widget: $e');
+        }
     } else if (Platform.isMacOS) {
       try {
         final List<String> dayJsonList = [];
@@ -172,21 +168,17 @@ class WidgetService {
     List<Map<String, dynamic>> dsDaChuyenDoi = [];
     for (var sk in danhSachSuKien) {
       int namAmTinhToan = sk.namAm ?? namAmHienTai;
-      DateTime? ngayDuong =
-          AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
+      DateTime? ngayDuong = AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
 
       if (sk.namAm == null && ngayDuong != null) {
-        DateTime dateOnly =
-            DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
+        DateTime dateOnly = DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
         if (dateOnly.isBefore(todayOnly)) {
-          ngayDuong =
-              AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
+          ngayDuong = AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
         }
       }
 
       if (ngayDuong != null) {
-        dsDaChuyenDoi.add(
-            {'ten': sk.ten, 'ngayDuong': ngayDuong, 'tag': sk.tag ?? 'event'});
+        dsDaChuyenDoi.add({'ten': sk.ten, 'ngayDuong': ngayDuong, 'tag': sk.tag ?? 'event'});
         if (ngayDuong.month == now.month && ngayDuong.year == now.year) {
           ngayCoSuKienHienTai.add(ngayDuong.day);
         }
@@ -194,31 +186,27 @@ class WidgetService {
     }
 
     List<Map<String, dynamic>> suKienSapToi = dsDaChuyenDoi.where((sk) {
-      DateTime dateOnly = DateTime(
-          sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
-      return dateOnly.isAfter(todayOnly) ||
-          dateOnly.isAtSameMomentAs(todayOnly);
+      DateTime dateOnly = DateTime(sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
+      return dateOnly.isAfter(todayOnly) || dateOnly.isAtSameMomentAs(todayOnly);
     }).toList();
 
     if (suKienSapToi.isNotEmpty) {
-      suKienSapToi.sort((a, b) =>
-          (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
+      suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
       var skGanNhat = suKienSapToi.first;
       DateTime dateSK = skGanNhat['ngayDuong'];
 
       tenSuKienGanNhat = skGanNhat['ten'];
       loaiSuKienGanNhat = skGanNhat['tag'];
 
-      int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day)
-          .difference(todayOnly)
-          .inDays;
+      int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day).difference(todayOnly).inDays;
+      String ngayText = '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
 
       if (soNgayConLai == 0) {
-        thoiGianSuKienGanNhat = 'Hôm nay';
+        thoiGianSuKienGanNhat = 'Hôm nay - $ngayText';
       } else if (soNgayConLai == 1) {
-        thoiGianSuKienGanNhat = 'Ngày mai';
+        thoiGianSuKienGanNhat = 'Ngày mai - $ngayText';
       } else {
-        thoiGianSuKienGanNhat = 'Còn $soNgayConLai ngày';
+        thoiGianSuKienGanNhat = 'Còn $soNgayConLai ngày - $ngayText';
       }
     }
 
@@ -238,8 +226,7 @@ class WidgetService {
     final ngayDauThang = DateTime(targetDay.year, targetDay.month, 1);
     final offset = ngayDauThang.weekday - 1;
     final ngayBatDau = ngayDauThang.subtract(Duration(days: offset));
-    final soNgayTrongThang =
-        DateTime(targetDay.year, targetDay.month + 1, 0).day;
+    final soNgayTrongThang = DateTime(targetDay.year, targetDay.month + 1, 0).day;
     final tongO = offset + soNgayTrongThang;
     final soTuan = (tongO / 7).ceil();
 
@@ -247,17 +234,14 @@ class WidgetService {
     for (int i = 0; i < soTuan * 7; i++) {
       final ngay = ngayBatDau.add(Duration(days: i));
       final lunar = AmLichHelper.duongSangAm(ngay);
-      final laTrongThang =
-          ngay.month == targetDay.month && ngay.year == targetDay.year;
+      final laTrongThang = ngay.month == targetDay.month && ngay.year == targetDay.year;
 
       dsO.add({
         'ngayDuong': ngay.day,
         'ngayAm': lunar?.getDay() ?? 0,
         'thangAm': lunar?.getMonth() ?? 0,
         'laChuNhat': ngay.weekday == 7,
-        'laHomNay': ngay.year == targetDay.year &&
-            ngay.month == targetDay.month &&
-            ngay.day == targetDay.day,
+        'laHomNay': ngay.year == targetDay.year && ngay.month == targetDay.month && ngay.day == targetDay.day,
         'coSuKien': laTrongThang && ngayCoSuKien.contains(ngay.day),
         'laDauThangAm': lunar?.getDay() == 1,
         'laTrongThang': laTrongThang,
@@ -272,8 +256,7 @@ class WidgetService {
       'ngayAm': amHienTai?.getDay() ?? 0,
       'thangAm': amHienTai?.getMonth() ?? 0,
       'namAm': amHienTai?.getYear() ?? targetDay.year,
-      'canChiNam':
-          amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
+      'canChiNam': amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
       'dsO': dsO,
       'tenSuKien': dayInfo['tenSuKien'],
       'thoiGianSuKien': dayInfo['thoiGianSuKien'],
