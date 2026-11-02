@@ -69,7 +69,17 @@
 * **[Go](https://go.dev/):** Xây dựng helper backend/service chạy nền trên Windows.
 * **[Swift](https://developer.apple.com/swift/):** Xử lý native bridge cho nền tảng iOS.
 * **[Hive CE](https://pub.dev/packages/hive_ce):** Cơ sở dữ liệu NoSQL cục bộ tốc độ cao.
-* **Thuật toán Hồ Ngọc Đức:** Đảm bảo độ chính xác tuyệt đối cho việc tính toán Âm lịch theo múi giờ Việt Nam (UTC+7).
+* **Thuật toán Hồ Ngọc Đức:** Đảm bảo độ chính xác cho việc tính toán Âm lịch.
+
+---
+
+## 🛠 Yêu cầu
+* **Android:** Android 6.0 trở lên, đã test trên Oppo chạy Android 16 và 17.
+* **iOS:** iOS 18.0 trở lên, sign lại với chứng chỉ cá nhân bằng các app như SideStorem AltStore, Sideloadly trước khi sideload.
+* **MacOS:** MacOS 14.0 Sonoma trở lên.
+* **Windows:** Windows 10 trở lên.
+* **Linux:** Các gói cơ bản về đồ họa. Có thể cài qua câu lệnh sau: 
+```bash sudo apt install -y libgtk-3-0 libblkid1 liblzma5 libstdc++6 libgdk-pixbuf2.0-0 libglib2.0-0 libpango-1.0-0 libcairo2 ```
 
 ---
 
