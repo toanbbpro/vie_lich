@@ -10,8 +10,10 @@ import '../widgets/home_screen_widget_ui.dart';
 import '../widgets/home_screen_widget_ui_4x2.dart';
 import '../models/su_kien.dart';
 import '../utils/am_lich_helper.dart';
+import '../utils/app_constants.dart';
 
 class WidgetService {
+
   static const String appGroupId = 'group.com.toanbb.vie_Lich';
   static const String macOSWidgetName = 'VIELichWidget';
   static const platform = MethodChannel('vie_lich_mac_widget');
@@ -28,9 +30,9 @@ class WidgetService {
 
     List<SuKien> danhSachSuKien = [];
     try {
-      var box = Hive.isBoxOpen('suKienBox')
-          ? Hive.box<SuKien>('suKienBox')
-          : await Hive.openBox<SuKien>('suKienBox');
+      var box = Hive.isBoxOpen(AppConstants.boxSuKien)
+          ? Hive.box<SuKien>(AppConstants.boxSuKien)
+          : await Hive.openBox<SuKien>(AppConstants.boxSuKien);
       danhSachSuKien = box.values.toList();
     } catch (e) {
       debugPrint("❌ Lỗi đọc sự kiện Hive cho Widget: $e");

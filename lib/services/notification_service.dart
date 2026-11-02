@@ -6,6 +6,7 @@ import 'dart:io' show Platform;
 import 'package:hive_ce/hive.dart';
 import '../models/su_kien.dart';
 import '../utils/am_lich_helper.dart';
+import '../utils/app_constants.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
@@ -23,7 +24,6 @@ class NotificationService {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      // ĐÃ THÊM: Ép buộc macOS phải hiện Popup kể cả khi app đang mở
       defaultPresentAlert: true, 
       defaultPresentBadge: true,
       defaultPresentSound: true,
@@ -51,6 +51,11 @@ class NotificationService {
         sound: true,
       );
     }
+  }
+
+  /// Tránh xung đột bằng cách dùng một hàm tạo ID duy nhất từ UUID hoặc string
+  static int _generateNotificationId(String id) {
+    return id.hashCode.abs() % 2147483647;
   }
 
   static Future<void> lenLichSuKien(SuKien sk) async {
@@ -103,7 +108,7 @@ class NotificationService {
       );
 
       await _notificationsPlugin.zonedSchedule(
-        id: sk.id.hashCode,
+        id: _generateNotificationId(sk.id),
         title: 'Sắp đến: ${sk.ten}',
         body: 'Sự kiện diễn ra vào ${ngayDuong.day}/${ngayDuong.month}/${ngayDuong.year}',
         scheduledDate: tzTime,
@@ -115,7 +120,7 @@ class NotificationService {
   }
 
   static Future<void> huyLichSuKien(String id) async {
-    await _notificationsPlugin.cancel(id: id.hashCode);
+    await _notificationsPlugin.cancel(id: _generateNotificationId(id));
   }
 
   static Future<void> khoiPhucLich(List<SuKien> dsSuKien) async {
@@ -127,7 +132,9 @@ class NotificationService {
 
   static Future<void> khoiPhucSauDoiAm([dynamic argument]) async {
     try {
-      final box = Hive.box<SuKien>('suKienBox');
+      final box = Hive.isBoxOpen(AppConstants.boxSuKien)
+          ? Hive.box<SuKien>(AppConstants.boxSuKien)
+          : await Hive.openBox<SuKien>(AppConstants.boxSuKien);
       final dsSuKien = box.values.toList();
       await khoiPhucLich(dsSuKien);
     } catch (e) {
