@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:open_filex/open_filex.dart';
 
 import 'macos_update_service.dart';
+import 'linux_update_service.dart';
 
 class GithubUpdateService {
   static const String _owner = 'toanbbpro';
@@ -33,6 +34,7 @@ class GithubUpdateService {
       if (_isNewer(currentVersion, tag)) {
         String? apkUrl;
         String? macOSZipUrl;
+        String? linuxArchiveUrl;
 
         if (Platform.isAndroid) {
           final assets = data['assets'] as List;
@@ -52,6 +54,18 @@ class GithubUpdateService {
               break;
             }
           }
+        } else if (Platform.isLinux) {
+          final assets = data['assets'] as List;
+          for (var asset in assets) {
+            final name = asset['name'].toString().toLowerCase();
+            if (name.contains('linux') &&
+                (name.endsWith('.zip') ||
+                    name.endsWith('.tar.gz') ||
+                    name.endsWith('.tgz'))) {
+              linuxArchiveUrl = asset['browser_download_url'];
+              break;
+            }
+          }
         }
 
         if (!context.mounted) return;
@@ -62,6 +76,7 @@ class GithubUpdateService {
           releaseUrl,
           apkUrl,
           macOSZipUrl,
+          linuxArchiveUrl,
           info.packageName,
         );
       } else if (showNoUpdate) {
@@ -102,6 +117,7 @@ class GithubUpdateService {
     String releaseUrl,
     String? apkUrl,
     String? macOSZipUrl,
+    String? linuxArchiveUrl,
     String packageName,
   ) {
     showDialog(
@@ -175,6 +191,25 @@ class GithubUpdateService {
                           }
                         }
                       }
+                      // === Linux: tải + tự cài ===
+                      else if (Platform.isLinux && linuxArchiveUrl != null) {
+                        setState(() => isDownloading = true);
+                        try {
+                          await LinuxUpdateService.downloadAndInstall(
+                            archiveUrl: linuxArchiveUrl,
+                            onProgress: (p) {
+                              setState(() => progress = p);
+                            },
+                          );
+                        } catch (e) {
+                          if (context.mounted) {
+                            setState(() => isDownloading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Lỗi cập nhật: $e')),
+                            );
+                          }
+                        }
+                      }
                       // === Fallback: mở trang release ===
                       else {
                         final uri = Uri.parse(releaseUrl);
@@ -188,7 +223,8 @@ class GithubUpdateService {
                     child: Text(
                       Platform.isAndroid && apkUrl != null
                           ? 'Cập nhật ngay'
-                          : Platform.isMacOS && macOSZipUrl != null
+                          : (Platform.isMacOS && macOSZipUrl != null) ||
+                                  (Platform.isLinux && linuxArchiveUrl != null)
                               ? 'Cập nhật và khởi động lại'
                               : 'Tải bản cập nhật',
                     ),

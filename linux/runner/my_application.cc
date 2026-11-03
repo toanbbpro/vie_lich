@@ -1,29 +1,131 @@
 #include "my_application.h"
 
+#include <dlfcn.h>
 #include <flutter_linux/flutter_linux.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
 
+#include "desktop_widget.h"
 #include "flutter/generated_plugin_registrant.h"
+
+// Workaround for Skia SkFontMgr_fontconfig bug in libflutter_linux_gtk.so:
+// When a system font (e.g., WOFF fonts in /usr/share/fonts/woff/opendyslexic
+// on Ubuntu/Zorin OS) has no FC_FAMILY property in Fontconfig,
+// FcPatternGetString(pattern, "family", id, &s) returns FcResultNoMatch (1)
+// instead of FcResultNoId (3). Skia's loop only breaks on FcResultNoId (3),
+// causing it to loop id from 0 to 2^32-1 (4.29 billion times) per font and
+// freeze the main thread at 100% CPU before the window can appear.
+extern "C" __attribute__((visibility("default"))) int FcPatternGetString(
+    void* p,
+    const char* object,
+    int n,
+    unsigned char** s) {
+  typedef int (*FcPatternGetStringFn)(void*, const char*, int, unsigned char**);
+  static FcPatternGetStringFn real_fn = nullptr;
+  if (!real_fn) {
+    real_fn = reinterpret_cast<FcPatternGetStringFn>(
+        dlsym(RTLD_NEXT, "FcPatternGetString"));
+  }
+  int res = real_fn(p, object, n, s);
+  if (res == 1 /* FcResultNoMatch */ && n > 0) {
+    return 3; /* FcResultNoId */
+  }
+  return res;
+}
 
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  gboolean start_hidden;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+static gchar* resolve_executable_path() {
+  return g_file_read_link("/proc/self/exe", nullptr);
+}
+
+static gchar* resolve_app_icon_path() {
+  g_autofree gchar* exe_path = resolve_executable_path();
+  if (!exe_path) return nullptr;
+  g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+  gchar* icon_path = g_build_filename(
+      exe_dir, "data", "flutter_assets", "assets", "icon",
+      "vie_lich_logo.png", nullptr);
+  if (g_file_test(icon_path, G_FILE_TEST_EXISTS)) {
+    return icon_path;
+  }
+  g_free(icon_path);
+  return nullptr;
+}
+
+static void ensure_local_desktop_entry(const gchar* icon_path) {
+  if (!icon_path) return;
+  g_autofree gchar* exe_path = resolve_executable_path();
+  if (!exe_path) return;
+
+  const gchar* data_home = g_get_user_data_dir();
+  if (!data_home) return;
+
+  g_autofree gchar* apps_dir = g_build_filename(data_home, "applications", nullptr);
+  g_mkdir_with_parents(apps_dir, 0755);
+
+  g_autofree gchar* desktop_file =
+      g_build_filename(apps_dir, APPLICATION_ID ".desktop", nullptr);
+  g_autofree gchar* content = g_strdup_printf(
+      "[Desktop Entry]\n"
+      "Type=Application\n"
+      "Name=VIE Lịch\n"
+      "Comment=Ứng dụng Lịch Âm Dương Việt Nam\n"
+      "Exec=\"%s\"\n"
+      "Icon=%s\n"
+      "Terminal=false\n"
+      "Categories=Utility;Calendar;\n"
+      "StartupWMClass=%s\n",
+      exe_path, icon_path, APPLICATION_ID);
+  g_file_set_contents(desktop_file, content, -1, nullptr);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
-  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+  GtkWidget* toplevel = gtk_widget_get_toplevel(GTK_WIDGET(view));
+  g_autofree gchar* icon_path = resolve_app_icon_path();
+  if (icon_path && GTK_IS_WINDOW(toplevel)) {
+    gtk_window_set_icon_from_file(GTK_WINDOW(toplevel), icon_path, nullptr);
+  }
+  if (!self->start_hidden) {
+    gtk_widget_show(toplevel);
+  }
+}
+
+static gboolean on_main_window_delete_event(GtkWidget* widget,
+                                            GdkEvent* event,
+                                            gpointer user_data) {
+  gtk_widget_hide(widget);
+  return TRUE;
 }
 
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+  GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (windows) {
+    gtk_window_present(GTK_WINDOW(windows->data));
+    return;
+  }
+
+  g_autofree gchar* icon_path = resolve_app_icon_path();
+  if (icon_path) {
+    gtk_window_set_default_icon_from_file(icon_path, nullptr);
+    ensure_local_desktop_entry(icon_path);
+  }
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  if (icon_path) {
+    gtk_window_set_icon_from_file(window, icon_path, nullptr);
+  }
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -45,14 +147,25 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "vie_lich");
+    gtk_header_bar_set_title(header_bar, "VIE Lịch");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
+    if (icon_path) {
+      GdkPixbuf* pixbuf =
+          gdk_pixbuf_new_from_file_at_scale(icon_path, 22, 22, TRUE, nullptr);
+      if (pixbuf) {
+        GtkWidget* icon_img = gtk_image_new_from_pixbuf(pixbuf);
+        g_object_unref(pixbuf);
+        gtk_widget_set_margin_start(icon_img, 8);
+        gtk_widget_show(icon_img);
+        gtk_header_bar_pack_start(header_bar, icon_img);
+      }
+    }
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "vie_lich");
+    gtk_window_set_title(window, "VIE Lịch");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  gtk_window_set_default_size(window, 1000, 700);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -75,6 +188,15 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  // Hide main window instead of quitting when clicking the close button (X),
+  // keeping the tray icon and desktop widget running in the background.
+  g_signal_connect(window, "delete-event",
+                   G_CALLBACK(on_main_window_delete_event), nullptr);
+
+  FlEngine* engine = fl_view_get_engine(view);
+  desktop_widget_init(application, window,
+                      fl_engine_get_binary_messenger(engine));
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -85,6 +207,15 @@ static gboolean my_application_local_command_line(GApplication* application,
   MyApplication* self = MY_APPLICATION(application);
   // Strip out the first argument as it is the binary name.
   self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+  self->start_hidden = FALSE;
+  if (self->dart_entrypoint_arguments != nullptr) {
+    for (int i = 0; self->dart_entrypoint_arguments[i] != nullptr; ++i) {
+      if (g_strcmp0(self->dart_entrypoint_arguments[i], "--autostart") == 0) {
+        self->start_hidden = TRUE;
+        break;
+      }
+    }
+  }
 
   g_autoptr(GError) error = nullptr;
   if (!g_application_register(application, nullptr, &error)) {
@@ -110,9 +241,7 @@ static void my_application_startup(GApplication* application) {
 
 // Implements GApplication::shutdown.
 static void my_application_shutdown(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application shutdown.
+  desktop_widget_cleanup();
 
   G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
 }

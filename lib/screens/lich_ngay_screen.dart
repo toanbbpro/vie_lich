@@ -131,6 +131,7 @@ class _LichNgayScreenState extends State<LichNgayScreen>
   Widget build(BuildContext context) {
     final isMobile = Platform.isAndroid || Platform.isIOS;
     final isMacOS = Platform.isMacOS;
+    final isLinux = Platform.isLinux;
     final hasNav = !isMobile;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -143,7 +144,7 @@ class _LichNgayScreenState extends State<LichNgayScreen>
     if (isMobile) {
       buttonAlignment = kButtonAlignmentMobile;
       buttonSize = kButtonSizeMobile;
-    } else if (isMacOS) {
+    } else if (isMacOS || isLinux) {
       buttonAlignment = kButtonAlignmentMacOS;
       buttonSize = kButtonSizeMacOS;
     } else {

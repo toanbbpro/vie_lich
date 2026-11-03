@@ -8,7 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:tray_manager/tray_manager.dart';
+import 'package:tray_manager/tray_manager.dart' hide Image;
+import 'package:tray_manager/tray_manager.dart' as tray show Image;
 import 'package:in_app_update/in_app_update.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
@@ -24,6 +25,7 @@ import 'screens/lich_ngay_screen.dart';
 import 'screens/lich_thang_screen.dart';
 import 'screens/nhac_su_kien_screen.dart';
 import 'screens/cai_dat_screen.dart';
+import 'services/linux_desktop_widget_service.dart';
 import 'services/widget_service.dart';
 import 'utils/am_lich_helper.dart';
 import 'widgets/home_screen_widget_ui.dart';
@@ -151,8 +153,9 @@ Future<void> scheduleWidgetUpdates() async {
   await _scheduleWidgetPeriodicBackup();
 }
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  final bool isAutostart = args.contains('--autostart');
 
   if (Platform.isAndroid || Platform.isIOS) {
     await SystemChrome.setPreferredOrientations([
@@ -187,6 +190,23 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
     });
+  } else if (Platform.isLinux) {
+    await windowManager.ensureInitialized();
+    await windowManager.setPreventClose(true);
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1000, 700),
+      minimumSize: Size(600, 700),
+      center: true,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      if (!isAutostart) {
+        await windowManager.show();
+        await windowManager.focus();
+      } else {
+        await windowManager.hide();
+      }
+    });
   }
 
   await initializeDateFormatting('vi', null);
@@ -198,10 +218,17 @@ void main() async {
 
   final box = await Hive.openBox<SuKien>('suKienBox');
 
-  if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-    await NotificationService.init();
-    final dsSuKien = box.values.toList();
-    await NotificationService.khoiPhucLich(dsSuKien);
+  if (Platform.isAndroid ||
+      Platform.isIOS ||
+      Platform.isMacOS ||
+      Platform.isLinux) {
+    try {
+      await NotificationService.init();
+      final dsSuKien = box.values.toList();
+      await NotificationService.khoiPhucLich(dsSuKien);
+    } catch (e, st) {
+      debugPrint('❌ [Notification] Init/Khôi phục lỗi: $e\n$st');
+    }
   }
 
   DeepLinkService.init();
@@ -232,21 +259,30 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends State<MyApp>
+    with WidgetsBindingObserver, WindowListener {
   TrayIcon? _trayIcon;
   Menu? _trayMenu;
+  final List<MenuItem> _trayMenuItems = [];
+  final List<Menu> _traySubmenus = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      windowManager.addListener(this);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _requestPermissionsFirstLaunch();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (Platform.isMacOS) {
+      if (Platform.isLinux) {
+        await LinuxDesktopWidgetService.init();
+        await _capNhatWidgetVoiRetry();
+      } else if (Platform.isMacOS) {
         await Future.delayed(const Duration(milliseconds: 1500));
         await _capNhatWidgetVoiRetry();
       } else if (Platform.isAndroid || Platform.isIOS) {
@@ -270,9 +306,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      windowManager.removeListener(this);
+    }
     WidgetsBinding.instance.removeObserver(this);
     _trayIcon?.dispose();
     super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    if (Platform.isLinux) {
+      await LinuxDesktopWidgetService.hideMainWindow();
+      await windowManager.hide();
+    }
   }
 
   @override
@@ -335,18 +382,40 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             break;
           }
         }
+      } else if (Platform.isLinux) {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final candidates = [
+          '$exeDir/data/flutter_assets/assets/icon/tray_mac.png',
+          '$exeDir/data/flutter_assets/assets/icon/vie_lich_logo.png',
+          'assets/icon/vie_lich_logo.png',
+        ];
+        for (final p in candidates) {
+          if (File(p).existsSync()) {
+            iconPath = p;
+            break;
+          }
+        }
       }
 
       if (iconPath.isEmpty) return;
+      await _rebuildTrayMenu();
+
       _trayIcon = TrayIcon.create();
       if (_trayIcon == null) return;
 
-      _trayIcon!.icon = ImageAsset.fromAsset(iconPath);
+      _trayIcon!.icon =
+          tray.Image.fromFile(iconPath) ?? ImageAsset.fromAsset(iconPath);
       _trayIcon!.setTooltip('VIE Lịch');
-      await _rebuildTrayMenu();
+      if (Platform.isLinux || Platform.isMacOS) {
+        _trayIcon!.setContextMenuTrigger(ContextMenuTrigger.clicked);
+      }
+      if (_trayMenu != null) {
+        _trayIcon!.setContextMenu(_trayMenu!);
+      }
 
       _trayIcon!.addListener((event) {
-        if (Platform.isMacOS && event is TrayIconClickedEvent) {
+        if ((Platform.isMacOS || Platform.isLinux) &&
+            event is TrayIconClickedEvent) {
           _trayIcon?.openContextMenu();
         } else if (Platform.isWindows) {
           if (event is TrayIconRightClickedEvent) {
@@ -365,6 +434,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _rebuildTrayMenu() async {
     _trayMenu = Menu.create();
     if (_trayMenu == null) return;
+    _trayMenuItems.clear();
+    _traySubmenus.clear();
 
     if (Platform.isWindows) {
       final openAppItem = MenuItem.createWithLabelAndType(
@@ -372,14 +443,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       openAppItem?.addListener((event) {
         if (event is MenuItemClickedEvent) _switchToAppMode();
       });
-      _trayMenu!.addItem(openAppItem!);
+      if (openAppItem != null) {
+        _trayMenuItems.add(openAppItem);
+        _trayMenu!.addItem(openAppItem);
+      }
 
       final openWidgetItem = MenuItem.createWithLabelAndType(
           'Hiện Widget Lịch', MenuItemType.normal);
       openWidgetItem?.addListener((event) {
         if (event is MenuItemClickedEvent) _switchToWidgetMode();
       });
-      _trayMenu!.addItem(openWidgetItem!);
+      if (openWidgetItem != null) {
+        _trayMenuItems.add(openWidgetItem);
+        _trayMenu!.addItem(openWidgetItem);
+      }
       _trayMenu!.addSeparator();
     } else if (Platform.isMacOS) {
       final openItem = MenuItem.createWithLabelAndType(
@@ -390,17 +467,147 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           windowManager.focus();
         }
       });
-      _trayMenu!.addItem(openItem!);
+      if (openItem != null) {
+        _trayMenuItems.add(openItem);
+        _trayMenu!.addItem(openItem);
+      }
+      _trayMenu!.addSeparator();
+    } else if (Platform.isLinux) {
+      final openItem = MenuItem.createWithLabelAndType(
+          'Mở cửa sổ Lịch', MenuItemType.normal);
+      openItem?.addListener((event) {
+        if (event is MenuItemClickedEvent) {
+          LinuxDesktopWidgetService.showMainWindow();
+        }
+      });
+      if (openItem != null) {
+        _trayMenuItems.add(openItem);
+        _trayMenu!.addItem(openItem);
+      }
+      _trayMenu!.addSeparator();
+
+      // 1. Bật / Tắt Widget ngoài Desktop
+      final toggleWidgetItem = MenuItem.createWithLabelAndType(
+          'Hiện Widget ngoài Desktop', MenuItemType.checkbox);
+      if (toggleWidgetItem != null) {
+        toggleWidgetItem.state = LinuxDesktopWidgetService.isVisible
+            ? MenuItemState.checked
+            : MenuItemState.unchecked;
+        toggleWidgetItem.addListener((event) async {
+          if (event is MenuItemClickedEvent) {
+            final visible = await LinuxDesktopWidgetService.toggleVisible();
+            toggleWidgetItem.state =
+                visible ? MenuItemState.checked : MenuItemState.unchecked;
+            _trayIcon?.setContextMenu(_trayMenu!);
+          }
+        });
+        _trayMenuItems.add(toggleWidgetItem);
+        _trayMenu!.addItem(toggleWidgetItem);
+      }
+
+      // 2. Khóa vị trí Widget trên màn hình
+      final lockWidgetItem = MenuItem.createWithLabelAndType(
+          'Khóa vị trí Widget', MenuItemType.checkbox);
+      if (lockWidgetItem != null) {
+        lockWidgetItem.state = LinuxDesktopWidgetService.isLocked
+            ? MenuItemState.checked
+            : MenuItemState.unchecked;
+        lockWidgetItem.addListener((event) async {
+          if (event is MenuItemClickedEvent) {
+            final locked = await LinuxDesktopWidgetService.toggleLocked();
+            lockWidgetItem.state =
+                locked ? MenuItemState.checked : MenuItemState.unchecked;
+            _trayIcon?.setContextMenu(_trayMenu!);
+          }
+        });
+        _trayMenuItems.add(lockWidgetItem);
+        _trayMenu!.addItem(lockWidgetItem);
+      }
+
+      // 3. Kích thước Widget
+      final sizeSubmenu = Menu.create();
+      final sizeMenuItem = MenuItem.createWithLabelAndType(
+          'Kích thước Widget', MenuItemType.submenu);
+      if (sizeSubmenu != null && sizeMenuItem != null) {
+        _traySubmenus.add(sizeSubmenu);
+        final sizes = <String, String>{
+          'small': 'Nhỏ (Small)',
+          'medium': 'Vừa (Medium)',
+          'large': 'Lớn (Large - Mặc định)',
+          'extraLarge': 'Rất lớn (Extra Large)',
+        };
+        final Map<String, MenuItem> sizeItems = {};
+        for (final entry in sizes.entries) {
+          final item = MenuItem.createWithLabelAndType(
+              entry.value, MenuItemType.checkbox);
+          if (item != null) {
+            item.state = (LinuxDesktopWidgetService.sizeMode == entry.key)
+                ? MenuItemState.checked
+                : MenuItemState.unchecked;
+            item.addListener((event) async {
+              if (event is MenuItemClickedEvent) {
+                await LinuxDesktopWidgetService.setSizeMode(entry.key);
+                for (final kv in sizeItems.entries) {
+                  kv.value.state = (kv.key == entry.key)
+                      ? MenuItemState.checked
+                      : MenuItemState.unchecked;
+                }
+                _trayIcon?.setContextMenu(_trayMenu!);
+              }
+            });
+            sizeItems[entry.key] = item;
+            _trayMenuItems.add(item);
+            sizeSubmenu.addItem(item);
+          }
+        }
+        sizeMenuItem.submenu = sizeSubmenu;
+        _trayMenuItems.add(sizeMenuItem);
+        _trayMenu!.addItem(sizeMenuItem);
+      }
+
+      _trayMenu!.addSeparator();
+
+      // 4. Khởi động cùng hệ thống (Autostart khi boot)
+      final isAutostart = await LinuxDesktopWidgetService.isAutostartEnabled();
+      final autostartItem = MenuItem.createWithLabelAndType(
+          'Khởi động khi bật máy', MenuItemType.checkbox);
+      if (autostartItem != null) {
+        autostartItem.state =
+            isAutostart ? MenuItemState.checked : MenuItemState.unchecked;
+        autostartItem.addListener((event) async {
+          if (event is MenuItemClickedEvent) {
+            final enabled = await LinuxDesktopWidgetService.toggleAutostart();
+            autostartItem.state =
+                enabled ? MenuItemState.checked : MenuItemState.unchecked;
+            _trayIcon?.setContextMenu(_trayMenu!);
+          }
+        });
+        _trayMenuItems.add(autostartItem);
+        _trayMenu!.addItem(autostartItem);
+      }
+
       _trayMenu!.addSeparator();
     }
 
     final exitItem =
         MenuItem.createWithLabelAndType('Thoát ứng dụng', MenuItemType.normal);
     exitItem?.addListener((event) {
-      if (event is MenuItemClickedEvent) windowManager.destroy();
+      if (event is MenuItemClickedEvent) {
+        if (Platform.isLinux) {
+          LinuxDesktopWidgetService.quitApp();
+        } else {
+          windowManager.destroy();
+        }
+      }
     });
-    _trayMenu!.addItem(exitItem!);
+    if (exitItem != null) {
+      _trayMenuItems.add(exitItem);
+      _trayMenu!.addItem(exitItem);
+    }
 
+    if (Platform.isLinux || Platform.isMacOS) {
+      _trayIcon?.setContextMenuTrigger(ContextMenuTrigger.clicked);
+    }
     _trayIcon?.setContextMenu(_trayMenu!);
   }
 
@@ -431,6 +638,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
+          if (Platform.isLinux) {
+            final isDark = themeProvider.themeMode == ThemeMode.dark ||
+                (themeProvider.themeMode == ThemeMode.system &&
+                    MediaQuery.platformBrightnessOf(context) ==
+                        Brightness.dark);
+            LinuxDesktopWidgetService.setDarkMode(isDark);
+          }
           return MaterialApp(
             navigatorKey: navigatorKey,
             title: 'Âm lịch Việt Nam',
