@@ -52,8 +52,11 @@ android {
 
     buildTypes {
         release {
-            // Đổi từ debug sang release
-            signingConfig = signingConfigs.getByName("release") 
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

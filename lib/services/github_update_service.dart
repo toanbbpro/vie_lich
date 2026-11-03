@@ -52,10 +52,11 @@ class GithubUpdateService {
           final assets = data['assets'] as List;
           for (var asset in assets) {
             final name = asset['name'].toString().toLowerCase();
-            if (name.contains('linux') &&
-                (name.endsWith('.zip') ||
-                    name.endsWith('.tar.gz') ||
-                    name.endsWith('.tgz'))) {
+            if (name.endsWith('.deb') ||
+                (name.contains('linux') &&
+                    (name.endsWith('.zip') ||
+                        name.endsWith('.tar.gz') ||
+                        name.endsWith('.tgz')))) {
               linuxArchiveUrl = asset['browser_download_url'];
               break;
             }
