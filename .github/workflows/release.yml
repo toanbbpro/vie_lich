@@ -242,10 +242,14 @@ jobs:
       # --- 3B. Build macOS (.app -> codesign -> _macos.zip + .dmg) ---
       - name: Prepare macOS project for CI build
         run: |
-          # Tắt yêu cầu Provisioning Profile tự động của Xcode trong bước compile
-          # để codesign ở bước tiếp theo xử lý (bằng chứng chỉ Apple Free hoặc Ad-hoc)
+          # Chuyển sang Manual Ad-hoc signing trong bước compile của Xcode
+          # để không yêu cầu Provisioning Profile trên máy ảo CI, sau đó bước Codesign sẽ gắn lại entitlements
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' macos/Runner.xcodeproj/project.pbxproj
           sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=macosx\*\]" = "Apple Development";/"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";/g' macos/Runner.xcodeproj/project.pbxproj
           sed -i '' 's/DEVELOPMENT_TEAM = QD2797Q65B;/DEVELOPMENT_TEAM = "";/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/REGISTER_APP_GROUPS = YES;/REGISTER_APP_GROUPS = NO;/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/ENABLE_APP_SANDBOX = YES;/ENABLE_APP_SANDBOX = NO;/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_ENTITLEMENTS = .*;/CODE_SIGN_ENTITLEMENTS = "";/g' macos/Runner.xcodeproj/project.pbxproj
 
       - name: Build macOS Release
         run: flutter build macos --release
