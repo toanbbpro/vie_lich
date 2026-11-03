@@ -10,6 +10,7 @@ import 'them_sua_su_kien_screen.dart';
 
 class LichThangScreen extends StatefulWidget {
   const LichThangScreen({super.key});
+
   @override
   State<LichThangScreen> createState() => _LichThangScreenState();
 }
@@ -21,8 +22,8 @@ class _LichThangScreenState extends State<LichThangScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _focusedMonth = DateTime(now.year, now.month, 1);
+    final today = DateTime.now();
+    _focusedMonth = DateTime(today.year, today.month, 1);
   }
 
   LunarDate _layAmLich(DateTime date) {
@@ -60,8 +61,7 @@ class _LichThangScreenState extends State<LichThangScreen> {
     final cacNgayCoSuKien = suKienProvider.cacNgayCoSuKienDuongLich;
 
     final listNgay = _layNgayTrongThang();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = DateTime.now();
 
     // 👈 Kiểm tra Tablet
     final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
@@ -72,7 +72,7 @@ class _LichThangScreenState extends State<LichThangScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            iconSize: isTablet ? 32 : 24, // 👈 Phóng to icon
+            iconSize: isTablet ? 32 : 24,
             icon: const Icon(Icons.post_add),
             tooltip: 'Thêm nhắc lịch',
             onPressed: () {
@@ -210,15 +210,20 @@ class _HeaderThang extends StatelessWidget {
   final int nam;
   final VoidCallback onPrev;
   final VoidCallback onNext;
-  const _HeaderThang(
-      {required this.thang,
-      required this.nam,
-      required this.onPrev,
-      required this.onNext});
+
+  const _HeaderThang({
+    required this.thang,
+    required this.nam,
+    required this.onPrev,
+    required this.onNext,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Sử dụng kích thước font cố định để tránh lỗi argument_type_not_assignable
+    final double fontSizeTitle = 20.0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -232,7 +237,7 @@ class _HeaderThang extends StatelessWidget {
               tooltip: 'Tháng trước'),
           Text('Tháng $thang, $nam',
               style: TextStyle(
-                  fontSize: 20,
+                  fontSize: fontSizeTitle,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.primary)),
           IconButton(
@@ -247,23 +252,31 @@ class _HeaderThang extends StatelessWidget {
 
 class _HeaderThu extends StatelessWidget {
   const _HeaderThu();
+
   @override
   Widget build(BuildContext context) {
     const thu = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-    final theme = Theme.of(context);
+    // Sử dụng kích thước font cố định
+    final double fontSizeDay = 13.0;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      color: Colors.transparent,
       child: Row(
         children: List.generate(7, (i) {
           final isCN = i == 6;
           return Expanded(
             child: Center(
-              child: Text(thu[i],
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: isCN ? Colors.red : theme.colorScheme.primary)),
+              child: Text(
+                thu[i],
+                style: TextStyle(
+                  fontSize: fontSizeDay,
+                  fontWeight: FontWeight.bold,
+                  color: isCN ? Colors.red : Colors.grey,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           );
         }),
@@ -341,43 +354,67 @@ class _ONgay extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-                top: 2,
-                left: 4,
-                child: Text('${date.day}',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: colorDuong))),
+              top: 2,
+              left: 4,
+              child: FittedBox(
+                fit: BoxFit.fill,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    fontSize: 15.0,
+                    fontWeight: FontWeight.bold,
+                    color: colorDuong,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
             Positioned(
-                bottom: 2,
-                right: 4,
-                child: Text(ngayAmText,
-                    style: TextStyle(
-                        fontSize: isDauThangAm ? 10 : 11,
-                        color: colorAm,
-                        fontWeight: (isDauThangAm || isRam)
-                            ? FontWeight.bold
-                            : FontWeight.normal))),
+              bottom: 2,
+              right: 4,
+              child: FittedBox(
+                fit: BoxFit.fill,
+                child: Text(
+                  ngayAmText,
+                  style: TextStyle(
+                    fontSize: (isDauThangAm || isRam) ? 10.0 : 11.0,
+                    color: colorAm,
+                    fontWeight: (isDauThangAm || isRam)
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
             if (isDauThangAm || isRam)
               Positioned(
                 bottom: 4,
                 left: 4,
                 child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: isRam ? Colors.orange : Colors.red,
-                        shape: BoxShape.circle)),
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isRam ? Colors.orange : Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ),
             if (hasEvent)
               Positioned(
                 top: 4,
                 right: 4,
                 child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                        color: Colors.blue.shade700, shape: BoxShape.circle)),
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade700,
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ),
           ],
         ),
@@ -389,6 +426,7 @@ class _ONgay extends StatelessWidget {
 class _ChiTietNgayChon extends StatelessWidget {
   final DateTime ngay;
   final LunarDate amLich;
+
   const _ChiTietNgayChon({required this.ngay, required this.amLich});
 
   @override
@@ -409,19 +447,19 @@ class _ChiTietNgayChon extends StatelessWidget {
           children: [
             Text(thu,
                 style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 16.0,
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary)),
             const SizedBox(height: 6),
             Text(
               'Âm lịch: ${AmLichHelper.layTenNgay(amLich.day)} tháng ${AmLichHelper.layTenThang(amLich.month).replaceAll('Tháng ', '')}, năm ${amLich.canChiYear}${amLich.isLeap ? ' (nhuận)' : ''}',
-              style: const TextStyle(fontSize: 14, color: Colors.red),
+              style: const TextStyle(fontSize: 14.0, color: Colors.red),
             ),
             if (lunarDay != null) ...[
               const SizedBox(height: 4),
               Text(AmLichHelper.layChuoiCanChiDayDu(lunarDay),
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 13.0,
                       fontStyle: FontStyle.italic,
                       color: theme.colorScheme.primary)),
             ],
@@ -446,7 +484,7 @@ class _ChiTietNgayChon extends StatelessWidget {
                         Expanded(
                             child: Text(le,
                                 style: const TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 13.0,
                                     color: Colors.orange,
                                     fontWeight: FontWeight.w500))),
                       ],
