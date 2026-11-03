@@ -240,6 +240,26 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   }
 
   Future<void> _xinQuyenThongBao() async {
+    if (Platform.isLinux) {
+      try {
+        final linuxPlugin = FlutterLocalNotificationsPlugin()
+            .resolvePlatformSpecificImplementation<
+                LinuxFlutterLocalNotificationsPlugin>();
+        await linuxPlugin?.show(
+          id: 999999,
+          title: 'VIE Lịch',
+          body: 'Thông báo trên Linux đã sẵn sàng hoạt động!',
+        );
+        if (mounted) {
+          _thongBao('Thông báo đã được bật sẵn trên Linux!');
+        }
+      } catch (e) {
+        if (mounted) {
+          _thongBao('Không thể gửi thông báo thử trên Linux: $e');
+        }
+      }
+      return;
+    }
     if (Platform.isMacOS) {
       final macOSPlugin = FlutterLocalNotificationsPlugin()
           .resolvePlatformSpecificImplementation<

@@ -11,9 +11,9 @@ import '../widgets/home_screen_widget_ui_4x2.dart';
 import '../models/su_kien.dart';
 import '../utils/am_lich_helper.dart';
 import '../utils/app_constants.dart';
+import 'linux_desktop_widget_service.dart';
 
 class WidgetService {
-
   static const String appGroupId = 'group.com.toanbb.vie_Lich';
   static const String macOSWidgetName = 'VIELichWidget';
   static const platform = MethodChannel('vie_lich_mac_widget');
@@ -148,6 +148,30 @@ class WidgetService {
         debugPrint('✅ Gửi $_macOSMultiDayCount ngày cho widget macOS');
       } catch (e) {
         debugPrint("❌ Lỗi gửi dữ liệu Widget macOS: $e");
+      }
+    } else if (Platform.isLinux) {
+      try {
+        final appDir = await getApplicationSupportDirectory();
+        final List<String> dayJsonList = [];
+        for (int i = 0; i < _macOSMultiDayCount; i++) {
+          final targetDay = now.add(Duration(days: i));
+          final dayJson = _buildDayJson(targetDay, danhSachSuKien);
+          dayJsonList.add(dayJson);
+        }
+
+        final multiDayFile = File('${appDir.path}/widget_multi_day.json');
+        await multiDayFile.writeAsString('[${dayJsonList.join(',')}]');
+
+        if (dayJsonList.isNotEmpty) {
+          final singleDayFile = File('${appDir.path}/widget_data.json');
+          await singleDayFile.writeAsString(dayJsonList.first);
+          final decoded =
+              jsonDecode(dayJsonList.first) as Map<String, dynamic>;
+          await LinuxDesktopWidgetService.updateWidgetData(decoded);
+        }
+        debugPrint('✅ [Widget Linux] Đã lưu dữ liệu widget tại ${appDir.path}');
+      } catch (e) {
+        debugPrint('❌ [Widget Linux] Lỗi lưu dữ liệu widget: $e');
       }
     }
   }
