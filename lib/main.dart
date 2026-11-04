@@ -231,7 +231,7 @@ void main(List<String> args) async {
     }
   }
 
-  DeepLinkService.init();
+  DeepLinkService.init(args);
 
   if (Platform.isAndroid) {
     try {

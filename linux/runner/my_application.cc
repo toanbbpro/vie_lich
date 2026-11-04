@@ -75,16 +75,26 @@ static void ensure_local_desktop_entry(const gchar* icon_path) {
       g_build_filename(apps_dir, APPLICATION_ID ".desktop", nullptr);
   g_autofree gchar* content = g_strdup_printf(
       "[Desktop Entry]\n"
+      "Version=1.0\n"
       "Type=Application\n"
       "Name=VIE Lịch\n"
       "Comment=Ứng dụng Lịch Âm Dương Việt Nam\n"
-      "Exec=\"%s\"\n"
+      "Exec=\"%s\" %%u\n"
       "Icon=%s\n"
       "Terminal=false\n"
-      "Categories=Utility;Calendar;\n"
+      "Categories=Utility;Calendar;Office;\n"
+      "MimeType=x-scheme-handler/vielich;application/vnd.vielich;\n"
       "StartupWMClass=%s\n",
       exe_path, icon_path, APPLICATION_ID);
   g_file_set_contents(desktop_file, content, -1, nullptr);
+
+  // Đăng ký scheme vielich:// cho user hiện tại
+  g_autofree gchar* cmd = g_strdup_printf(
+      "(update-desktop-database \"%s\" >/dev/null 2>&1; "
+      "xdg-mime default %s.desktop x-scheme-handler/vielich >/dev/null 2>&1) &",
+      apps_dir, APPLICATION_ID);
+  int rc = system(cmd);
+  (void)rc;
 }
 
 // Called when first Flutter frame received.
@@ -200,34 +210,39 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
-// Implements GApplication::local_command_line.
-static gboolean my_application_local_command_line(GApplication* application,
-                                                  gchar*** arguments,
-                                                  int* exit_status) {
+// Implements GApplication::command_line.
+static gint my_application_command_line(GApplication* application,
+                                        GApplicationCommandLine* command_line) {
   MyApplication* self = MY_APPLICATION(application);
-  // Strip out the first argument as it is the binary name.
-  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
-  self->start_hidden = FALSE;
-  if (self->dart_entrypoint_arguments != nullptr) {
-    for (int i = 0; self->dart_entrypoint_arguments[i] != nullptr; ++i) {
-      if (g_strcmp0(self->dart_entrypoint_arguments[i], "--autostart") == 0) {
-        self->start_hidden = TRUE;
-        break;
+  gint argc = 0;
+  g_auto(GStrv) argv =
+      g_application_command_line_get_arguments(command_line, &argc);
+
+  GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (windows == nullptr) {
+    // Khởi chạy lần đầu (Cold start)
+    g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+    if (argc > 1) {
+      self->dart_entrypoint_arguments = g_strdupv(argv + 1);
+    }
+    self->start_hidden = FALSE;
+    if (self->dart_entrypoint_arguments != nullptr) {
+      for (int i = 0; self->dart_entrypoint_arguments[i] != nullptr; ++i) {
+        if (g_strcmp0(self->dart_entrypoint_arguments[i], "--autostart") == 0) {
+          self->start_hidden = TRUE;
+          break;
+        }
       }
     }
+    my_application_activate(application);
+  } else {
+    // App đang chạy ngầm hoặc đang mở (Warm start, ví dụ nhận link vielich://)
+    GtkWindow* window = GTK_WINDOW(windows->data);
+    gtk_widget_show(GTK_WIDGET(window));
+    gtk_window_present(window);
   }
 
-  g_autoptr(GError) error = nullptr;
-  if (!g_application_register(application, nullptr, &error)) {
-    g_warning("Failed to register: %s", error->message);
-    *exit_status = 1;
-    return TRUE;
-  }
-
-  g_application_activate(application);
-  *exit_status = 0;
-
-  return TRUE;
+  return 0;
 }
 
 // Implements GApplication::startup.
@@ -255,8 +270,7 @@ static void my_application_dispose(GObject* object) {
 
 static void my_application_class_init(MyApplicationClass* klass) {
   G_APPLICATION_CLASS(klass)->activate = my_application_activate;
-  G_APPLICATION_CLASS(klass)->local_command_line =
-      my_application_local_command_line;
+  G_APPLICATION_CLASS(klass)->command_line = my_application_command_line;
   G_APPLICATION_CLASS(klass)->startup = my_application_startup;
   G_APPLICATION_CLASS(klass)->shutdown = my_application_shutdown;
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
@@ -273,5 +287,6 @@ MyApplication* my_application_new() {
 
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     G_APPLICATION_HANDLES_COMMAND_LINE,
+                                     nullptr));
 }

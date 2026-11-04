@@ -14,12 +14,26 @@ import '../main.dart';
 class DeepLinkService {
   static final _appLinks = AppLinks();
   static bool _isInitialized = false;
+  static String? _lastHandledUri;
 
-  static void init() {
+  static void init([List<String> args = const []]) {
     if (_isInitialized) return;
     _isInitialized = true;
 
     debugPrint("📱 [DeepLink] Bắt đầu lắng nghe ngầm...");
+
+    // Xử lý tham số dòng lệnh trực tiếp (Cold start trên Linux/Windows)
+    for (final arg in args) {
+      if (arg.startsWith('vielich://')) {
+        final uri = Uri.tryParse(arg);
+        if (uri != null) {
+          _lastHandledUri = uri.toString();
+          debugPrint("🔗 [DeepLink] Nhận link từ tham số khởi chạy: $uri");
+          _xuLyUri(uri);
+          break;
+        }
+      }
+    }
 
     _appLinks.uriLinkStream.listen((Uri? uri) {
       debugPrint("🔗 [DeepLink] App được đánh thức, nhận Stream Link: $uri");
@@ -29,7 +43,8 @@ class DeepLinkService {
     });
 
     _appLinks.getInitialLink().then((Uri? uri) {
-      if (uri != null) {
+      if (uri != null && uri.toString() != _lastHandledUri) {
+        _lastHandledUri = uri.toString();
         debugPrint("🔗 [DeepLink] App mở mới hoàn toàn bằng Link: $uri");
         _xuLyUri(uri);
       }

@@ -156,6 +156,7 @@ jobs:
           Icon=vie_lich
           Terminal=false
           Categories=Utility;Calendar;Office;
+          MimeType=x-scheme-handler/vielich;application/vnd.vielich;
           StartupWMClass=com.toanbb.vie_lich
           EOF
 
@@ -176,7 +177,7 @@ jobs:
            va Desktop Widget tren Linux (Zorin OS / Ubuntu / Debian).
           EOF
 
-          # 6. Tạo DEBIAN/postinst để phân quyền và cập nhật icon cache
+          # 6. Tạo DEBIAN/postinst để phân quyền và cập nhật icon/mime cache
           cat << 'EOF' > "$PKG_DIR/DEBIAN/postinst"
           #!/bin/sh
           set -e
@@ -184,6 +185,9 @@ jobs:
           chmod +x /opt/vie_lich/vie_lich || true
           if command -v update-desktop-database >/dev/null 2>&1; then
             update-desktop-database -q /usr/share/applications || true
+          fi
+          if command -v xdg-mime >/dev/null 2>&1; then
+            xdg-mime default com.toanbb.vie_lich.desktop x-scheme-handler/vielich || true
           fi
           if command -v gtk-update-icon-cache >/dev/null 2>&1; then
             gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
@@ -255,35 +259,11 @@ jobs:
         run: flutter build macos --release
 
       - name: Codesign macOS App & Widget Extension
-        env:
-          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: |
           APP_PATH="build/macos/Build/Products/Release/VIE Lich.app"
           WIDGET_PATH="$APP_PATH/Contents/PlugIns/VIELichWidgetExtension.appex"
-
-          if [ -n "$MACOS_CERTIFICATE_P12_BASE64" ]; then
-            echo "🔐 Đang nạp chứng chỉ Apple từ GitHub Secrets..."
-            KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
-            KEYCHAIN_PASS="ci_temp_pass"
-
-            echo "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-            security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
-            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-            security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
-            security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-            security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
-            security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
-
-            SIGN_ID="${MACOS_SIGN_IDENTITY:-Apple Development}"
-            codesign --force --verbose --sign "$SIGN_ID" --entitlements macos/VIELichWidgetExtension.entitlements "$WIDGET_PATH"
-            codesign --force --verbose --sign "$SIGN_ID" "$APP_PATH"
-          else
-            echo "ℹ️ Ký Ad-hoc (cùng entitlements với tài khoản Apple Free)..."
-            codesign --force --verbose --sign "-" --entitlements macos/VIELichWidgetExtension.entitlements "$WIDGET_PATH"
-            codesign --force --verbose --sign "-" --entitlements macos/Runner/Release.entitlements "$APP_PATH"
-          fi
+          codesign --force --verbose --sign "-" --entitlements macos/VIELichWidgetExtension.entitlements "$WIDGET_PATH"
+          codesign --force --verbose --sign "-" --entitlements macos/Runner/Release.entitlements "$APP_PATH"
 
       - name: Package macOS ZIP & DMG
         run: |
