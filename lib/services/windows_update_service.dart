@@ -68,7 +68,7 @@ class WindowsUpdateService {
           _simpleDialog(
             context,
             'Bạn đang dùng bản mới nhất',
-            'Phiên bản hiện tại: $currentVersion+$currentBuild',
+            'Phiên bản hiện tại: $currentVersion',
           );
         }
         return;

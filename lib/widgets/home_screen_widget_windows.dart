@@ -70,7 +70,7 @@ class HomeScreenWidgetWindows extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -135,7 +135,7 @@ class HomeScreenWidgetWindows extends StatelessWidget {
                       children: [
                         // Header tháng
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
+                          padding: const EdgeInsets.only(bottom: 2),
                           child: Text(
                             'Tháng ${thangDuyet.toString().padLeft(2, '0')}/$namDuyet',
                             textAlign: TextAlign.center,
@@ -196,13 +196,13 @@ class HomeScreenWidgetWindows extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
 
             // ==========================================================
             // PHẦN DƯỚI: Sự kiện sắp tới
             // ==========================================================
             Container(height: 1, color: _divider),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Row(
               children: [
                 Icon(
@@ -282,49 +282,53 @@ class HomeScreenWidgetWindows extends StatelessWidget {
 
     final hasEvent = c.inMonth && ngayCoSuKien.contains(c.date.day);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 0.5),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Số dương — có thể được bọc bởi pill đỏ nếu là hôm nay
-          Container(
-            padding: isToday
-                ? const EdgeInsets.symmetric(horizontal: 7, vertical: 1)
-                : EdgeInsets.zero,
-            decoration: isToday
-                ? BoxDecoration(
-                    color: _red,
-                    borderRadius: BorderRadius.circular(5),
-                  )
-                : null,
-            child: Text(
-              '${c.date.day}',
-              style: TextStyle(
-                color: isToday ? _white : solarColor,
-                fontSize: 11,
-                fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
-                height: 1.0,
-              ),
-            ),
-          ),
-          // Số âm — ẩn nếu là hôm nay (cho gọn), hoặc nếu không có dữ liệu
-          if (!isToday && c.lunarDay != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 0.5),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Số dương — có thể được bọc bởi pill đỏ nếu là hôm nay
+            Container(
+              padding: isToday
+                  ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
+                  : EdgeInsets.zero,
+              decoration: isToday
+                  ? BoxDecoration(
+                      color: _red,
+                      borderRadius: BorderRadius.circular(4),
+                    )
+                  : null,
               child: Text(
-                c.lunarDay == 1
-                    ? '1/${c.lunarMonth}'
-                    : '${c.lunarDay}',
+                '${c.date.day}',
                 style: TextStyle(
-                  color: hasEvent ? _orange : lunarColor,
-                  fontSize: 8,
-                  fontWeight: hasEvent ? FontWeight.w700 : FontWeight.w400,
+                  color: isToday ? _white : solarColor,
+                  fontSize: 10.5,
+                  fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
                   height: 1.0,
                 ),
               ),
             ),
-        ],
+            // Số âm — ẩn nếu là hôm nay (cho gọn), hoặc nếu không có dữ liệu
+            if (!isToday && c.lunarDay != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Text(
+                  c.lunarDay == 1
+                      ? '1/${c.lunarMonth}'
+                      : '${c.lunarDay}',
+                  style: TextStyle(
+                    color: hasEvent ? _orange : lunarColor,
+                    fontSize: 8,
+                    fontWeight: hasEvent ? FontWeight.w700 : FontWeight.w400,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

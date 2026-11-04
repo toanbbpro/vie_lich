@@ -12,3 +12,6 @@ PRODUCT_BUNDLE_IDENTIFIER = com.toanbb.vie-Lich
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 ToanBB. All rights reserved.
+
+MACOSX_DEPLOYMENT_TARGET = 14.0
+

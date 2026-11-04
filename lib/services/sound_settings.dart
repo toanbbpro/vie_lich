@@ -72,21 +72,25 @@ class SoundSettings {
       }
       await File(sourcePath).copy(localFile.path);
 
-      // === 2. Lưu vào MediaStore (cho notification) ===
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/vie_lich_temp.mp3');
-      if (tempFile.existsSync()) {
-        await tempFile.delete();
+      // === 2. Lưu vào MediaStore (cho notification trên Android) ===
+      String uri = localFile.path;
+      if (Platform.isAndroid) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/vie_lich_temp.mp3');
+        if (tempFile.existsSync()) {
+          await tempFile.delete();
+        }
+        await File(sourcePath).copy(tempFile.path);
+
+        final mediaUri = await MediaStoreService.saveSound(tempFile.path);
+
+        try {
+          if (tempFile.existsSync()) await tempFile.delete();
+        } catch (_) {}
+
+        if (mediaUri == null) return false;
+        uri = mediaUri;
       }
-      await File(sourcePath).copy(tempFile.path);
-
-      final uri = await MediaStoreService.saveSound(tempFile.path);
-
-      try {
-        if (tempFile.existsSync()) await tempFile.delete();
-      } catch (_) {}
-
-      if (uri == null) return false;
 
       // === 3. Lưu metadata ===
       final prefs = await SharedPreferences.getInstance();
@@ -102,9 +106,11 @@ class SoundSettings {
   }
 
   static Future<void> deleteCustomSound() async {
-    try {
-      await MediaStoreService.deleteSound();
-    } catch (_) {}
+    if (Platform.isAndroid) {
+      try {
+        await MediaStoreService.deleteSound();
+      } catch (_) {}
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final localPath = prefs.getString(_keyCustomLocalPath);

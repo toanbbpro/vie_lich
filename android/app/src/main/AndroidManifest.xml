@@ -20,11 +20,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- ============================================================ -->
-    <!-- XÓA QUYỀN ẢNH/VIDEO BỊ MERGE TỰ ĐỘNG TỪ image_picker          -->
-    <!-- image_picker dùng Photo Picker của hệ thống (Android 13+) nên -->
-    <!-- không cần các quyền này. Google Play yêu cầu không khai báo.  -->
-    <!-- ============================================================ -->
+    <!-- XÓA QUYỀN ẢNH/VIDEO BỊ MERGE TỰ ĐỘNG TỪ image_picker -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
@@ -53,6 +49,11 @@
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:requestLegacyExternalStorage="true">
+
+        <!-- TẮT IMPELLER KHI BUILD RELEASE -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
 
         <activity
             android:name=".MainActivity"
@@ -87,14 +88,35 @@
                 <data android:scheme="vielich" />
             </intent-filter>
         </activity>
+
         <!-- KHAI BÁO WIDGET -->
-        <receiver android:name=".HomeScreenWidgetProvider" android:exported="true" android:label=" ">
+        <!-- WIDGET 4x3 (CŨ - CHO ĐIỆN THOẠI) -->
+        <receiver 
+            android:name=".HomeScreenWidgetProvider" 
+            android:exported="true" 
+            android:label="VIE Lịch (4x3)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
+            <meta-data 
+                android:name="android.appwidget.provider" 
+                android:resource="@xml/widget_info" />
         </receiver>
-        <!-- ===== FileProvider cho phép chia sẻ file âm thanh ===== -->
+
+        <!-- WIDGET 4x2 (MỚI - CHO TABLET, GIAO DIỆN VẠN NIÊN) -->
+        <receiver 
+            android:name=".HomeScreenWidgetProvider4x2" 
+            android:exported="true" 
+            android:label="VIE Lịch (4x2 - Vạn Niên)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data 
+                android:name="android.appwidget.provider" 
+                android:resource="@xml/widget_info_4x2" />
+        </receiver>
+
+        <!-- FileProvider cho phép chia sẻ file âm thanh -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -105,7 +127,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- ===== android_alarm_manager_plus ===== -->
+        <!-- android_alarm_manager_plus -->
         <service
             android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmService"
             android:permission="android.permission.BIND_JOB_SERVICE"

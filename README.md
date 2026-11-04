@@ -69,7 +69,17 @@
 * **[Go](https://go.dev/):** Xây dựng helper backend/service chạy nền trên Windows.
 * **[Swift](https://developer.apple.com/swift/):** Xử lý native bridge cho nền tảng iOS.
 * **[Hive CE](https://pub.dev/packages/hive_ce):** Cơ sở dữ liệu NoSQL cục bộ tốc độ cao.
-* **Thuật toán Hồ Ngọc Đức:** Đảm bảo độ chính xác tuyệt đối cho việc tính toán Âm lịch theo múi giờ Việt Nam (UTC+7).
+* **Thuật toán Hồ Ngọc Đức:** Đảm bảo độ chính xác cho việc tính toán Âm lịch.
+
+---
+
+## 🛠 Yêu cầu
+* **Android:** Android 6.0 trở lên, đã test trên Oppo chạy Android 16 và 17.
+* **iOS:** iOS 18.0 trở lên, sign lại với chứng chỉ cá nhân bằng các app như SideStorem AltStore, Sideloadly trước khi sideload.
+* **MacOS:** MacOS 14.0 Sonoma trở lên.
+* **Windows:** Windows 10 trở lên.
+* **Linux:** Các gói cơ bản về đồ họa. Có thể cài qua câu lệnh sau: 
+```bash sudo apt install -y libgtk-3-0 libblkid1 liblzma5 libstdc++6 libgdk-pixbuf2.0-0 libglib2.0-0 libpango-1.0-0 libcairo2 ```
 
 ---
 
@@ -106,7 +116,23 @@ flutter build apk --release --dart-define=PLAY_STORE=false
 flutter build ipa --release --export-method development
 ## MacOS
 flutter build macos --release
-## Windows - chỉ trên branch windows
+codesign --force --verbose --sign "Apple Development: toanbb.com@gmail.com (6T8GYFP8NH)" --entitlements macos/VIELichWidgetExtension.entitlements "build/macos/Build/Products/Release/VIE Lich.app/Contents/PlugIns/VIELichWidgetExtension.appex"
+codesign --force --verbose --sign "Apple Development: toanbb.com@gmail.com (6T8GYFP8NH)" "build/macos/Build/Products/Release/VIE Lich.app"
+#optional build dmg or zip .app
+ditto -c -k --sequesterRsrc --keepParent "build/macos/Build/Products/Release/VIE Lich.app" "/Users/toanlethanh/Desktop/VIE_Lich_v2.1.0_macos.zip"
+create-dmg \
+  --volname "VIE Lịch" \
+  --applescript-sleep-duration 15 \
+  --background "assets/backgrounds/dmg_bg.png" \
+  --window-pos 200 120 \
+  --window-size 600 335 \
+  --icon-size 100 \
+  --icon "VIE Lich.app" 150 185 \
+  --hide-extension "VIE Lich.app" \
+  --app-drop-link 450 185 \
+  "/Users/toanlethanh/Desktop/VIE_Lich_v2.1.2.dmg" \
+  "build/macos/Build/Products/Release/VIE Lich.app"
+## Windows - chỉ trên long-live branch windows
 flutter build windows --release
 ```
 </details>

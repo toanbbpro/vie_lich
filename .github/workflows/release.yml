@@ -1,0 +1,345 @@
+name: Build & Release All Platforms
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag phiên bản cần release (ví dụ: v2.1.3)'
+        required: true
+        default: 'v2.1.3'
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================================
+  # 1. ANDROID APK (No Store - Hỗ trợ tự động cập nhật từ GitHub)
+  # ============================================================================
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Determine Tag Name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Restore Android Keystore (if configured in Secrets)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+            cat <<EOF > android/key.properties
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+            echo "✅ Đã nạp Android release keystore từ GitHub Secrets"
+          else
+            echo "⚠️ Chưa cấu hình ANDROID_KEYSTORE_BASE64 trong Secrets, sẽ ký bằng debug key"
+          fi
+
+      - name: Build APK (No Store)
+        run: |
+          flutter pub get
+          flutter build apk --release --dart-define=PLAY_STORE=false
+          cp build/app/outputs/flutter-apk/app-release.apk "vie_lich-${{ steps.tag.outputs.TAG }}.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: vie_lich-${{ steps.tag.outputs.TAG }}.apk
+
+  # ============================================================================
+  # 2. LINUX DEB (Tự cài thư viện phụ thuộc + hỗ trợ pkexec auto-update)
+  # ============================================================================
+  build-linux:
+    name: Build Linux DEB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Determine Tag & Version
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev \
+            libayatana-appindicator3-dev \
+            libnotify-dev libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Build Linux Release Bundle
+        run: |
+          flutter pub get
+          flutter build linux --release
+
+      - name: Package .deb with full dependencies & desktop integration
+        run: |
+          TAG="${{ steps.tag.outputs.TAG }}"
+          VERSION="${{ steps.tag.outputs.VERSION }}"
+          PKG_DIR="deb_pkg"
+
+          rm -rf "$PKG_DIR"
+          mkdir -p "$PKG_DIR/DEBIAN"
+          mkdir -p "$PKG_DIR/opt/vie_lich"
+          mkdir -p "$PKG_DIR/usr/bin"
+          mkdir -p "$PKG_DIR/usr/share/applications"
+          mkdir -p "$PKG_DIR/usr/share/icons/hicolor/256x256/apps"
+
+          # 1. Copy Flutter Linux bundle vào /opt/vie_lich
+          cp -r build/linux/x64/release/bundle/* "$PKG_DIR/opt/vie_lich/"
+          chmod +x "$PKG_DIR/opt/vie_lich/vie_lich"
+
+          # 2. Tạo symlink trong /usr/bin/vie_lich
+          ln -s /opt/vie_lich/vie_lich "$PKG_DIR/usr/bin/vie_lich"
+
+          # 3. Copy icon ứng dụng
+          cp assets/icon/vie_lich_logo.png "$PKG_DIR/usr/share/icons/hicolor/256x256/apps/vie_lich.png"
+
+          # 4. Tạo Desktop Entry chuẩn cho GNOME / Zorin OS
+          cat << 'EOF' > "$PKG_DIR/usr/share/applications/com.toanbb.vie_lich.desktop"
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=VIE Lịch
+          GenericName=Lịch Âm Dương Việt Nam
+          Comment=Ứng dụng xem lịch âm dương, nhắc sự kiện và Widget Desktop
+          Exec=/opt/vie_lich/vie_lich %u
+          Icon=vie_lich
+          Terminal=false
+          Categories=Utility;Calendar;Office;
+          MimeType=x-scheme-handler/vielich;application/vnd.vielich;
+          StartupWMClass=com.toanbb.vie_lich
+          EOF
+
+          # 5. Tạo DEBIAN/control tự động cài đặt toàn bộ thư viện phụ thuộc + policykit-1 (pkexec)
+          INSTALLED_SIZE=$(du -sk "$PKG_DIR/opt" "$PKG_DIR/usr" | awk '{s+=$1} END {print s}')
+          cat << EOF > "$PKG_DIR/DEBIAN/control"
+          Package: vie-lich
+          Version: $VERSION
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Installed-Size: $INSTALLED_SIZE
+          Depends: libgtk-3-0, libglib2.0-0, libcairo2, libpango-1.0-0, libpangocairo-1.0-0, libgdk-pixbuf-2.0-0 | libgdk-pixbuf2.0-0, libayatana-appindicator3-1 | libappindicator3-1, libnotify4, libsecret-1-0, libjsoncpp25 | libjsoncpp24 | libjsoncpp1, liblzma5, libblkid1, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0, gstreamer1.0-plugins-good, policykit-1 | pkexec
+          Maintainer: ToanBB <toanbb.com@gmail.com>
+          Homepage: https://github.com/toanbbpro/vie_lich
+          Description: VIE Lich - App lich Viet cho nguoi Viet
+           Ung dung xem lich am, duong, nhac nho ngay gio, le hoi truyen thong
+           va Desktop Widget tren Linux (Zorin OS / Ubuntu / Debian).
+          EOF
+
+          # 6. Tạo DEBIAN/postinst để phân quyền và cập nhật icon/mime cache
+          cat << 'EOF' > "$PKG_DIR/DEBIAN/postinst"
+          #!/bin/sh
+          set -e
+          chmod -R 755 /opt/vie_lich || true
+          chmod +x /opt/vie_lich/vie_lich || true
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database -q /usr/share/applications || true
+          fi
+          if command -v xdg-mime >/dev/null 2>&1; then
+            xdg-mime default com.toanbb.vie_lich.desktop x-scheme-handler/vielich || true
+          fi
+          if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+          fi
+          exit 0
+          EOF
+          chmod 0755 "$PKG_DIR/DEBIAN/postinst"
+
+          # 7. Đóng gói file .deb
+          dpkg-deb --build --root-owner-group "$PKG_DIR" "VIE_Lich_${TAG}_linux.deb"
+
+      - name: Upload Linux DEB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: VIE_Lich_${{ steps.tag.outputs.TAG }}_linux.deb
+
+  # ============================================================================
+  # 3. iOS (.ipa) & macOS (.dmg + _macos.zip)
+  # ============================================================================
+  build-apple:
+    name: Build iOS IPA & macOS DMG/ZIP
+    runs-on: macos-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Determine Tag Name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # --- 3A. Build iOS IPA (Unsigned cho AltStore / SideStore / Sideloadly) ---
+      - name: Build iOS IPA
+        run: |
+          TAG="${{ steps.tag.outputs.TAG }}"
+          flutter build ios --release --no-codesign
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r -q "vie_lich-${TAG}.ipa" Payload
+          rm -rf Payload
+
+      # --- 3B. Build macOS (.app -> codesign -> _macos.zip + .dmg) ---
+      - name: Prepare macOS project for CI build
+        run: |
+          # Chuyển sang Manual Ad-hoc signing trong bước compile của Xcode
+          # để không yêu cầu Provisioning Profile trên máy ảo CI, sau đó bước Codesign sẽ gắn lại entitlements
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=macosx\*\]" = "Apple Development";/"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/DEVELOPMENT_TEAM = QD2797Q65B;/DEVELOPMENT_TEAM = "";/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/REGISTER_APP_GROUPS = YES;/REGISTER_APP_GROUPS = NO;/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/ENABLE_APP_SANDBOX = YES;/ENABLE_APP_SANDBOX = NO;/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_ENTITLEMENTS = .*;/CODE_SIGN_ENTITLEMENTS = "";/g' macos/Runner.xcodeproj/project.pbxproj
+
+      - name: Build macOS Release
+        run: flutter build macos --release
+
+      - name: Codesign macOS App & Widget Extension
+        run: |
+          APP_PATH="build/macos/Build/Products/Release/VIE Lich.app"
+          WIDGET_PATH="$APP_PATH/Contents/PlugIns/VIELichWidgetExtension.appex"
+          codesign --force --verbose --sign "-" --entitlements macos/VIELichWidgetExtension.entitlements "$WIDGET_PATH"
+          codesign --force --verbose --sign "-" --entitlements macos/Runner/Release.entitlements "$APP_PATH"
+
+      - name: Package macOS ZIP & DMG
+        run: |
+          TAG="${{ steps.tag.outputs.TAG }}"
+          APP_PATH="build/macos/Build/Products/Release/VIE Lich.app"
+
+          # 1. Tạo file ZIP cho tính năng Auto-Update trên macOS
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "VIE_Lich_${TAG}_macos.zip"
+
+          # 2. Tạo file DMG cho người dùng tải cài mới
+          brew install create-dmg
+          create-dmg \
+            --volname "VIE Lịch" \
+            --applescript-sleep-duration 15 \
+            --background "assets/backgrounds/dmg_bg.png" \
+            --window-pos 200 120 \
+            --window-size 600 335 \
+            --icon-size 100 \
+            --icon "VIE Lich.app" 150 185 \
+            --hide-extension "VIE Lich.app" \
+            --app-drop-link 450 185 \
+            "VIE_Lich_${TAG}.dmg" \
+            "$APP_PATH" || \
+          create-dmg \
+            --skip-jenkins \
+            --volname "VIE Lịch" \
+            --app-drop-link 450 185 \
+            "VIE_Lich_${TAG}.dmg" \
+            "$APP_PATH"
+
+      - name: Upload Apple Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-artifacts
+          path: |
+            vie_lich-${{ steps.tag.outputs.TAG }}.ipa
+            VIE_Lich_${{ steps.tag.outputs.TAG }}_macos.zip
+            VIE_Lich_${{ steps.tag.outputs.TAG }}.dmg
+
+  # ============================================================================
+  # 4. PUBLISH GITHUB RELEASE
+  # ============================================================================
+  release:
+    name: Publish GitHub Release
+    needs: [build-android, build-linux, build-apple]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Tag Name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: List Release Assets
+        run: ls -lh release_assets/
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: ${{ steps.tag.outputs.TAG }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release_assets/vie_lich-${{ steps.tag.outputs.TAG }}.apk
+            release_assets/vie_lich-${{ steps.tag.outputs.TAG }}.ipa
+            release_assets/VIE_Lich_${{ steps.tag.outputs.TAG }}.dmg
+            release_assets/VIE_Lich_${{ steps.tag.outputs.TAG }}_macos.zip
+            release_assets/VIE_Lich_${{ steps.tag.outputs.TAG }}_linux.deb
+

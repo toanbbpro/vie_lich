@@ -1,38 +1,34 @@
-import 'dart:io';
-import 'package:dio/dio.dart';
+import "dart:io";
+import "package:dio/dio.dart";
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:open_filex/open_filex.dart';
-
 import 'macos_update_service.dart';
+import 'linux_update_service.dart';
 
 class GithubUpdateService {
   static const String _owner = 'toanbbpro';
   static const String _repo = 'vie_lich';
-
   static Future<void> checkUpdate(BuildContext context,
       {bool showNoUpdate = false}) async {
     const isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
     if (isPlayStore) return;
-
     try {
       final dio = Dio();
       final response = await dio
           .get('https://api.github.com/repos/$_owner/$_repo/releases/latest');
       final data = response.data;
-
       final String tag = data['tag_name'];
       final String releaseNotes = data['body'] ?? 'Không có ghi chú phát hành.';
       final String releaseUrl = data['html_url'];
-
       final info = await PackageInfo.fromPlatform();
       final currentVersion = info.version;
-
       if (_isNewer(currentVersion, tag)) {
         String? apkUrl;
         String? macOSZipUrl;
+        String? linuxArchiveUrl;
 
         if (Platform.isAndroid) {
           final assets = data['assets'] as List;
@@ -52,8 +48,20 @@ class GithubUpdateService {
               break;
             }
           }
+        } else if (Platform.isLinux) {
+          final assets = data['assets'] as List;
+          for (var asset in assets) {
+            final name = asset['name'].toString().toLowerCase();
+            if (name.endsWith('.deb') ||
+                (name.contains('linux') &&
+                    (name.endsWith('.zip') ||
+                        name.endsWith('.tar.gz') ||
+                        name.endsWith('.tgz')))) {
+              linuxArchiveUrl = asset['browser_download_url'];
+              break;
+            }
+          }
         }
-
         if (!context.mounted) return;
         _hienThiDialogCapNhat(
           context,
@@ -62,6 +70,7 @@ class GithubUpdateService {
           releaseUrl,
           apkUrl,
           macOSZipUrl,
+          linuxArchiveUrl,
           info.packageName,
         );
       } else if (showNoUpdate) {
@@ -78,7 +87,6 @@ class GithubUpdateService {
       }
     }
   }
-
   static bool _isNewer(String current, String tag) {
     try {
       final v1 = current.replaceAll(RegExp(r'[a-zA-Z]'), '').split('.');
@@ -94,7 +102,6 @@ class GithubUpdateService {
       return false;
     }
   }
-
   static void _hienThiDialogCapNhat(
     BuildContext context,
     String version,
@@ -102,6 +109,7 @@ class GithubUpdateService {
     String releaseUrl,
     String? apkUrl,
     String? macOSZipUrl,
+    String? linuxArchiveUrl,
     String packageName,
   ) {
     showDialog(
@@ -110,7 +118,6 @@ class GithubUpdateService {
       builder: (ctx) {
         bool isDownloading = false;
         double progress = 0.0;
-
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
@@ -175,6 +182,25 @@ class GithubUpdateService {
                           }
                         }
                       }
+                      // === Linux: tải + tự cài ===
+                      else if (Platform.isLinux && linuxArchiveUrl != null) {
+                        setState(() => isDownloading = true);
+                        try {
+                          await LinuxUpdateService.downloadAndInstall(
+                            archiveUrl: linuxArchiveUrl,
+                            onProgress: (p) {
+                              setState(() => progress = p);
+                            },
+                          );
+                        } catch (e) {
+                          if (context.mounted) {
+                            setState(() => isDownloading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Lỗi cập nhật: $e')),
+                            );
+                          }
+                        }
+                      }
                       // === Fallback: mở trang release ===
                       else {
                         final uri = Uri.parse(releaseUrl);
@@ -188,7 +214,8 @@ class GithubUpdateService {
                     child: Text(
                       Platform.isAndroid && apkUrl != null
                           ? 'Cập nhật ngay'
-                          : Platform.isMacOS && macOSZipUrl != null
+                          : (Platform.isMacOS && macOSZipUrl != null) ||
+                                  (Platform.isLinux && linuxArchiveUrl != null)
                               ? 'Cập nhật và khởi động lại'
                               : 'Tải bản cập nhật',
                     ),
@@ -200,13 +227,11 @@ class GithubUpdateService {
       },
     );
   }
-
   static Future<void> _taiVaCaiDatApk(
       String url, String appId, Function(double) onProgress) async {
     try {
       final tempDir = await getTemporaryDirectory();
       final savePath = '${tempDir.path}/update.apk';
-
       final dio = Dio();
       await dio.download(
         url,
@@ -217,7 +242,6 @@ class GithubUpdateService {
           }
         },
       );
-
       final result = await OpenFilex.open(savePath);
       debugPrint('Trạng thái mở file cài đặt: ${result.message}');
     } catch (e) {

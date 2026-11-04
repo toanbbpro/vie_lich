@@ -14,12 +14,26 @@ import '../main.dart';
 class DeepLinkService {
   static final _appLinks = AppLinks();
   static bool _isInitialized = false;
+  static String? _lastHandledUri;
 
-  static void init() {
+  static void init([List<String> args = const []]) {
     if (_isInitialized) return;
     _isInitialized = true;
 
     debugPrint("📱 [DeepLink] Bắt đầu lắng nghe ngầm...");
+
+    // Xử lý tham số dòng lệnh trực tiếp (Cold start trên Linux/Windows)
+    for (final arg in args) {
+      if (arg.startsWith('vielich://')) {
+        final uri = Uri.tryParse(arg);
+        if (uri != null) {
+          _lastHandledUri = uri.toString();
+          debugPrint("🔗 [DeepLink] Nhận link từ tham số khởi chạy: $uri");
+          _xuLyUri(uri);
+          break;
+        }
+      }
+    }
 
     _appLinks.uriLinkStream.listen((Uri? uri) {
       debugPrint("🔗 [DeepLink] App được đánh thức, nhận Stream Link: $uri");
@@ -29,7 +43,8 @@ class DeepLinkService {
     });
 
     _appLinks.getInitialLink().then((Uri? uri) {
-      if (uri != null) {
+      if (uri != null && uri.toString() != _lastHandledUri) {
+        _lastHandledUri = uri.toString();
         debugPrint("🔗 [DeepLink] App mở mới hoàn toàn bằng Link: $uri");
         _xuLyUri(uri);
       }
@@ -38,6 +53,21 @@ class DeepLinkService {
 
   static void _xuLyUri(Uri uri) {
     debugPrint("🔍 [DeepLink] Scheme: ${uri.scheme} | Host: ${uri.host}");
+
+    // XỬ LÝ CHUYỂN TAB TỪ WIDGET
+    if (uri.scheme == 'vielich' && uri.host == 'open') {
+      final tab = uri.queryParameters['tab'];
+      if (tab == 'day') {
+        tabNotifier.value = 0; // Chuyển sang Lịch Ngày
+        debugPrint("📅 [DeepLink] Chuyển sang tab Lịch Ngày");
+      } else if (tab == 'month') {
+        tabNotifier.value = 1; // Chuyển sang Lịch Tháng
+        debugPrint("📅 [DeepLink] Chuyển sang tab Lịch Tháng");
+      }
+      return;
+    }
+
+    // XỬ LÝ CHIA SẺ LỊCH (Cũ)
     if (uri.scheme == 'vielich' && uri.host == 'share') {
       final data = uri.queryParameters['data'];
       if (data != null) {
@@ -66,13 +96,11 @@ class DeepLinkService {
 
   static void _xuLyDuLieuShare(String base64Data) {
     try {
-      // 1. Chuẩn hóa base64 (thêm padding nếu thiếu)
       String normalized = base64Data;
       while (normalized.length % 4 != 0) {
         normalized += '=';
       }
 
-      // 2. Decode base64 — thử URL-safe trước, fallback base64 thường
       List<int> bytes;
       try {
         bytes = base64Url.decode(normalized);
@@ -80,7 +108,6 @@ class DeepLinkService {
         bytes = base64.decode(normalized);
       }
 
-      // 3. Thử gzip decode, fallback về bytes gốc
       String jsonString;
       try {
         final decompressed = gzip.decode(bytes);
@@ -89,7 +116,6 @@ class DeepLinkService {
         jsonString = utf8.decode(bytes);
       }
 
-      // 4. Parse JSON — hỗ trợ cả array (multi) và object (single)
       final decoded = jsonDecode(jsonString);
 
       List<SuKien> dsSuKien;
@@ -209,7 +235,6 @@ class DeepLinkService {
                   final provider =
                       Provider.of<SuKienProvider>(ctx, listen: false);
 
-                  // Tạo sự kiện MỚI với id mới để tránh ghi đè
                   for (final sk in dsSuKien) {
                     final skMoi = SuKien(
                       id: const Uuid().v4(),

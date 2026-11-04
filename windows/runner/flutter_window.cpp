@@ -32,8 +32,7 @@ bool FlutterWindow::OnCreate() {
         reinterpret_cast<flutter::FlutterViewController *>(controller);
     auto *registry = flutter_view_controller->engine();
 
-    WindowManagerPluginRegisterWithRegistrar(
-        registry->GetRegistrarForPlugin("WindowManagerPlugin"));
+    RegisterPlugins(registry);
   });
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());

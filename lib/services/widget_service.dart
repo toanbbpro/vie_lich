@@ -1,167 +1,260 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tyme/tyme.dart';
 import 'package:home_widget/home_widget.dart';
 import '../widgets/home_screen_widget_ui.dart';
+import '../widgets/home_screen_widget_ui_4x2.dart';
 import '../models/su_kien.dart';
 import '../utils/am_lich_helper.dart';
+import '../utils/app_constants.dart';
+import 'linux_desktop_widget_service.dart';
 
 class WidgetService {
   static const String appGroupId = 'group.com.toanbb.vie_Lich';
   static const String macOSWidgetName = 'VIELichWidget';
   static const platform = MethodChannel('vie_lich_mac_widget');
+  static const String androidWidgetProvider = 'com.toanbb.vie_lich.HomeScreenWidgetProvider';
 
   static const List<String> _thuNames = [
-    'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm',
-    'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật',
+    'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật',
   ];
+
+  static const int _macOSMultiDayCount = 7;
 
   static Future<void> capNhatWidget() async {
     final now = DateTime.now();
+
+    List<SuKien> danhSachSuKien = [];
+    try {
+      var box = Hive.isBoxOpen(AppConstants.boxSuKien)
+          ? Hive.box<SuKien>(AppConstants.boxSuKien)
+          : await Hive.openBox<SuKien>(AppConstants.boxSuKien);
+      danhSachSuKien = box.values.toList();
+    } catch (e) {
+      debugPrint("❌ Lỗi đọc sự kiện Hive cho Widget: $e");
+    }
+
+    final todayData = _tinhDuLieuMotNgay(now, danhSachSuKien);
+
+    if (Platform.isAndroid) {
+      // ==========================================
+      // WIDGET 1: 4x3 (CŨ)
+      // ==========================================
+      try {
+        debugPrint('🔄 [Widget 4x3] Bắt đầu render...');
+        final success43 = await HomeWidget.renderFlutterWidget(
+          MediaQuery(
+            data: const MediaQueryData(size: Size(500, 375), devicePixelRatio: 1.0),
+            child: HomeScreenWidgetUI(
+              thangDuyet: now.month,
+              namDuyet: now.year,
+              tenSuKien: todayData['tenSuKien'],
+              thoiGianSuKien: todayData['thoiGianSuKien'],
+              loaiSuKien: todayData['loaiSuKien'],
+              ngayCoSuKien: (todayData['ngayCoSuKien'] as List).cast<int>(),
+            ),
+          ),
+          key: 'widget_image',
+          logicalSize: const Size(500, 375),
+        );
+        debugPrint('✅ [Widget 4x3] Render kết quả: $success43');
+
+        await HomeWidget.updateWidget(
+          name: 'HomeScreenWidgetProvider',
+          qualifiedAndroidName: androidWidgetProvider,
+        );
+        debugPrint('✅ [Widget 4x3] Đã gửi lệnh cập nhật');
+      } catch (e, st) {
+        debugPrint('❌ [Widget 4x3] LỖI: $e\n$st');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // ==========================================
+      // WIDGET 2: 4x2 (MỚI - VẠN NIÊN)
+      // ==========================================
+      try {
+        debugPrint('🔄 [Widget 4x2] Bắt đầu render...');
+        final success42 = await HomeWidget.renderFlutterWidget(
+          MediaQuery(
+            data: const MediaQueryData(size: Size(800, 360), devicePixelRatio: 1.0),
+            child: HomeScreenWidgetUI4x2(
+              thangDuyet: now.month,
+              namDuyet: now.year,
+              tenSuKien: todayData['tenSuKien'],
+              thoiGianSuKien: todayData['thoiGianSuKien'],
+              loaiSuKien: todayData['loaiSuKien'],
+              ngayCoSuKien: (todayData['ngayCoSuKien'] as List).cast<int>(),
+            ),
+          ),
+          key: 'widget_image_4x2',
+          logicalSize: const Size(800, 360),
+        );
+        debugPrint('✅ [Widget 4x2] Render kết quả: $success42');
+
+        final appDir = await getApplicationSupportDirectory();
+        final imageFile4x2 = File('${appDir.path}/home_widget/widget_image_4x2.png');
+        if (await imageFile4x2.exists()) {
+          debugPrint('✅ [Widget 4x2] File ảnh: ${await imageFile4x2.length()} bytes');
+        } else {
+          debugPrint('❌ [Widget 4x2] File ảnh KHÔNG ĐƯỢC TẠO!');
+        }
+
+        await HomeWidget.updateWidget(
+          name: 'HomeScreenWidgetProvider4x2',
+          qualifiedAndroidName: 'com.toanbb.vie_lich.HomeScreenWidgetProvider4x2',
+        );
+        debugPrint('✅ [Widget 4x2] Đã gửi lệnh cập nhật');
+      } catch (e, st) {
+        debugPrint('❌ [Widget 4x2] LỖI: $e\n$st');
+      }
+      
+    } else if (Platform.isIOS) {
+        try {
+          await HomeWidget.setAppGroupId(appGroupId);
+          
+          // Lấy dữ liệu 365 ngày (để widget tự chạy cả năm không cần mở app)
+          final List<dynamic> dayJsonList = []; 
+          for (int i = 0; i < 365; i++) { // Sửa thành 365 ngày
+            final targetDay = now.add(Duration(days: i));
+            final dayJsonString = _buildDayJson(targetDay, danhSachSuKien);
+            dayJsonList.add(jsonDecode(dayJsonString)); 
+          }
+          
+          // Lưu mảng JSON
+          await HomeWidget.saveWidgetData<String>('widget_data', jsonEncode(dayJsonList));
+          await HomeWidget.updateWidget(iOSName: 'VIELichWidget');
+          debugPrint('✅ [Widget iOS] Đã gửi dữ liệu cập nhật 365 ngày');
+        } catch (e) {
+          debugPrint('❌ [Widget iOS] Lỗi cập nhật widget: $e');
+        }
+    } else if (Platform.isMacOS) {
+      try {
+        final List<String> dayJsonList = [];
+        for (int i = 0; i < _macOSMultiDayCount; i++) {
+          final targetDay = now.add(Duration(days: i));
+          final dayJson = _buildDayJson(targetDay, danhSachSuKien);
+          dayJsonList.add(dayJson);
+        }
+        await platform.invokeMethod('updateWidget', {
+          'data': dayJsonList,
+          'groupId': appGroupId,
+          'isMulti': true,
+        });
+        debugPrint('✅ Gửi $_macOSMultiDayCount ngày cho widget macOS');
+      } catch (e) {
+        debugPrint("❌ Lỗi gửi dữ liệu Widget macOS: $e");
+      }
+    } else if (Platform.isLinux) {
+      try {
+        final appDir = await getApplicationSupportDirectory();
+        final List<String> dayJsonList = [];
+        for (int i = 0; i < _macOSMultiDayCount; i++) {
+          final targetDay = now.add(Duration(days: i));
+          final dayJson = _buildDayJson(targetDay, danhSachSuKien);
+          dayJsonList.add(dayJson);
+        }
+
+        final multiDayFile = File('${appDir.path}/widget_multi_day.json');
+        await multiDayFile.writeAsString('[${dayJsonList.join(',')}]');
+
+        if (dayJsonList.isNotEmpty) {
+          final singleDayFile = File('${appDir.path}/widget_data.json');
+          await singleDayFile.writeAsString(dayJsonList.first);
+          final decoded =
+              jsonDecode(dayJsonList.first) as Map<String, dynamic>;
+          await LinuxDesktopWidgetService.updateWidgetData(decoded);
+        }
+        debugPrint('✅ [Widget Linux] Đã lưu dữ liệu widget tại ${appDir.path}');
+      } catch (e) {
+        debugPrint('❌ [Widget Linux] Lỗi lưu dữ liệu widget: $e');
+      }
+    }
+  }
+
+  static Map<String, dynamic> _tinhDuLieuMotNgay(
+    DateTime targetDay,
+    List<SuKien> danhSachSuKien,
+  ) {
+    final now = targetDay;
+    final todayOnly = DateTime(now.year, now.month, now.day);
 
     List<int> ngayCoSuKienHienTai = [];
     String tenSuKienGanNhat = "Không có sự kiện sắp tới";
     String thoiGianSuKienGanNhat = "";
     String loaiSuKienGanNhat = "event";
 
-    try {
-      var box = Hive.isBoxOpen('suKienBox')
-          ? Hive.box<SuKien>('suKienBox')
-          : await Hive.openBox<SuKien>('suKienBox');
+    LunarDay? amHienTai = AmLichHelper.duongSangAm(now);
+    int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
 
-      List<SuKien> danhSachSuKien = box.values.toList();
-      List<Map<String, dynamic>> dsDaChuyenDoi = [];
+    List<Map<String, dynamic>> dsDaChuyenDoi = [];
+    for (var sk in danhSachSuKien) {
+      int namAmTinhToan = sk.namAm ?? namAmHienTai;
+      DateTime? ngayDuong = AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
 
-      LunarDay? amHienTai = AmLichHelper.duongSangAm(now);
-      int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
-      DateTime todayOnly = DateTime(now.year, now.month, now.day);
-
-      for (var sk in danhSachSuKien) {
-        int namAmTinhToan = sk.namAm ?? namAmHienTai;
-        DateTime? ngayDuong =
-            AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
-
-        if (sk.namAm == null && ngayDuong != null) {
-          DateTime dateOnly =
-              DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
-          if (dateOnly.isBefore(todayOnly)) {
-            ngayDuong = AmLichHelper.amSangDuong(
-                namAmHienTai + 1, sk.thangAm, sk.ngayAm);
-          }
-        }
-
-        if (ngayDuong != null) {
-          dsDaChuyenDoi.add({
-            'ten': sk.ten,
-            'ngayDuong': ngayDuong,
-            'tag': sk.tag ?? 'event',
-          });
-          if (ngayDuong.month == now.month && ngayDuong.year == now.year) {
-            ngayCoSuKienHienTai.add(ngayDuong.day);
-          }
+      if (sk.namAm == null && ngayDuong != null) {
+        DateTime dateOnly = DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
+        if (dateOnly.isBefore(todayOnly)) {
+          ngayDuong = AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
         }
       }
 
-      List<Map<String, dynamic>> suKienSapToi =
-          dsDaChuyenDoi.where((sk) {
-        DateTime ngayDuong = sk['ngayDuong'];
-        DateTime dateOnly =
-            DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
-        return dateOnly.isAfter(todayOnly) ||
-            dateOnly.isAtSameMomentAs(todayOnly);
-      }).toList();
-
-      if (suKienSapToi.isNotEmpty) {
-        suKienSapToi.sort((a, b) =>
-            (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
-        var skGanNhat = suKienSapToi.first;
-        DateTime dateSK = skGanNhat['ngayDuong'];
-
-        tenSuKienGanNhat = skGanNhat['ten'];
-        loaiSuKienGanNhat = skGanNhat['tag'];
-
-        int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day)
-            .difference(todayOnly)
-            .inDays;
-        String ngayText =
-            '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
-
-        if (soNgayConLai == 0) {
-          thoiGianSuKienGanNhat = 'Hôm nay - $ngayText';
-        } else if (soNgayConLai == 1) {
-          thoiGianSuKienGanNhat = 'Ngày mai - $ngayText';
-        } else {
-          thoiGianSuKienGanNhat = 'Còn $soNgayConLai ngày - $ngayText';
+      if (ngayDuong != null) {
+        dsDaChuyenDoi.add({'ten': sk.ten, 'ngayDuong': ngayDuong, 'tag': sk.tag ?? 'event'});
+        if (ngayDuong.month == now.month && ngayDuong.year == now.year) {
+          ngayCoSuKienHienTai.add(ngayDuong.day);
         }
       }
-    } catch (e) {
-      debugPrint("Lỗi khi đọc sự kiện Hive cho Widget: $e");
     }
 
-    String nextEventText = thoiGianSuKienGanNhat.isEmpty
-        ? tenSuKienGanNhat
-        : "$tenSuKienGanNhat\n($thoiGianSuKienGanNhat)";
+    List<Map<String, dynamic>> suKienSapToi = dsDaChuyenDoi.where((sk) {
+      DateTime dateOnly = DateTime(sk['ngayDuong'].year, sk['ngayDuong'].month, sk['ngayDuong'].day);
+      return dateOnly.isAfter(todayOnly) || dateOnly.isAtSameMomentAs(todayOnly);
+    }).toList();
 
-    if (Platform.isAndroid) {
-      await HomeWidget.renderFlutterWidget(
-        HomeScreenWidgetUI(
-          thangDuyet: now.month,
-          namDuyet: now.year,
-          tenSuKien: tenSuKienGanNhat,
-          thoiGianSuKien: thoiGianSuKienGanNhat,
-          loaiSuKien: loaiSuKienGanNhat,
-          ngayCoSuKien: ngayCoSuKienHienTai.toSet().toList(),
-        ),
-        key: 'widget_image',
-        logicalSize: const Size(500, 375),
-      );
-      await HomeWidget.updateWidget(
-        name: 'HomeScreenWidgetProvider',
-        androidName: 'HomeScreenWidgetProvider',
-      );
-    } else if (Platform.isIOS) {
-      await HomeWidget.setAppGroupId(appGroupId);
-      await HomeWidget.saveWidgetData<String>('next_event', nextEventText);
-      await HomeWidget.updateWidget(iOSName: macOSWidgetName);
-    } else if (Platform.isMacOS) {
-      final jsonData = _buildMacOSWidgetJson(
-        now: now,
-        ngayCoSuKien: ngayCoSuKienHienTai,
-        tenSuKien: tenSuKienGanNhat,
-        thoiGianSuKien: thoiGianSuKienGanNhat,
-        loaiSuKien: loaiSuKienGanNhat,
-      );
+    if (suKienSapToi.isNotEmpty) {
+      suKienSapToi.sort((a, b) => (a['ngayDuong'] as DateTime).compareTo(b['ngayDuong'] as DateTime));
+      var skGanNhat = suKienSapToi.first;
+      DateTime dateSK = skGanNhat['ngayDuong'];
 
-      try {
-        await platform.invokeMethod('updateWidget', {
-          'data': jsonData,
-          'groupId': appGroupId,
-        });
-      } catch (e) {
-        debugPrint("Lỗi gửi dữ liệu Widget macOS: $e");
-        rethrow;
+      tenSuKienGanNhat = skGanNhat['ten'];
+      loaiSuKienGanNhat = skGanNhat['tag'];
+
+      int soNgayConLai = DateTime(dateSK.year, dateSK.month, dateSK.day).difference(todayOnly).inDays;
+      String ngayText = '${dateSK.day.toString().padLeft(2, '0')}/${dateSK.month.toString().padLeft(2, '0')}/${dateSK.year}';
+
+      if (soNgayConLai == 0) {
+        thoiGianSuKienGanNhat = 'Hôm nay - $ngayText';
+      } else if (soNgayConLai == 1) {
+        thoiGianSuKienGanNhat = 'Ngày mai - $ngayText';
+      } else {
+        thoiGianSuKienGanNhat = 'Còn $soNgayConLai ngày - $ngayText';
       }
     }
+
+    return {
+      'tenSuKien': tenSuKienGanNhat,
+      'thoiGianSuKien': thoiGianSuKienGanNhat,
+      'loaiSuKien': loaiSuKienGanNhat,
+      'ngayCoSuKien': ngayCoSuKienHienTai,
+    };
   }
 
-  static String _buildMacOSWidgetJson({
-    required DateTime now,
-    required List<int> ngayCoSuKien,
-    required String tenSuKien,
-    required String thoiGianSuKien,
-    required String loaiSuKien,
-  }) {
-    final amHienTai = AmLichHelper.duongSangAm(now);
+  static String _buildDayJson(DateTime targetDay, List<SuKien> danhSachSuKien) {
+    final dayInfo = _tinhDuLieuMotNgay(targetDay, danhSachSuKien);
+    final ngayCoSuKien = (dayInfo['ngayCoSuKien'] as List).cast<int>();
+    final amHienTai = AmLichHelper.duongSangAm(targetDay);
 
-    final ngayDauThang = DateTime(now.year, now.month, 1);
+    final ngayDauThang = DateTime(targetDay.year, targetDay.month, 1);
     final offset = ngayDauThang.weekday - 1;
     final ngayBatDau = ngayDauThang.subtract(Duration(days: offset));
-    final soNgayTrongThang = DateTime(now.year, now.month + 1, 0).day;
+    final soNgayTrongThang = DateTime(targetDay.year, targetDay.month + 1, 0).day;
     final tongO = offset + soNgayTrongThang;
     final soTuan = (tongO / 7).ceil();
 
@@ -169,42 +262,37 @@ class WidgetService {
     for (int i = 0; i < soTuan * 7; i++) {
       final ngay = ngayBatDau.add(Duration(days: i));
       final lunar = AmLichHelper.duongSangAm(ngay);
-      final laTrongThang = ngay.month == now.month && ngay.year == now.year;
+      final laTrongThang = ngay.month == targetDay.month && ngay.year == targetDay.year;
 
       dsO.add({
         'ngayDuong': ngay.day,
         'ngayAm': lunar?.getDay() ?? 0,
         'thangAm': lunar?.getMonth() ?? 0,
         'laChuNhat': ngay.weekday == 7,
-        'laHomNay': ngay.year == now.year &&
-            ngay.month == now.month &&
-            ngay.day == now.day,
+        'laHomNay': ngay.year == targetDay.year && ngay.month == targetDay.month && ngay.day == targetDay.day,
         'coSuKien': laTrongThang && ngayCoSuKien.contains(ngay.day),
         'laDauThangAm': lunar?.getDay() == 1,
         'laTrongThang': laTrongThang,
       });
     }
 
-    final map = {
-      'thangDuong': now.month,
-      'namDuong': now.year,
-      'ngayDuong': now.day,
-      'thu': _thuNames[now.weekday - 1],
+    return jsonEncode({
+      'thangDuong': targetDay.month,
+      'namDuong': targetDay.year,
+      'ngayDuong': targetDay.day,
+      'thu': _thuNames[targetDay.weekday - 1],
       'ngayAm': amHienTai?.getDay() ?? 0,
       'thangAm': amHienTai?.getMonth() ?? 0,
-      // FIX: trước đây là targetDay.year — biến không tồn tại, gây compile error
-      'namAm': amHienTai?.getYear() ?? now.year,
-      'canChiNam':
-          amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
+      'namAm': amHienTai?.getYear() ?? targetDay.year,
+      'canChiNam': amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
       'dsO': dsO,
-      'tenSuKien': tenSuKien,
-      'thoiGianSuKien': thoiGianSuKien,
-      'loaiSuKien': loaiSuKien,
-    };
-
-    return jsonEncode(map);
+      'tenSuKien': dayInfo['tenSuKien'],
+      'thoiGianSuKien': dayInfo['thoiGianSuKien'],
+      'loaiSuKien': dayInfo['loaiSuKien'],
+    });
   }
 }
+
 
 // ============================================================
 // BACKGROUND CALLBACK — Android AlarmManager (isolate riêng)
@@ -224,18 +312,24 @@ Future<void> widgetUpdateCallback() async {
       await Hive.openBox<SuKien>('suKienBox');
     }
 
-    final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final lastUpdate = prefs.getString('widget_last_update_date');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final lastUpdate = prefs.getString('widget_last_update_date');
 
-    if (lastUpdate == today) {
-      debugPrint('⏭️ [Widget BG] Đã update hôm nay ($today), skip');
-    } else {
+      if (lastUpdate == today) {
+        debugPrint('⏭️ [Widget BG] Đã update hôm nay ($today), skip');
+      } else {
+        await WidgetService.capNhatWidget();
+        await prefs.setString('widget_last_update_date', today);
+        debugPrint('✅ [Widget BG] Đã update widget cho ngày $today');
+      }
+    } catch (e) {
+      debugPrint(
+          '⚠️ [Widget BG] Lỗi SharedPreferences, vẫn cố gắng update widget: $e');
       await WidgetService.capNhatWidget();
-      await prefs.setString('widget_last_update_date', today);
-      debugPrint('✅ [Widget BG] Đã update widget cho ngày $today');
     }
 
     // Tự reschedule daily cho ngày mai

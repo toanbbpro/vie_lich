@@ -131,6 +131,7 @@ class _LichNgayScreenState extends State<LichNgayScreen>
   Widget build(BuildContext context) {
     final isMobile = Platform.isAndroid || Platform.isIOS;
     final isMacOS = Platform.isMacOS;
+    final isLinux = Platform.isLinux;
     final hasNav = !isMobile;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -143,7 +144,7 @@ class _LichNgayScreenState extends State<LichNgayScreen>
     if (isMobile) {
       buttonAlignment = kButtonAlignmentMobile;
       buttonSize = kButtonSizeMobile;
-    } else if (isMacOS) {
+    } else if (isMacOS || isLinux) {
       buttonAlignment = kButtonAlignmentMacOS;
       buttonSize = kButtonSizeMacOS;
     } else {
@@ -424,7 +425,6 @@ class _NgayContent extends StatelessWidget {
         ),
 
         // 2. NGÀY LỄ (Khoảng trống cố định)
-        // Thêm SizedBox cố định chiều cao để dù có lễ hay không, cụm số không bị xê dịch
         const SizedBox(height: 8),
         SizedBox(
           height: 52,
@@ -582,7 +582,11 @@ class _BangThongTin extends StatelessWidget {
     final thuDisplay = thuWords.length >= 2
         ? '${thuWords[0]}\n${thuWords.sublist(1).join(' ')}'
         : thu;
+
     final tenThangAm = _tenThangAmChu(thangAm);
+    // ĐÃ THÊM: Viết hoa chữ cái đầu của tháng
+    final tenThangAmHoa =
+        '${tenThangAm[0].toUpperCase()}${tenThangAm.substring(1)}';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -643,7 +647,8 @@ class _BangThongTin extends StatelessWidget {
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                  'Ngày $ngayAm tháng $tenThangAm năm $canChiNam',
+                                  // ĐÃ SỬA: Dùng biến tenThangAmHoa thay vì tenThangAm
+                                  'Ngày $ngayAm tháng $tenThangAmHoa năm $canChiNam',
                                   style: TextStyle(
                                       fontSize: metaFontSize,
                                       color: metaRedColor,

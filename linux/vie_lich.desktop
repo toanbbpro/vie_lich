@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=VIE Lịch
+GenericName=Âm lịch Việt Nam
+Comment=Ứng dụng xem lịch âm, dương và nhắc nhở ngày giỗ, lễ hội truyền thống
+Exec=vie_lich %u
+Icon=vie_lich
+Terminal=false
+Categories=Utility;Calendar;Office;
+MimeType=x-scheme-handler/vielich;application/vnd.vielich;
+StartupWMClass=com.toanbb.vie_lich
+
