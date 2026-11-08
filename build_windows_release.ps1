@@ -94,6 +94,7 @@ Get-ChildItem -Filter "*.syso" -ErrorAction SilentlyContinue | Remove-Item -Forc
 if ($winresPath) {
     Write-Host "   -> Generating Windows resources (icon, version)..."
     go-winres make
+    Remove-Item "rsrc_windows_386.syso" -Force -ErrorAction SilentlyContinue
     if ($LASTEXITCODE -ne 0) { 
         Pop-Location
         throw "go-winres make failed. Kiem tra file icon/winres.json." 

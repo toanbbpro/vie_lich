@@ -14,7 +14,7 @@
                                                                  "name":  "VIE Lich Helper",
                                                                  "version":  "2.1.0.0"
                                                              },
-                                                "description":  "Helper for VIE Lich",
+                                                "description":  "VIE Lich Helper",
                                                 "minimum-os":  "win7",
                                                 "execution-level":  "as invoker",
                                                 "ui-access":  false,
@@ -41,9 +41,9 @@
                                                          },
                                                "info":  {
                                                             "0409":  {
-                                                                         "Comments":  "Helper for VIE Lich",
+                                                                         "Comments":  "VIE Lich Helper",
                                                                          "CompanyName":  "ToanBB",
-                                                                         "FileDescription":  "Helper for VIE Lich",
+                                                                         "FileDescription":  "VIE Lich Helper",
                                                                          "FileVersion":  "2.1.4.0",
                                                                          "InternalName":  "VIE Lich Helper",
                                                                          "LegalCopyright":  "",
