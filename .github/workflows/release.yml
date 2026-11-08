@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag phiên bản cần release (ví dụ: v2.1.3)'
+        description: 'Tag phiên bản cần release (ví dụ: v2.1.4)'
         required: true
-        default: 'v2.1.3'
+        default: 'v2.1.4'
 
 permissions:
   contents: write

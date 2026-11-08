@@ -77,15 +77,26 @@ String? _getDataDir() {
 Future<Map<String, dynamic>> _readState() async {
   final dir = _getDataDir();
   if (dir == null) return {};
-  try {
-    final file = File('$dir/$kStateFile');
-    if (!await file.exists()) return {};
-    final content = await file.readAsString();
-    if (content.isEmpty) return {};
-    return jsonDecode(content) as Map<String, dynamic>;
-  } catch (_) {
-    return {};
+  final file = File('$dir/$kStateFile');
+  for (int attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (!await file.exists()) return {};
+      final content = await file.readAsString();
+      if (content.trim().isEmpty) {
+        if (attempt < 2) {
+          await Future.delayed(const Duration(milliseconds: 40));
+          continue;
+        }
+        return {};
+      }
+      return jsonDecode(content) as Map<String, dynamic>;
+    } catch (_) {
+      if (attempt < 2) {
+        await Future.delayed(const Duration(milliseconds: 40));
+      }
+    }
   }
+  return {};
 }
 
 Future<void> _writeState(Map<String, dynamic> state) async {
@@ -95,29 +106,54 @@ Future<void> _writeState(Map<String, dynamic> state) async {
     final dirObj = Directory(dir);
     if (!await dirObj.exists()) await dirObj.create(recursive: true);
     final file = File('$dir/$kStateFile');
-    await file.writeAsString(jsonEncode(state));
+    final tmpFile = File('$dir/$kStateFile.tmp.$pid');
+    await tmpFile.writeAsString(jsonEncode(state), flush: true);
+    try {
+      await tmpFile.rename(file.path);
+    } catch (_) {
+      await file.writeAsString(jsonEncode(state), flush: true);
+      try {
+        if (await tmpFile.exists()) await tmpFile.delete();
+      } catch (_) {}
+    }
   } catch (_) {}
 }
 
-Future<void> _updateState(Map<String, dynamic> patch) async {
-  final state = await _readState();
-  state.addAll(patch);
-  await _writeState(state);
+Future<void> _stateWriteChain = Future.value();
+
+Future<void> _updateState(Map<String, dynamic> patch) {
+  _stateWriteChain = _stateWriteChain.then((_) async {
+    final state = await _readState();
+    state.addAll(patch);
+    await _writeState(state);
+  }).catchError((_) {});
+  return _stateWriteChain;
 }
 
 Future<List<Map<String, dynamic>>> _readEvents() async {
   final dir = _getDataDir();
   if (dir == null) return [];
-  try {
-    final file = File('$dir/$kEventsFile');
-    if (!await file.exists()) return [];
-    final content = await file.readAsString();
-    if (content.isEmpty) return [];
-    final list = jsonDecode(content) as List;
-    return list.cast<Map<String, dynamic>>();
-  } catch (_) {
-    return [];
+  final file = File('$dir/$kEventsFile');
+  for (int attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (!await file.exists()) return [];
+      final content = await file.readAsString();
+      if (content.trim().isEmpty) {
+        if (attempt < 2) {
+          await Future.delayed(const Duration(milliseconds: 40));
+          continue;
+        }
+        return [];
+      }
+      final list = jsonDecode(content) as List;
+      return list.cast<Map<String, dynamic>>();
+    } catch (_) {
+      if (attempt < 2) {
+        await Future.delayed(const Duration(milliseconds: 40));
+      }
+    }
   }
+  return [];
 }
 
 Future<void> _writeEvents(List<Map<String, dynamic>> events) async {
@@ -127,7 +163,16 @@ Future<void> _writeEvents(List<Map<String, dynamic>> events) async {
     final dirObj = Directory(dir);
     if (!await dirObj.exists()) await dirObj.create(recursive: true);
     final file = File('$dir/$kEventsFile');
-    await file.writeAsString(jsonEncode(events));
+    final tmpFile = File('$dir/$kEventsFile.tmp.$pid');
+    await tmpFile.writeAsString(jsonEncode(events), flush: true);
+    try {
+      await tmpFile.rename(file.path);
+    } catch (_) {
+      await file.writeAsString(jsonEncode(events), flush: true);
+      try {
+        if (await tmpFile.exists()) await tmpFile.delete();
+      } catch (_) {}
+    }
   } catch (_) {}
 }
 
@@ -400,26 +445,61 @@ class _MainAppContentState extends State<_MainAppContent>
   }
 
   Future<void> _bootstrap() async {
-    try {
-      if (Platform.isWindows) {
+    if (Platform.isWindows) {
+      try {
         await _loadSavedState();
-        await _updateState({'visible': true});
+        await _updateState({
+          'visible': true,
+          'locked': _widgetLocked,
+          'widgetReady': false,
+        });
         _widgetEnabled = true;
         debugPrint('📝 Reset visible=true khi khởi động');
+      } catch (e) {
+        debugPrint('❌ Load state lỗi: $e');
+      }
 
+      try {
+        await _initSystemTray();
+      } catch (e) {
+        debugPrint('❌ Init tray lỗi: $e');
+      }
+
+      // QUAN TRỌNG: Gọi trực tiếp _createWidgetWindow() ngay tại đây,
+      // KHÔNG bọc trong addPostFrameCallback (vì khi khởi động cùng Windows
+      // ở chế độ ẩn main window SW_HIDE, Flutter có thể không pump thêm frame
+      // sau các tác vụ async, khiến addPostFrameCallback không bao giờ chạy).
+      try {
+        await _createWidgetWindow();
+      } catch (e) {
+        debugPrint('❌ Widget init lỗi: $e');
+      }
+
+      try {
         _autoStartEnabled = await AutoStartService.isEnabled();
         debugPrint('🚀 [AutoStart] Trạng thái: $_autoStartEnabled');
+        await _rebuildTrayMenu();
 
         if (_autoStartEnabled) {
           await AutoStartService.refreshIfStale();
         }
+      } catch (e) {
+        debugPrint('⚠️ AutoStart check/refresh lỗi: $e');
       }
-    } catch (e) {
-      debugPrint('❌ Load state lỗi: $e');
+
+      try {
+        await Future.delayed(const Duration(milliseconds: 500));
+        await ScheduleWriter.writeAll();
+        debugPrint('📝 schedule.json đã ghi lần đầu');
+      } catch (e) {
+        debugPrint('⚠️ Ghi schedule lỗi: $e');
+      }
+      await _startHelperIfNotRunning();
+      return;
     }
 
     try {
-      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      if (Platform.isMacOS || Platform.isLinux) {
         await _initSystemTray();
       }
     } catch (e) {
@@ -443,22 +523,9 @@ class _MainAppContentState extends State<_MainAppContent>
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString(kPrefLastUpdate, _formatDate(DateTime.now()));
           }
-        } else if (Platform.isWindows) {
-          await _createWidgetWindow();
         }
       } catch (e) {
         debugPrint('❌ Widget init lỗi: $e');
-      }
-
-      if (Platform.isWindows) {
-        try {
-          await Future.delayed(const Duration(milliseconds: 1000));
-          await ScheduleWriter.writeAll();
-          debugPrint('📝 schedule.json đã ghi lần đầu');
-        } catch (e) {
-          debugPrint('⚠️ Ghi schedule lỗi: $e');
-        }
-        await _startHelperIfNotRunning();
       }
     });
   }
@@ -582,36 +649,59 @@ class _MainAppContentState extends State<_MainAppContent>
   }
 
   Future<void> _createWidgetWindow() async {
+    await _loadSavedState();
     debugPrint('📝 Tạo widget tại ($_savedWidgetX, $_savedWidgetY) locked=$_widgetLocked');
 
-    try {
-      final controller = await WindowController.create(
-        WindowConfiguration(
-          hiddenAtLaunch: true,
-          arguments: jsonEncode({
-            'width': kWidgetSize.width,
-            'height': kWidgetSize.height,
-            'x': _savedWidgetX,
-            'y': _savedWidgetY,
-            'locked': _widgetLocked,
-          }),
-        ),
-      );
-      _widgetController = controller;
-      _widgetEnabled = true;
-      debugPrint('✅ Đã tạo widget (id=${controller.windowId})');
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await _updateState({
+          'locked': _widgetLocked,
+          'visible': true,
+          'widgetReady': false,
+        });
 
-      await Future.delayed(const Duration(milliseconds: 500));
-      _lastEventHash = [];
-      _onDataChanged();
-      await _updateState({
-        'x': _savedWidgetX,
-        'y': _savedWidgetY,
-        'locked': _widgetLocked,
-        'visible': true,
-      });
-    } catch (e) {
-      debugPrint('❌ Lỗi tạo widget: $e');
+        final controller = await WindowController.create(
+          WindowConfiguration(
+            hiddenAtLaunch: true,
+            arguments: jsonEncode({
+              'width': kWidgetSize.width,
+              'height': kWidgetSize.height,
+              'x': _savedWidgetX,
+              'y': _savedWidgetY,
+              'locked': _widgetLocked,
+            }),
+          ),
+        );
+        _widgetController = controller;
+        _widgetEnabled = true;
+        debugPrint('✅ Đã tạo widget (id=${controller.windowId}, lần $attempt)');
+
+        _lastEventHash = [];
+        _onDataChanged();
+
+        // Chờ xác nhận widget sub-window đã khởi tạo và hiển thị thành công
+        bool ready = false;
+        for (int waitIdx = 0; waitIdx < 15; waitIdx++) {
+          await Future.delayed(const Duration(milliseconds: 250));
+          final st = await _readState();
+          if (st['widgetReady'] == true) {
+            ready = true;
+            break;
+          }
+        }
+
+        if (ready) {
+          debugPrint('✅ Widget sub-window đã xác nhận hiển thị (widgetReady=true)');
+          return;
+        }
+        debugPrint('⚠️ Chưa nhận được widgetReady sau lần thử $attempt, nhưng đã tạo controller');
+        return;
+      } catch (e) {
+        debugPrint('❌ Lỗi tạo widget (lần $attempt): $e');
+        if (attempt < 3) {
+          await Future.delayed(const Duration(milliseconds: 600));
+        }
+      }
     }
   }
 
@@ -1035,6 +1125,213 @@ class _MainAppContentState extends State<_MainAppContent>
 }
 
 // ============================================================
+// WINDOWS WIDGET MULTI-MONITOR GEOMETRY & DPI HELPERS
+// ============================================================
+class WindowsWidgetGeometry {
+  static double scaleOf(Display d) {
+    final s = (d.scaleFactor ?? 1.0).toDouble();
+    return s <= 0 ? 1.0 : s;
+  }
+
+  /// Trả về vùng làm việc thực tế (rcWork) tính bằng Win32 physical pixels.
+  /// (screen_retriever_windows trả về visiblePosition & visibleSize đã chia cho scaleFactor của màn đó).
+  static Rect getDisplayPhysicalWorkArea(Display d) {
+    final scale = scaleOf(d);
+    final vPos = d.visiblePosition ?? Offset.zero;
+    final vSize = d.visibleSize ?? d.size;
+    return Rect.fromLTWH(
+      (vPos.dx * scale).roundToDouble(),
+      (vPos.dy * scale).roundToDouble(),
+      (vSize.width * scale).roundToDouble(),
+      (vSize.height * scale).roundToDouble(),
+    );
+  }
+
+  static Offset logicalToPhysicalOffset(Offset logicalPos, double dpr) {
+    final safeDpr = dpr <= 0 ? 1.0 : dpr;
+    return Offset(
+      (logicalPos.dx * safeDpr).roundToDouble(),
+      (logicalPos.dy * safeDpr).roundToDouble(),
+    );
+  }
+
+  static Size logicalToPhysicalSize(Size logicalSize, double dpr) {
+    final safeDpr = dpr <= 0 ? 1.0 : dpr;
+    return Size(
+      (logicalSize.width * safeDpr).roundToDouble(),
+      (logicalSize.height * safeDpr).roundToDouble(),
+    );
+  }
+
+  /// Chuyển tọa độ Win32 physical pixel sang tham số truyền vào windowManager.setPosition
+  /// sao cho khi C++ nhân ngược lại với currentWindowDpr và ép kiểu int sẽ ra đúng pixel vật lý.
+  static Offset physicalToWindowManagerOffset(
+    Offset physPos,
+    double currentWindowDpr,
+  ) {
+    final safeDpr = currentWindowDpr <= 0 ? 1.0 : currentWindowDpr;
+    final targetX = physPos.dx.roundToDouble();
+    final targetY = physPos.dy.roundToDouble();
+    final epsX = targetX >= 0 ? 0.01 : -0.01;
+    final epsY = targetY >= 0 ? 0.01 : -0.01;
+    return Offset((targetX + epsX) / safeDpr, (targetY + epsY) / safeDpr);
+  }
+
+  /// Chuyển kích thước Win32 physical pixel sang tham số truyền vào windowManager.setSize.
+  static Size physicalToWindowManagerSize(
+    Size physSize,
+    double currentWindowDpr,
+  ) {
+    final safeDpr = currentWindowDpr <= 0 ? 1.0 : currentWindowDpr;
+    final targetW = physSize.width.roundToDouble();
+    final targetH = physSize.height.roundToDouble();
+    return Size((targetW + 0.01) / safeDpr, (targetH + 0.01) / safeDpr);
+  }
+
+  /// Tìm màn hình chứa điểm physical (hoặc màn hình gần nhất nếu điểm hơi tràn ra ngoài mép/taskbar).
+  static Display findDisplayForPhysicalPoint(
+    Offset pointPhysical,
+    List<Display> displays,
+    Display primaryDisplay,
+  ) {
+    for (final d in displays) {
+      final r = getDisplayPhysicalWorkArea(d);
+      if (r.contains(pointPhysical)) {
+        return d;
+      }
+    }
+    Display? bestDisplay;
+    double bestDist = double.infinity;
+    for (final d in displays) {
+      final r = getDisplayPhysicalWorkArea(d);
+      final clampedX = pointPhysical.dx.clamp(r.left, r.right);
+      final clampedY = pointPhysical.dy.clamp(r.top, r.bottom);
+      final dist = (pointPhysical - Offset(clampedX, clampedY)).distanceSquared;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestDisplay = d;
+      }
+    }
+    return bestDisplay ?? primaryDisplay;
+  }
+
+  /// Tính toán hình chữ nhật vật lý (physical Rect) khi khởi tạo widget từ vị trí đã lưu.
+  static Rect resolveInitialPhysicalRect({
+    required Offset savedPhysPos,
+    required Size logicalWidgetSize,
+    required List<Display> displays,
+    required Display primaryDisplay,
+  }) {
+    Display targetDisplay = findDisplayForPhysicalPoint(
+      savedPhysPos,
+      displays,
+      primaryDisplay,
+    );
+    double targetScale = scaleOf(targetDisplay);
+    double physW = (logicalWidgetSize.width * targetScale).roundToDouble();
+    double physH = (logicalWidgetSize.height * targetScale).roundToDouble();
+
+    // Xác định lại theo tâm của widget trên màn hình đích
+    targetDisplay = findDisplayForPhysicalPoint(
+      Offset(savedPhysPos.dx + physW / 2, savedPhysPos.dy + physH / 2),
+      displays,
+      primaryDisplay,
+    );
+    targetScale = scaleOf(targetDisplay);
+    physW = (logicalWidgetSize.width * targetScale).roundToDouble();
+    physH = (logicalWidgetSize.height * targetScale).roundToDouble();
+
+    final workArea = getDisplayPhysicalWorkArea(targetDisplay);
+    double resolvedX = savedPhysPos.dx.roundToDouble();
+    double resolvedY = savedPhysPos.dy.roundToDouble();
+    final windowRect = Rect.fromLTWH(resolvedX, resolvedY, physW, physH);
+    final intersect = workArea.intersect(windowRect);
+
+    // Chỉ kẹp lại vị trí nếu màn hình phụ đã bị rút ra làm widget nằm hẳn ngoài màn hình
+    if (intersect.isEmpty || intersect.width < 40 || intersect.height < 40) {
+      final maxX = workArea.right - physW >= workArea.left
+          ? workArea.right - physW
+          : workArea.left;
+      final maxY = workArea.bottom - physH >= workArea.top
+          ? workArea.bottom - physH
+          : workArea.top;
+      resolvedX = resolvedX.clamp(workArea.left, maxX).roundToDouble();
+      resolvedY = resolvedY.clamp(workArea.top, maxY).roundToDouble();
+    }
+
+    return Rect.fromLTWH(resolvedX, resolvedY, physW, physH);
+  }
+
+  /// Tính toán vị trí snap cạnh màn hình và kích thước vật lý chuẩn theo màn hình hiện tại.
+  static ({Offset physPos, Size physSize, bool snapped, bool resized})
+      computeSnapPhysical({
+    required Offset currentPhysPos,
+    required Size currentPhysSize,
+    required Size logicalWidgetSize,
+    required List<Display> displays,
+    required Display primaryDisplay,
+    double snapThreshold = kSnapThreshold,
+    double snapMargin = kSnapMargin,
+  }) {
+    final centerPhysical = Offset(
+      currentPhysPos.dx + currentPhysSize.width / 2,
+      currentPhysPos.dy + currentPhysSize.height / 2,
+    );
+
+    final currentDisplay = findDisplayForPhysicalPoint(
+      centerPhysical,
+      displays,
+      primaryDisplay,
+    );
+
+    final displayScale = scaleOf(currentDisplay);
+    final workArea = getDisplayPhysicalWorkArea(currentDisplay);
+
+    final expectedPhysW =
+        (logicalWidgetSize.width * displayScale).roundToDouble();
+    final expectedPhysH =
+        (logicalWidgetSize.height * displayScale).roundToDouble();
+    double curW = currentPhysSize.width;
+    double curH = currentPhysSize.height;
+    bool resized = false;
+    if ((curW - expectedPhysW).abs() > 2 || (curH - expectedPhysH).abs() > 2) {
+      curW = expectedPhysW;
+      curH = expectedPhysH;
+      resized = true;
+    }
+
+    final thresholdPhys = snapThreshold * displayScale;
+    final marginPhys = snapMargin * displayScale;
+
+    double newPhysX = currentPhysPos.dx;
+    double newPhysY = currentPhysPos.dy;
+    bool snapped = false;
+
+    if (currentPhysPos.dx <= workArea.left + thresholdPhys) {
+      newPhysX = (workArea.left + marginPhys).roundToDouble();
+      snapped = true;
+    } else if (currentPhysPos.dx + curW >= workArea.right - thresholdPhys) {
+      newPhysX = (workArea.right - curW - marginPhys).roundToDouble();
+      snapped = true;
+    }
+    if (currentPhysPos.dy <= workArea.top + thresholdPhys) {
+      newPhysY = (workArea.top + marginPhys).roundToDouble();
+      snapped = true;
+    } else if (currentPhysPos.dy + curH >= workArea.bottom - thresholdPhys) {
+      newPhysY = (workArea.bottom - curH - marginPhys).roundToDouble();
+      snapped = true;
+    }
+
+    return (
+      physPos: Offset(newPhysX, newPhysY),
+      physSize: Size(curW, curH),
+      snapped: snapped,
+      resized: resized,
+    );
+  }
+}
+
+// ============================================================
 // WIDGET WINDOW APP (Windows — cửa sổ Flutter riêng)
 // ============================================================
 class WidgetWindowApp extends StatefulWidget {
@@ -1065,6 +1362,8 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   Timer? _snapTimer;
   Timer? _pollTimer;
   bool _snapping = false;
+  bool _initializingWindow = true;
+  int _visibilityCheckTick = 0;
 
   // Lưu ngày hiện tại để phát hiện khi qua ngày mới (00:00)
   int _lastKnownDay = DateTime.now().day;
@@ -1115,6 +1414,7 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
 
   Future<void> _pollState() async {
     final state = await _readState();
+    if (state.isEmpty) return;
 
     final locked = state['locked'] as bool? ?? false;
     if (locked != _isLocked) {
@@ -1128,10 +1428,30 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
       try {
         if (visible) {
           await windowManager.show();
+          await _setPhysicalPosition(Offset(_x, _y));
         } else {
           await windowManager.hide();
         }
       } catch (_) {}
+    } else if (_ready && !_initializingWindow && _isVisible && Platform.isWindows) {
+      // Định kỳ mỗi ~1.5s kiểm tra xem HWND thực sự đã hiển thị chưa
+      // (phòng trường hợp Windows vừa boot lên Explorer/DWM nuốt lệnh ShowWindowAsync)
+      _visibilityCheckTick = (_visibilityCheckTick + 1) % 5;
+      if (_visibilityCheckTick == 0) {
+        try {
+          final actualVisible = await windowManager.isVisible();
+          if (!actualVisible) {
+            debugPrint('👁️ Phát hiện widget đang bị ẩn dù _isVisible=true → gọi lại show()');
+            _initializingWindow = true;
+            await windowManager.show();
+            await _setPhysicalPosition(Offset(_x, _y));
+            await Future.delayed(const Duration(milliseconds: 150));
+            _initializingWindow = false;
+          }
+        } catch (_) {
+          _initializingWindow = false;
+        }
+      }
     }
   }
 
@@ -1167,48 +1487,157 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     super.dispose();
   }
 
+  // ============================================================
+  // WIN32 PHYSICAL COORDINATE HELPERS (đa màn hình khác DPI/size)
+  // ============================================================
+  // Lưu ý:
+  // - window_manager trên Windows luôn chia GetWindowRect cho window.devicePixelRatio
+  //   (DPI của màn hình mà cửa sổ ĐANG đứng) và nhân lại với window.devicePixelRatio
+  //   khi gọi SetWindowPos.
+  // - screen_retriever_windows trả về visiblePosition và visibleSize đã chia cho
+  //   scaleFactor của chính màn hình đó.
+  // Do đó nếu quy toàn bộ về tọa độ pixel vật lý (Win32 virtual screen physical pixels)
+  // và triệt tiêu hệ số devicePixelRatio khi gọi qua window_manager, vị trí & kích thước
+  // sẽ chính xác tuyệt đối trên mọi tổ hợp màn hình (ví dụ 1080p + 4K).
+
+  double _currentDpr() {
+    final dpr = windowManager.getDevicePixelRatio();
+    return dpr <= 0 ? 1.0 : dpr;
+  }
+
+  Future<Offset> _getPhysicalPosition() async {
+    final pos = await windowManager.getPosition();
+    return WindowsWidgetGeometry.logicalToPhysicalOffset(pos, _currentDpr());
+  }
+
+  Future<Size> _getPhysicalSize() async {
+    final size = await windowManager.getSize();
+    return WindowsWidgetGeometry.logicalToPhysicalSize(size, _currentDpr());
+  }
+
+  Future<void> _setPhysicalPosition(Offset physPos) async {
+    await windowManager.setPosition(
+      WindowsWidgetGeometry.physicalToWindowManagerOffset(
+        physPos,
+        _currentDpr(),
+      ),
+    );
+  }
+
+  Future<void> _setPhysicalSize(Size physSize) async {
+    await windowManager.setSize(
+      WindowsWidgetGeometry.physicalToWindowManagerSize(
+        physSize,
+        _currentDpr(),
+      ),
+    );
+  }
+
+  Future<void> _applyInitialGeometry() async {
+    final primaryDisplay = await ScreenRetriever.instance.getPrimaryDisplay();
+    final displays = await ScreenRetriever.instance.getAllDisplays();
+
+    final resolvedRect = WindowsWidgetGeometry.resolveInitialPhysicalRect(
+      savedPhysPos: Offset(_x, _y),
+      logicalWidgetSize: Size(_width, _height),
+      displays: displays,
+      primaryDisplay: primaryDisplay,
+    );
+
+    _x = resolvedRect.left;
+    _y = resolvedRect.top;
+
+    // 1. Di chuyển cửa sổ sang màn hình đích trước để kích hoạt WM_DPICHANGED (nếu khác DPI)
+    await _setPhysicalPosition(Offset(_x, _y));
+    await Future.delayed(const Duration(milliseconds: 60));
+
+    // 2. Đặt kích thước vật lý chuẩn theo DPI của màn hình đích rồi khóa lại vị trí (_x, _y)
+    //    (tránh việc WM_DPICHANGED hoặc setSize ở màn hình chính làm lệch tọa độ sang giữa màn 4K)
+    await _setPhysicalSize(resolvedRect.size);
+    await _setPhysicalPosition(Offset(_x, _y));
+  }
+
   Future<void> _setupWindow() async {
     if (!Platform.isWindows) {
+      _initializingWindow = false;
       if (mounted) setState(() => _ready = true);
       return;
     }
-    try {
-      await windowManager.ensureInitialized();
-      windowManager.addListener(this);
 
-      final opts = WindowOptions(
-        size: Size(_width, _height),
-        backgroundColor: Colors.transparent,
-        skipTaskbar: true,
-        titleBarStyle: TitleBarStyle.hidden,
-        windowButtonVisibility: false,
-      );
-      await windowManager.waitUntilReadyToShow(opts, () async {
+    _initializingWindow = true;
+
+    for (int attempt = 1; attempt <= 5; attempt++) {
+      try {
+        await windowManager.ensureInitialized();
+
+        final opts = WindowOptions(
+          size: Size(_width, _height),
+          backgroundColor: Colors.transparent,
+          skipTaskbar: true,
+          titleBarStyle: TitleBarStyle.hidden,
+          windowButtonVisibility: false,
+        );
+
+        await windowManager.waitUntilReadyToShow(opts);
         await windowManager.setAsFrameless();
         await windowManager.setHasShadow(false);
         await windowManager.setResizable(false);
-        await windowManager.setSize(Size(_width, _height));
-        await windowManager.setPosition(Offset(_x, _y));
+        await windowManager.setSkipTaskbar(true);
         await windowManager.setTitle('VIE Lịch Widget');
-        await windowManager.show();
+
+        await _applyInitialGeometry();
+
+        if (_isVisible) {
+          await windowManager.show();
+          // Đảm bảo vị trí không bị lệch sau khi show()
+          await _setPhysicalPosition(Offset(_x, _y));
+          final actualVisible = await windowManager.isVisible();
+          if (!actualVisible) {
+            await Future.delayed(const Duration(milliseconds: 150));
+            await windowManager.show();
+            await _setPhysicalPosition(Offset(_x, _y));
+          }
+        }
+
         if (mounted) setState(() => _ready = true);
-      });
-    } catch (e) {
-      debugPrint('⚠️ Setup widget lỗi: $e');
-      if (mounted) setState(() => _ready = true);
+        await _updateState({'widgetReady': true});
+
+        // Chờ các sự kiện WM_MOVE phát sinh trong lúc khởi tạo trôi qua hết rồi mới gắn listener
+        await Future.delayed(const Duration(milliseconds: 350));
+        windowManager.addListener(this);
+        _initializingWindow = false;
+        debugPrint('✅ Setup widget thành công tại physical=($_x, $_y) (lần $attempt)');
+        return;
+      } catch (e) {
+        debugPrint('⚠️ Setup widget lỗi (lần $attempt): $e');
+        if (attempt < 5) {
+          await Future.delayed(const Duration(milliseconds: 250));
+        }
+      }
     }
+
+    // Fallback nếu sau 5 lần vẫn gặp ngoại lệ
+    try {
+      await windowManager.show();
+    } catch (_) {}
+    windowManager.addListener(this);
+    _initializingWindow = false;
+    if (mounted) setState(() => _ready = true);
   }
 
   @override
   void onWindowMove() {
-    if (_isLocked || _snapping) return;
+    if (_isLocked || _snapping || _initializingWindow) return;
     _snapTimer?.cancel();
     _snapTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (_isLocked || _snapping || _initializingWindow) return;
       await _snapToEdge();
       try {
-        final pos = await windowManager.getPosition();
-        await _updateState({'x': pos.dx, 'y': pos.dy});
-        debugPrint('💾 Widget ghi vị trí: (${pos.dx.toInt()}, ${pos.dy.toInt()})');
+        final physPos = await _getPhysicalPosition();
+        _x = physPos.dx;
+        _y = physPos.dy;
+        await _updateState({'x': physPos.dx, 'y': physPos.dy});
+        debugPrint('💾 Widget ghi vị trí physical: (${physPos.dx.toInt()}, ${physPos.dy.toInt()})');
       } catch (e) {
         debugPrint('⚠️ Ghi vị trí lỗi: $e');
       }
@@ -1216,76 +1645,33 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   }
 
   Future<void> _snapToEdge() async {
-    if (!Platform.isWindows || _isLocked || _snapping) return;
+    if (!Platform.isWindows || _isLocked || _snapping || _initializingWindow) {
+      return;
+    }
     _snapping = true;
     try {
-      final position = await windowManager.getPosition();
-      final size = await windowManager.getSize();
-
-      // Lấy primary display để biết scaleFactor của logical coordinate system
+      final physPos = await _getPhysicalPosition();
+      final physSize = await _getPhysicalSize();
       final primaryDisplay = await ScreenRetriever.instance.getPrimaryDisplay();
-      final primaryScale = (primaryDisplay.scaleFactor ?? 1.0) <= 0
-          ? 1.0
-          : primaryDisplay.scaleFactor!;
-
-      // Tâm widget trong physical coordinates
-      final centerPhysical = Offset(
-        (position.dx + size.width / 2) * primaryScale,
-        (position.dy + size.height / 2) * primaryScale,
-      );
-
-      // Tìm display đang chứa widget
       final displays = await ScreenRetriever.instance.getAllDisplays();
-      Display? currentDisplay;
-      for (final d in displays) {
-        final vPos = d.visiblePosition ?? Offset.zero;
-        final vSize = d.visibleSize ?? d.size;
-        final rectPhysical = Rect.fromLTWH(
-          vPos.dx,
-          vPos.dy,
-          vSize.width,
-          vSize.height,
-        );
-        if (rectPhysical.contains(centerPhysical)) {
-          currentDisplay = d;
-          break;
-        }
-      }
-      currentDisplay ??= primaryDisplay;
 
-      final vPos = currentDisplay.visiblePosition ?? Offset.zero;
-      final vSize = currentDisplay.visibleSize ?? currentDisplay.size;
-
-      // Chuyển workArea về logical (theo scale của primary)
-      final workArea = Rect.fromLTWH(
-        vPos.dx / primaryScale,
-        vPos.dy / primaryScale,
-        vSize.width / primaryScale,
-        vSize.height / primaryScale,
+      final snapResult = WindowsWidgetGeometry.computeSnapPhysical(
+        currentPhysPos: physPos,
+        currentPhysSize: physSize,
+        logicalWidgetSize: Size(_width, _height),
+        displays: displays,
+        primaryDisplay: primaryDisplay,
       );
 
-      double newX = position.dx;
-      double newY = position.dy;
-      bool changed = false;
-
-      if (position.dx <= workArea.left + kSnapThreshold) {
-        newX = workArea.left + kSnapMargin;
-        changed = true;
-      } else if (position.dx + size.width >= workArea.right - kSnapThreshold) {
-        newX = workArea.right - size.width - kSnapMargin;
-        changed = true;
-      }
-      if (position.dy <= workArea.top + kSnapThreshold) {
-        newY = workArea.top + kSnapMargin;
-        changed = true;
-      } else if (position.dy + size.height >= workArea.bottom - kSnapThreshold) {
-        newY = workArea.bottom - size.height - kSnapMargin;
-        changed = true;
+      if (snapResult.resized) {
+        await _setPhysicalSize(snapResult.physSize);
       }
 
-      if (changed) {
-        await windowManager.setPosition(Offset(newX, newY));
-        debugPrint('📐 Snap → (${newX.toInt()}, ${newY.toInt()})');
+      if (snapResult.snapped) {
+        await _setPhysicalPosition(snapResult.physPos);
+        debugPrint(
+          '📐 Snap physical → (${snapResult.physPos.dx.toInt()}, ${snapResult.physPos.dy.toInt()})',
+        );
       }
     } catch (e) {
       debugPrint('⚠️ Snap lỗi: $e');
