@@ -74,107 +74,48 @@ String? _getDataDir() {
   return null;
 }
 
-Future<Map<String, dynamic>> _readState() async {
+Future<dynamic> _readJson(String filename) async {
   final dir = _getDataDir();
-  if (dir == null) return {};
-  final file = File('$dir/$kStateFile');
-  for (int attempt = 0; attempt < 3; attempt++) {
-    try {
-      if (!await file.exists()) return {};
-      final content = await file.readAsString();
-      if (content.trim().isEmpty) {
-        if (attempt < 2) {
-          await Future.delayed(const Duration(milliseconds: 40));
-          continue;
-        }
-        return {};
-      }
-      return jsonDecode(content) as Map<String, dynamic>;
-    } catch (_) {
-      if (attempt < 2) {
-        await Future.delayed(const Duration(milliseconds: 40));
-      }
-    }
+  if (dir == null) return null;
+  final file = File('$dir/$filename');
+  try {
+    if (!await file.exists()) return null;
+    final text = await file.readAsString();
+    if (text.trim().isEmpty) return null;
+    return jsonDecode(text);
+  } catch (_) {
+    return null;
   }
-  return {};
 }
 
-Future<void> _writeState(Map<String, dynamic> state) async {
+Future<void> _writeJson(String filename, dynamic data) async {
   final dir = _getDataDir();
   if (dir == null) return;
   try {
     final dirObj = Directory(dir);
     if (!await dirObj.exists()) await dirObj.create(recursive: true);
-    final file = File('$dir/$kStateFile');
-    final tmpFile = File('$dir/$kStateFile.tmp.$pid');
-    await tmpFile.writeAsString(jsonEncode(state), flush: true);
-    try {
-      await tmpFile.rename(file.path);
-    } catch (_) {
-      await file.writeAsString(jsonEncode(state), flush: true);
-      try {
-        if (await tmpFile.exists()) await tmpFile.delete();
-      } catch (_) {}
-    }
+    await File('$dir/$filename').writeAsString(jsonEncode(data), flush: true);
   } catch (_) {}
 }
 
-Future<void> _stateWriteChain = Future.value();
+Future<Map<String, dynamic>> _readState() async =>
+    (await _readJson(kStateFile) as Map<String, dynamic>?) ?? {};
 
-Future<void> _updateState(Map<String, dynamic> patch) {
-  _stateWriteChain = _stateWriteChain.then((_) async {
-    final state = await _readState();
-    state.addAll(patch);
-    await _writeState(state);
-  }).catchError((_) {});
-  return _stateWriteChain;
+Future<void> _writeState(Map<String, dynamic> state) =>
+    _writeJson(kStateFile, state);
+
+Future<void> _updateState(Map<String, dynamic> patch) async {
+  final state = await _readState();
+  state.addAll(patch);
+  await _writeState(state);
 }
 
-Future<List<Map<String, dynamic>>> _readEvents() async {
-  final dir = _getDataDir();
-  if (dir == null) return [];
-  final file = File('$dir/$kEventsFile');
-  for (int attempt = 0; attempt < 3; attempt++) {
-    try {
-      if (!await file.exists()) return [];
-      final content = await file.readAsString();
-      if (content.trim().isEmpty) {
-        if (attempt < 2) {
-          await Future.delayed(const Duration(milliseconds: 40));
-          continue;
-        }
-        return [];
-      }
-      final list = jsonDecode(content) as List;
-      return list.cast<Map<String, dynamic>>();
-    } catch (_) {
-      if (attempt < 2) {
-        await Future.delayed(const Duration(milliseconds: 40));
-      }
-    }
-  }
-  return [];
-}
+Future<List<Map<String, dynamic>>> _readEvents() async =>
+    ((await _readJson(kEventsFile)) as List?)?.cast<Map<String, dynamic>>() ??
+    [];
 
-Future<void> _writeEvents(List<Map<String, dynamic>> events) async {
-  final dir = _getDataDir();
-  if (dir == null) return;
-  try {
-    final dirObj = Directory(dir);
-    if (!await dirObj.exists()) await dirObj.create(recursive: true);
-    final file = File('$dir/$kEventsFile');
-    final tmpFile = File('$dir/$kEventsFile.tmp.$pid');
-    await tmpFile.writeAsString(jsonEncode(events), flush: true);
-    try {
-      await tmpFile.rename(file.path);
-    } catch (_) {
-      await file.writeAsString(jsonEncode(events), flush: true);
-      try {
-        if (await tmpFile.exists()) await tmpFile.delete();
-      } catch (_) {}
-    }
-  } catch (_) {}
-}
+Future<void> _writeEvents(List<Map<String, dynamic>> events) =>
+    _writeJson(kEventsFile, events);
 
 void _forceExit() {
   debugPrint('👋 Force exit ngay...');
@@ -451,7 +392,6 @@ class _MainAppContentState extends State<_MainAppContent>
         await _updateState({
           'visible': true,
           'locked': _widgetLocked,
-          'widgetReady': false,
         });
         _widgetEnabled = true;
         debugPrint('📝 Reset visible=true khi khởi động');
@@ -652,56 +592,32 @@ class _MainAppContentState extends State<_MainAppContent>
     await _loadSavedState();
     debugPrint('📝 Tạo widget tại ($_savedWidgetX, $_savedWidgetY) locked=$_widgetLocked');
 
-    for (int attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await _updateState({
-          'locked': _widgetLocked,
-          'visible': true,
-          'widgetReady': false,
-        });
+    try {
+      await _updateState({
+        'locked': _widgetLocked,
+        'visible': true,
+      });
 
-        final controller = await WindowController.create(
-          WindowConfiguration(
-            hiddenAtLaunch: true,
-            arguments: jsonEncode({
-              'width': kWidgetSize.width,
-              'height': kWidgetSize.height,
-              'x': _savedWidgetX,
-              'y': _savedWidgetY,
-              'locked': _widgetLocked,
-            }),
-          ),
-        );
-        _widgetController = controller;
-        _widgetEnabled = true;
-        debugPrint('✅ Đã tạo widget (id=${controller.windowId}, lần $attempt)');
+      final controller = await WindowController.create(
+        WindowConfiguration(
+          hiddenAtLaunch: true,
+          arguments: jsonEncode({
+            'width': kWidgetSize.width,
+            'height': kWidgetSize.height,
+            'x': _savedWidgetX,
+            'y': _savedWidgetY,
+            'locked': _widgetLocked,
+          }),
+        ),
+      );
+      _widgetController = controller;
+      _widgetEnabled = true;
+      debugPrint('✅ Đã tạo widget (id=${controller.windowId})');
 
-        _lastEventHash = [];
-        _onDataChanged();
-
-        // Chờ xác nhận widget sub-window đã khởi tạo và hiển thị thành công
-        bool ready = false;
-        for (int waitIdx = 0; waitIdx < 15; waitIdx++) {
-          await Future.delayed(const Duration(milliseconds: 250));
-          final st = await _readState();
-          if (st['widgetReady'] == true) {
-            ready = true;
-            break;
-          }
-        }
-
-        if (ready) {
-          debugPrint('✅ Widget sub-window đã xác nhận hiển thị (widgetReady=true)');
-          return;
-        }
-        debugPrint('⚠️ Chưa nhận được widgetReady sau lần thử $attempt, nhưng đã tạo controller');
-        return;
-      } catch (e) {
-        debugPrint('❌ Lỗi tạo widget (lần $attempt): $e');
-        if (attempt < 3) {
-          await Future.delayed(const Duration(milliseconds: 600));
-        }
-      }
+      _lastEventHash = [];
+      _onDataChanged();
+    } catch (e) {
+      debugPrint('❌ Lỗi tạo widget: $e');
     }
   }
 
@@ -1363,7 +1279,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   Timer? _pollTimer;
   bool _snapping = false;
   bool _initializingWindow = true;
-  int _visibilityCheckTick = 0;
 
   // Lưu ngày hiện tại để phát hiện khi qua ngày mới (00:00)
   int _lastKnownDay = DateTime.now().day;
@@ -1433,25 +1348,6 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
           await windowManager.hide();
         }
       } catch (_) {}
-    } else if (_ready && !_initializingWindow && _isVisible && Platform.isWindows) {
-      // Định kỳ mỗi ~1.5s kiểm tra xem HWND thực sự đã hiển thị chưa
-      // (phòng trường hợp Windows vừa boot lên Explorer/DWM nuốt lệnh ShowWindowAsync)
-      _visibilityCheckTick = (_visibilityCheckTick + 1) % 5;
-      if (_visibilityCheckTick == 0) {
-        try {
-          final actualVisible = await windowManager.isVisible();
-          if (!actualVisible) {
-            debugPrint('👁️ Phát hiện widget đang bị ẩn dù _isVisible=true → gọi lại show()');
-            _initializingWindow = true;
-            await windowManager.show();
-            await _setPhysicalPosition(Offset(_x, _y));
-            await Future.delayed(const Duration(milliseconds: 150));
-            _initializingWindow = false;
-          }
-        } catch (_) {
-          _initializingWindow = false;
-        }
-      }
     }
   }
 
@@ -1565,64 +1461,42 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
     }
 
     _initializingWindow = true;
-
-    for (int attempt = 1; attempt <= 5; attempt++) {
-      try {
-        await windowManager.ensureInitialized();
-
-        final opts = WindowOptions(
-          size: Size(_width, _height),
-          backgroundColor: Colors.transparent,
-          skipTaskbar: true,
-          titleBarStyle: TitleBarStyle.hidden,
-          windowButtonVisibility: false,
-        );
-
-        await windowManager.waitUntilReadyToShow(opts);
-        await windowManager.setAsFrameless();
-        await windowManager.setHasShadow(false);
-        await windowManager.setResizable(false);
-        await windowManager.setSkipTaskbar(true);
-        await windowManager.setTitle('VIE Lịch Widget');
-
-        await _applyInitialGeometry();
-
-        if (_isVisible) {
-          await windowManager.show();
-          // Đảm bảo vị trí không bị lệch sau khi show()
-          await _setPhysicalPosition(Offset(_x, _y));
-          final actualVisible = await windowManager.isVisible();
-          if (!actualVisible) {
-            await Future.delayed(const Duration(milliseconds: 150));
-            await windowManager.show();
-            await _setPhysicalPosition(Offset(_x, _y));
-          }
-        }
-
-        if (mounted) setState(() => _ready = true);
-        await _updateState({'widgetReady': true});
-
-        // Chờ các sự kiện WM_MOVE phát sinh trong lúc khởi tạo trôi qua hết rồi mới gắn listener
-        await Future.delayed(const Duration(milliseconds: 350));
-        windowManager.addListener(this);
-        _initializingWindow = false;
-        debugPrint('✅ Setup widget thành công tại physical=($_x, $_y) (lần $attempt)');
-        return;
-      } catch (e) {
-        debugPrint('⚠️ Setup widget lỗi (lần $attempt): $e');
-        if (attempt < 5) {
-          await Future.delayed(const Duration(milliseconds: 250));
-        }
-      }
-    }
-
-    // Fallback nếu sau 5 lần vẫn gặp ngoại lệ
     try {
-      await windowManager.show();
-    } catch (_) {}
-    windowManager.addListener(this);
-    _initializingWindow = false;
-    if (mounted) setState(() => _ready = true);
+      await windowManager.ensureInitialized();
+
+      final opts = WindowOptions(
+        size: Size(_width, _height),
+        backgroundColor: Colors.transparent,
+        skipTaskbar: true,
+        titleBarStyle: TitleBarStyle.hidden,
+        windowButtonVisibility: false,
+      );
+
+      await windowManager.waitUntilReadyToShow(opts);
+      await windowManager.setAsFrameless();
+      await windowManager.setHasShadow(false);
+      await windowManager.setResizable(false);
+      await windowManager.setSkipTaskbar(true);
+      await windowManager.setTitle('VIE Lịch Widget');
+
+      await _applyInitialGeometry();
+
+      if (_isVisible) {
+        await windowManager.show();
+        await _setPhysicalPosition(Offset(_x, _y));
+      }
+
+      if (mounted) setState(() => _ready = true);
+
+      // Chờ các sự kiện WM_MOVE phát sinh trong lúc khởi tạo trôi qua hết rồi mới gắn listener
+      await Future.delayed(const Duration(milliseconds: 250));
+      windowManager.addListener(this);
+    } catch (e) {
+      debugPrint('⚠️ Setup widget lỗi: $e');
+      if (mounted) setState(() => _ready = true);
+    } finally {
+      _initializingWindow = false;
+    }
   }
 
   @override
