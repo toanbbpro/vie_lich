@@ -19,6 +19,10 @@ if ($LASTEXITCODE -ne 0) { throw "flutter build windows failed" }
 
 # 2. Build Go helper
 Write-Host "[2/5] Building Go Helper..." -ForegroundColor Yellow
+$goBin = "$((go env GOPATH))\bin"
+if ((Test-Path $goBin) -and ($env:PATH -notlike "*$goBin*")) {
+    $env:PATH = "$goBin;$env:PATH"
+}
 Push-Location windows_helper
 
 # 2.1. Tìm file winres.json — hỗ trợ cả 2 vị trí:
