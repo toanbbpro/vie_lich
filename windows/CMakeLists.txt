@@ -39,6 +39,7 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 
 add_subdirectory("runner")
 
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/compat")
 include(flutter/generated_plugins.cmake)
 
 # === Installation ===
