@@ -11,6 +11,19 @@ import 'linux_update_service.dart';
 class GithubUpdateService {
   static const String _owner = 'toanbbpro';
   static const String _repo = 'vie_lich';
+  static const Set<String> _trustedAssetHosts = {
+    'github.com',
+    'objects.githubusercontent.com',
+    'release-assets.githubusercontent.com',
+  };
+
+  static bool _isTrustedGithubUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return uri != null &&
+        uri.scheme == 'https' &&
+        _trustedAssetHosts.contains(uri.host.toLowerCase());
+  }
+
   static Future<void> checkUpdate(BuildContext context,
       {bool showNoUpdate = false}) async {
     const isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
@@ -28,36 +41,44 @@ class GithubUpdateService {
       if (_isNewer(currentVersion, tag)) {
         String? apkUrl;
         String? macOSZipUrl;
+        String? macOSZipDigest;
         String? linuxArchiveUrl;
+        String? linuxArchiveDigest;
 
+        final assets = (data['assets'] as List?) ?? const [];
         if (Platform.isAndroid) {
-          final assets = data['assets'] as List;
           for (var asset in assets) {
-            if (asset['name'].toString().toLowerCase().endsWith('.apk')) {
-              apkUrl = asset['browser_download_url'];
+            final name = asset['name'].toString().toLowerCase();
+            final url = asset['browser_download_url']?.toString() ?? '';
+            if (name.endsWith('.apk') && _isTrustedGithubUrl(url)) {
+              apkUrl = url;
               break;
             }
           }
         } else if (Platform.isMacOS) {
-          // Tìm file .zip trên GitHub release (chứa .app đã sign + notarize)
-          final assets = data['assets'] as List;
           for (var asset in assets) {
             final name = asset['name'].toString().toLowerCase();
-            if (name.endsWith('.zip') && (name.contains('macos') || name.contains('app'))) {
-              macOSZipUrl = asset['browser_download_url'];
+            final url = asset['browser_download_url']?.toString() ?? '';
+            if (name.endsWith('.zip') &&
+                (name.contains('macos') || name.contains('app')) &&
+                _isTrustedGithubUrl(url)) {
+              macOSZipUrl = url;
+              macOSZipDigest = asset['digest']?.toString();
               break;
             }
           }
         } else if (Platform.isLinux) {
-          final assets = data['assets'] as List;
           for (var asset in assets) {
             final name = asset['name'].toString().toLowerCase();
-            if (name.endsWith('.deb') ||
-                (name.contains('linux') &&
-                    (name.endsWith('.zip') ||
-                        name.endsWith('.tar.gz') ||
-                        name.endsWith('.tgz')))) {
-              linuxArchiveUrl = asset['browser_download_url'];
+            final url = asset['browser_download_url']?.toString() ?? '';
+            if ((name.endsWith('.deb') ||
+                    (name.contains('linux') &&
+                        (name.endsWith('.zip') ||
+                            name.endsWith('.tar.gz') ||
+                            name.endsWith('.tgz')))) &&
+                _isTrustedGithubUrl(url)) {
+              linuxArchiveUrl = url;
+              linuxArchiveDigest = asset['digest']?.toString();
               break;
             }
           }
@@ -70,7 +91,9 @@ class GithubUpdateService {
           releaseUrl,
           apkUrl,
           macOSZipUrl,
+          macOSZipDigest,
           linuxArchiveUrl,
+          linuxArchiveDigest,
           info.packageName,
         );
       } else if (showNoUpdate) {
@@ -109,7 +132,9 @@ class GithubUpdateService {
     String releaseUrl,
     String? apkUrl,
     String? macOSZipUrl,
+    String? macOSZipDigest,
     String? linuxArchiveUrl,
+    String? linuxArchiveDigest,
     String packageName,
   ) {
     showDialog(
@@ -168,6 +193,7 @@ class GithubUpdateService {
                         try {
                           await MacOSUpdateService.downloadAndInstall(
                             zipUrl: macOSZipUrl,
+                            expectedDigest: macOSZipDigest,
                             onProgress: (p) {
                               setState(() => progress = p);
                             },
@@ -188,6 +214,7 @@ class GithubUpdateService {
                         try {
                           await LinuxUpdateService.downloadAndInstall(
                             archiveUrl: linuxArchiveUrl,
+                            expectedDigest: linuxArchiveDigest,
                             onProgress: (p) {
                               setState(() => progress = p);
                             },
@@ -203,8 +230,11 @@ class GithubUpdateService {
                       }
                       // === Fallback: mở trang release ===
                       else {
-                        final uri = Uri.parse(releaseUrl);
-                        if (await canLaunchUrl(uri)) {
+                        final uri = Uri.tryParse(releaseUrl);
+                        if (uri != null &&
+                            uri.scheme == 'https' &&
+                            uri.host == 'github.com' &&
+                            await canLaunchUrl(uri)) {
                           await launchUrl(uri,
                               mode: LaunchMode.externalApplication);
                         }

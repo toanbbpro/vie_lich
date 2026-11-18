@@ -48,6 +48,7 @@
         android:label="VIE Lịch"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:allowBackup="false"
         android:requestLegacyExternalStorage="true">
 
         <!-- TẮT IMPELLER KHI BUILD RELEASE -->

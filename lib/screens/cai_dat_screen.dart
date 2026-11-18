@@ -337,12 +337,12 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   Future<void> _khoiPhucDuLieu() async {
     final data = await BackupService.khoiPhucSaoLuu();
     if (data == null) return;
-    if (data.containsKey('events') && mounted) {
+    final rawEvents = data['events'];
+    if (rawEvents is List && mounted) {
       final provider = Provider.of<SuKienProvider>(context, listen: false);
-      final List<dynamic> eventsRaw = data['events'];
       int count = 0;
-      for (var item in eventsRaw) {
-        final sk = SuKien.fromJson(item as Map<String, dynamic>);
+      for (final item in rawEvents.whereType<Map<String, dynamic>>().take(1000)) {
+        final sk = SuKien.fromJson(item);
         await provider.capNhatSuKien(sk);
         count++;
       }

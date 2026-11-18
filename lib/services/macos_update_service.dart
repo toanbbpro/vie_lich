@@ -5,93 +5,117 @@ import 'package:path_provider/path_provider.dart';
 
 /// Service tự động cập nhật app trên macOS từ GitHub Release.
 ///
-/// Yêu cầu:
-/// - GitHub release có file `VIE_Lich_vX.Y.Z.zip` chứa `VIE Lich.app` đã sign + notarize
-/// - App cài ở /Applications (hoặc user có quyền ghi thư mục chứa app)
-///
-/// Flow:
-/// 1. Download .zip từ GitHub
-/// 2. Unzip ra thư mục tạm
-/// 3. Tạo shell script: đợi app thoát → xóa app cũ → move app mới → open
-/// 4. Spawn script detached → app thoát
-/// 5. Script chạy → mở app mới
+/// Bảo mật:
+/// - Stage vào thư mục riêng trong Application Support (`updates/run_...`).
+/// - Kiểm tra SHA-256 qua `shasum -a 256` trước khi giải nén/cài đặt.
+/// - Dùng `on run argv` + `quoted form of` trong `osascript` để tránh shell/AppleScript injection.
 class MacOSUpdateService {
-  /// Download zip, giải nén, thay thế app hiện tại, rồi tự relaunch.
+  static Future<void> _verifySha256IfPresent(
+    String filePath,
+    String? expectedDigest,
+  ) async {
+    if (expectedDigest == null || !expectedDigest.startsWith('sha256:')) return;
+    final expectedHex = expectedDigest.substring(7).trim().toLowerCase();
+    final res = await Process.run('shasum', ['-a', '256', filePath]);
+    if (res.exitCode != 0) {
+      throw Exception('Không thể kiểm tra SHA-256: ${res.stderr}');
+    }
+    final actualHex =
+        res.stdout.toString().trim().split(RegExp(r'\s+')).first.toLowerCase();
+    if (actualHex != expectedHex) {
+      throw Exception('Tệp cập nhật không khớp chữ ký SHA-256!');
+    }
+  }
+
+  /// Download zip, kiểm tra hash, giải nén, thay thế app hiện tại, rồi tự relaunch.
   static Future<void> downloadAndInstall({
     required String zipUrl,
     required Function(double) onProgress,
+    String? expectedDigest,
   }) async {
-    final tempDir = await getTemporaryDirectory();
-    final zipPath = '${tempDir.path}/vie_lich_update.zip';
-    final extractDir = '${tempDir.path}/vie_lich_extract';
-
-    // Xóa thư mục extract cũ nếu có
-    final extractDirObj = Directory(extractDir);
-    if (await extractDirObj.exists()) {
-      await extractDirObj.delete(recursive: true);
+    final appSupport = await getApplicationSupportDirectory();
+    final updatesRoot = Directory('${appSupport.path}/updates');
+    if (!await updatesRoot.exists()) {
+      await updatesRoot.create(recursive: true);
     }
-    await extractDirObj.create(recursive: true);
-
-    // 1. Download zip
-    debugPrint('⬇️ Download update: $zipUrl');
-    final dio = Dio();
-    await dio.download(
-      zipUrl,
-      zipPath,
-      onReceiveProgress: (received, total) {
-        if (total != -1) onProgress(received / total);
-      },
-    );
-
-    // 2. Unzip
-    debugPrint('📦 Unzip...');
-    final unzipResult = await Process.run('unzip', [
-      '-q',
-      '-o',
-      zipPath,
-      '-d',
-      extractDir,
-    ]);
-    if (unzipResult.exitCode != 0) {
-      throw Exception('Unzip failed: ${unzipResult.stderr}');
+    for (final entity in updatesRoot.listSync()) {
+      try {
+        await entity.delete(recursive: true);
+      } catch (_) {}
     }
 
-    // 3. Tìm .app trong thư mục extract
-    final newAppPath = await _findAppBundle(extractDir);
-    if (newAppPath == null) {
-      throw Exception('Không tìm thấy .app trong file zip');
+    final workDir = await updatesRoot.createTemp('run_');
+    final zipPath = '${workDir.path}/vie_lich_update.zip';
+    final extractDir = '${workDir.path}/extract';
+    await Directory(extractDir).create(recursive: true);
+
+    try {
+      // 1. Download zip
+      debugPrint('⬇️ Download update: $zipUrl');
+      final dio = Dio();
+      await dio.download(
+        zipUrl,
+        zipPath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) onProgress(received / total);
+        },
+      );
+
+      // 2. Đối chiếu SHA-256 nếu có từ GitHub API
+      await _verifySha256IfPresent(zipPath, expectedDigest);
+
+      // 3. Unzip
+      debugPrint('📦 Unzip...');
+      final unzipResult = await Process.run('unzip', [
+        '-q',
+        '-o',
+        zipPath,
+        '-d',
+        extractDir,
+      ]);
+      if (unzipResult.exitCode != 0) {
+        throw Exception('Unzip failed: ${unzipResult.stderr}');
+      }
+
+      // 4. Tìm .app trong thư mục extract
+      final newAppPath = await _findAppBundle(extractDir);
+      if (newAppPath == null) {
+        throw Exception('Không tìm thấy .app trong file zip');
+      }
+      debugPrint('✅ Tìm thấy app mới: $newAppPath');
+
+      // 5. Xác định vị trí app hiện tại
+      final currentAppPath = _getCurrentAppPath();
+      debugPrint('📍 App hiện tại: $currentAppPath');
+
+      // 6. Tạo shell script an toàn (không nội suy đường dẫn trực tiếp vào osascript)
+      final scriptPath = '${workDir.path}/vie_lich_update.sh';
+      final script = _buildUpdateScript(
+        currentApp: currentAppPath,
+        newApp: newAppPath,
+        workDirPath: workDir.path,
+      );
+
+      await File(scriptPath).writeAsString(script);
+      await Process.run('chmod', ['700', scriptPath]);
+
+      // 7. Spawn script detached
+      debugPrint('🚀 Chạy update script và thoát app...');
+      await Process.start(
+        '/bin/bash',
+        [scriptPath],
+        mode: ProcessStartMode.detached,
+      );
+
+      // 8. Thoát app ngay
+      await Future.delayed(const Duration(milliseconds: 300));
+      exit(0);
+    } catch (e) {
+      try {
+        await workDir.delete(recursive: true);
+      } catch (_) {}
+      rethrow;
     }
-    debugPrint('✅ Tìm thấy app mới: $newAppPath');
-
-    // 4. Xác định vị trí app hiện tại
-    final currentAppPath = _getCurrentAppPath();
-    debugPrint('📍 App hiện tại: $currentAppPath');
-
-    // 5. Tạo shell script
-    final scriptPath = '${tempDir.path}/vie_lich_update.sh';
-    final script = _buildUpdateScript(
-      currentApp: currentAppPath,
-      newApp: newAppPath,
-      zipPath: zipPath,
-      extractDir: extractDir,
-      scriptPath: scriptPath,
-    );
-
-    final scriptFile = File(scriptPath);
-    await scriptFile.writeAsString(script);
-    await Process.run('chmod', ['+x', scriptPath]);
-
-    // 6. Spawn script detached
-    debugPrint('🚀 Chạy update script và thoát app...');
-    await Process.start(
-      '/bin/bash',
-      [scriptPath],
-      mode: ProcessStartMode.detached,
-    );
-
-    // 7. Thoát app ngay
-    await Future.delayed(const Duration(milliseconds: 300));
-    exit(0);
   }
 
   /// Tìm file .app trong thư mục extract (đệ quy 2 cấp)
@@ -99,14 +123,12 @@ class MacOSUpdateService {
     final dirObj = Directory(dir);
     final entries = await dirObj.list().toList();
 
-    // Ưu tiên .app ở cấp 1
     for (final e in entries) {
       if (e is Directory && e.path.endsWith('.app')) {
         return e.path;
       }
     }
 
-    // Đệ quy vào thư mục con 1 cấp
     for (final e in entries) {
       if (e is Directory) {
         final subEntries = await e.list().toList();
@@ -123,55 +145,44 @@ class MacOSUpdateService {
   /// Lấy path của .app hiện tại
   static String _getCurrentAppPath() {
     final exe = Platform.resolvedExecutable;
-    // /Applications/VIE Lich.app/Contents/MacOS/VIE Lich
     final idx = exe.indexOf('.app/Contents/MacOS/');
     if (idx < 0) {
       throw Exception('Không xác định được vị trí app: $exe');
     }
-    return exe.substring(0, idx + 4); // +4 để bao gồm ".app"
+    return exe.substring(0, idx + 4);
   }
+
+  static String _shQuote(String s) => "'${s.replaceAll("'", "'\\''")}'";
 
   static String _buildUpdateScript({
     required String currentApp,
     required String newApp,
-    required String zipPath,
-    required String extractDir,
-    required String scriptPath,
+    required String workDirPath,
   }) {
-    // Dùng string nối để tránh escape phức tạp với Dart
     final buffer = StringBuffer();
     buffer.writeln('#!/bin/bash');
-    buffer.writeln('# Auto-update script cho VIE Lịch');
-    buffer.writeln('');
     buffer.writeln('sleep 2');
+    buffer.writeln('CURRENT=${_shQuote(currentApp)}');
+    buffer.writeln('NEW=${_shQuote(newApp)}');
+    buffer.writeln('WORK_DIR=${_shQuote(workDirPath)}');
     buffer.writeln('');
-    buffer.writeln('CURRENT="$currentApp"');
-    buffer.writeln('NEW="$newApp"');
-    buffer.writeln('ZIP="$zipPath"');
-    buffer.writeln('EXTRACT="$extractDir"');
-    buffer.writeln('SCRIPT="$scriptPath"');
-    buffer.writeln('');
-    buffer.writeln('# Thử xóa + move trực tiếp (không cần admin nếu user sở hữu /Applications)');
-    buffer.writeln('if rm -rf "\$CURRENT" 2>/dev/null && mv "\$NEW" "\$CURRENT" 2>/dev/null; then');
+    buffer.writeln(
+        'if rm -rf "\$CURRENT" 2>/dev/null && mv "\$NEW" "\$CURRENT" 2>/dev/null; then');
     buffer.writeln('    echo "✅ Update thành công (không cần admin)"');
     buffer.writeln('else');
-    buffer.writeln('    echo "🔐 Cần quyền admin để thay thế app..."');
-    buffer.writeln('    osascript <<EOF');
-    buffer.writeln('do shell script "rm -rf \'$currentApp\' && mv \'$newApp\' \'$currentApp\'" with administrator privileges');
+    buffer.writeln('    osascript - "\$CURRENT" "\$NEW" <<\'EOF\'');
+    buffer.writeln('on run argv');
+    buffer.writeln('  set curApp to item 1 of argv');
+    buffer.writeln('  set newApp to item 2 of argv');
+    buffer.writeln(
+        '  do shell script "rm -rf " & quoted form of curApp & " && mv " & quoted form of newApp & " " & quoted form of curApp with administrator privileges');
+    buffer.writeln('end run');
     buffer.writeln('EOF');
     buffer.writeln('fi');
     buffer.writeln('');
-    buffer.writeln('# Xóa quarantine attribute (nếu có)');
     buffer.writeln('xattr -cr "\$CURRENT" 2>/dev/null');
-    buffer.writeln('');
-    buffer.writeln('# Mở app mới');
     buffer.writeln('open "\$CURRENT"');
-    buffer.writeln('');
-    buffer.writeln('# Cleanup');
-    buffer.writeln('rm -rf "\$ZIP" 2>/dev/null');
-    buffer.writeln('rm -rf "\$EXTRACT" 2>/dev/null');
-    buffer.writeln('rm -f "\$SCRIPT" 2>/dev/null');
-    buffer.writeln('');
+    buffer.writeln('rm -rf "\$WORK_DIR" 2>/dev/null');
     return buffer.toString();
   }
 }

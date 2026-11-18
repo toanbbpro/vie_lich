@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../models/su_kien.dart';
 import '../providers/su_kien_provider.dart';
 import '../services/calendar_export.dart';
+import '../services/deep_link_service.dart';
 import 'them_sua_su_kien_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'qr_share_screen.dart';
@@ -150,14 +151,10 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
         result.startsWith('VL_QR:') &&
         mounted) {
       try {
-        final base64Str = result.substring(6);
-        final compressed = base64Decode(base64Str);
-        final bytes = gzip.decode(compressed);
-        final jsonString = utf8.decode(bytes);
-        final List<dynamic> decoded = jsonDecode(jsonString);
-        final dsMoi = decoded
-            .map((e) => SuKien.fromJson(e as Map<String, dynamic>))
-            .toList();
+        final dsMoi = DeepLinkService.parseSharedEvents(
+          result.substring(6),
+          allowUncompressed: false,
+        );
 
         if (dsMoi.isEmpty || !mounted) {
           return;
@@ -169,8 +166,27 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
           builder: (_) => AlertDialog(
             title: const Text('Phát hiện lịch mới 🪄',
                 style: TextStyle(fontWeight: FontWeight.bold)),
-            content: Text(
-                'Hệ thống tìm thấy ${dsMoi.length} lịch từ mã QR. Bạn có muốn lưu vào máy không?'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      'Hệ thống tìm thấy ${dsMoi.length} lịch từ mã QR. Bạn có muốn lưu vào máy không?'),
+                  const SizedBox(height: 8),
+                  ...dsMoi.take(5).map(
+                        (sk) => Text(
+                          '• ${sk.ten} (${sk.ngayAm}/${sk.thangAm} âm)',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                  if (dsMoi.length > 5)
+                    Text('... và ${dsMoi.length - 5} sự kiện khác',
+                        style: const TextStyle(
+                            fontSize: 12, fontStyle: FontStyle.italic)),
+                ],
+              ),
+            ),
             actions: [
               TextButton(
                   onPressed: () => Navigator.pop(context, false),
@@ -185,7 +201,7 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
         if (xacNhan == true && mounted) {
           final provider = Provider.of<SuKienProvider>(context, listen: false);
           for (var sk in dsMoi) {
-            await provider.capNhatSuKien(sk);
+            await provider.themSuKien(sk);
           }
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(

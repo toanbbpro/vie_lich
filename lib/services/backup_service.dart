@@ -7,17 +7,29 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/su_kien.dart';
-import '../utils/app_constants.dart';
 
 class BackupService {
-  /// Các tiền tố hoặc key nội bộ cần loại bỏ khỏi file backup toàn diện
-  static const List<String> _excludedKeys = [
-    AppConstants.kPrefLastUpdate,
-    AppConstants.kPrefPermissionAsked,
-    'theme_mode',
-  ];
+  /// Chỉ xuất/nhập các key cài đặt an toàn (tránh ghi đè đường dẫn file nội bộ)
+  static const Set<String> _allowedSettingsKeys = {
+    'sound_type',
+    'custom_sound_original_name',
+    'linux_widget_visible',
+    'linux_widget_locked',
+    'linux_widget_size_mode',
+    'linux_widget_pos_x',
+    'linux_widget_pos_y',
+  };
 
-  /// Xuất toàn bộ Sự kiện + Cấu hình Cài đặt thành file Backup hoàn chỉnh (đã loại bỏ key tạm)
+  static const Set<String> _allowedSizeModes = {
+    'small',
+    'medium',
+    'large',
+    'extraLarge',
+  };
+
+  static const int _maxBackupBytes = 10 * 1024 * 1024; // 10 MB
+
+  /// Xuất toàn bộ Sự kiện + Cấu hình Cài đặt an toàn thành file Backup hoàn chỉnh
   static Future<bool> taoBanSaoLuu(List<SuKien> dsSuKien) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -25,14 +37,12 @@ class BackupService {
       // Đóng gói danh sách sự kiện
       final List<Map<String, dynamic>> jsonSuKien = dsSuKien.map((e) => e.toJson()).toList();
 
-      // Đóng gói cài đặt ứng dụng (loại trừ các key tạm thời/hệ thống)
+      // Đóng gói cài đặt ứng dụng theo allowlist
       final Map<String, dynamic> settings = {};
-      final keys = prefs.getKeys();
-      for (String k in keys) {
-        if (_excludedKeys.contains(k) || k.startsWith('flutter.')) {
-          continue;
+      for (final k in _allowedSettingsKeys) {
+        if (prefs.containsKey(k)) {
+          settings[k] = prefs.get(k);
         }
-        settings[k] = prefs.get(k);
       }
 
       final Map<String, dynamic> backupPayload = {
@@ -59,24 +69,39 @@ class BackupService {
     }
   }
 
-  /// Khôi phục toàn bộ từ file backup
+  /// Khôi phục toàn bộ từ file backup (chỉ nhận key và kiểu hợp lệ)
   static Future<Map<String, dynamic>?> khoiPhucSaoLuu() async {
     try {
       final result = await FilePicker.pickFiles(type: FileType.any);
-      if (result.first.path == null) {
+      if (result.isEmpty || result.first.path == null) {
         return null;
       }
 
       final file = File(result.first.path!);
-      final String jsonString = await file.readAsString();
-      final Map<String, dynamic> payload = jsonDecode(jsonString);
+      if (await file.length() > _maxBackupBytes) {
+        debugPrint('File backup vượt quá 10 MB');
+        return null;
+      }
 
-      // Khôi phục cài đặt SharedPreferences nếu có
-      if (payload.containsKey('settings')) {
+      final String jsonString = await file.readAsString();
+      final decoded = jsonDecode(jsonString);
+      if (decoded is! Map<String, dynamic>) return null;
+
+      // Khôi phục cài đặt SharedPreferences theo allowlist
+      final rawSettings = decoded['settings'];
+      if (rawSettings is Map<String, dynamic>) {
         final prefs = await SharedPreferences.getInstance();
-        final Map<String, dynamic> settings = payload['settings'] as Map<String, dynamic>;
-        for (var entry in settings.entries) {
-          if (_excludedKeys.contains(entry.key)) continue;
+        for (final entry in rawSettings.entries) {
+          if (!_allowedSettingsKeys.contains(entry.key)) continue;
+          if (entry.key == 'linux_widget_size_mode' &&
+              !_allowedSizeModes.contains(entry.value)) {
+            continue;
+          }
+          if (entry.key == 'sound_type' &&
+              entry.value != 'system' &&
+              entry.value != 'custom') {
+            continue;
+          }
 
           if (entry.value is bool) {
             await prefs.setBool(entry.key, entry.value as bool);
@@ -84,13 +109,14 @@ class BackupService {
             await prefs.setInt(entry.key, entry.value as int);
           } else if (entry.value is double) {
             await prefs.setDouble(entry.key, entry.value as double);
-          } else if (entry.value is String) {
+          } else if (entry.value is String &&
+              (entry.value as String).length <= 255) {
             await prefs.setString(entry.key, entry.value as String);
           }
         }
       }
 
-      return payload;
+      return decoded;
     } catch (e) {
       debugPrint('Lỗi đọc backup: $e');
       return null;

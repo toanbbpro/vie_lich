@@ -5,17 +5,55 @@ import 'package:path_provider/path_provider.dart';
 
 /// Service tự động cập nhật app trên Linux từ GitHub Release.
 ///
-/// Hỗ trợ:
-/// - Gói `.deb` (ưu tiên): cài đặt qua `pkexec dpkg -i` (nếu app cài ở `/opt` hoặc `/usr`)
-///   hoặc giải nén bằng `dpkg-deb -x` (nếu chạy bản portable trong thư mục user).
-/// - Gói `.tar.gz` / `.tgz` / `.zip`: giải nén và ghi đè thư mục cài đặt (có hỗ trợ `pkexec`).
+/// Yêu cầu / Bảo mật:
+/// - Tải và giải nén trong thư mục riêng của user (`ApplicationSupport/updates`, quyền 0700),
+///   tránh dùng `/tmp` dùng chung trên hệ thống multi-user.
+/// - Kiểm tra SHA-256 (nếu Release có `digest`) trước khi chạy `pkexec` hoặc giải nén.
+/// - Truyền đường dẫn qua positional args thay vì nội suy chuỗi shell.
 class LinuxUpdateService {
-  /// Download gói cập nhật, cài đặt/thay thế app hiện tại, rồi tự relaunch.
+  static Future<void> _verifySha256IfPresent(
+    String filePath,
+    String? expectedDigest,
+  ) async {
+    if (expectedDigest == null || !expectedDigest.startsWith('sha256:')) return;
+    final expectedHex = expectedDigest.substring(7).trim().toLowerCase();
+    final res = await Process.run('sha256sum', [filePath]);
+    if (res.exitCode != 0) {
+      throw Exception('Không thể kiểm tra SHA-256: ${res.stderr}');
+    }
+    final actualHex =
+        res.stdout.toString().trim().split(RegExp(r'\s+')).first.toLowerCase();
+    if (actualHex != expectedHex) {
+      throw Exception('Tệp cập nhật không khớp chữ ký SHA-256!');
+    }
+  }
+
+  /// Tạo thư mục staging riêng tư (0700) thuộc user hiện tại thay cho /tmp
+  static Future<Directory> _preparePrivateWorkDir() async {
+    final appSupport = await getApplicationSupportDirectory();
+    final updatesRoot = Directory('${appSupport.path}/updates');
+    if (!await updatesRoot.exists()) {
+      await updatesRoot.create(recursive: true);
+    }
+    await Process.run('chmod', ['700', updatesRoot.path]);
+
+    for (final entity in updatesRoot.listSync()) {
+      try {
+        await entity.delete(recursive: true);
+      } catch (_) {}
+    }
+    final workDir = await updatesRoot.createTemp('run_');
+    await Process.run('chmod', ['700', workDir.path]);
+    return workDir;
+  }
+
+  /// Download gói cập nhật, kiểm tra hash, cài đặt/thay thế app hiện tại, rồi tự relaunch.
   static Future<void> downloadAndInstall({
     required String archiveUrl,
     required Function(double) onProgress,
+    String? expectedDigest,
   }) async {
-    final tempDir = await getTemporaryDirectory();
+    final workDir = await _preparePrivateWorkDir();
     final lowerUrl = archiveUrl.toLowerCase();
     final isDeb = lowerUrl.endsWith('.deb');
     final isTarGz = lowerUrl.endsWith('.tar.gz') || lowerUrl.endsWith('.tgz');
@@ -24,132 +62,133 @@ class LinuxUpdateService {
         : isTarGz
             ? 'tar.gz'
             : 'zip';
-    final archivePath = '${tempDir.path}/vie_lich_update.$ext';
-    final extractDir = '${tempDir.path}/vie_lich_extract';
+    final archivePath = '${workDir.path}/vie_lich_update.$ext';
+    final extractDir = '${workDir.path}/extract';
+    await Directory(extractDir).create(recursive: true);
 
-    // Xóa thư mục extract cũ nếu có
-    final extractDirObj = Directory(extractDir);
-    if (await extractDirObj.exists()) {
-      await extractDirObj.delete(recursive: true);
-    }
-    await extractDirObj.create(recursive: true);
+    try {
+      // 1. Download gói cập nhật
+      debugPrint('⬇️ Download Linux update: $archiveUrl');
+      final dio = Dio();
+      await dio.download(
+        archiveUrl,
+        archivePath,
+        onReceiveProgress: (received, total) {
+          if (total != -1) onProgress(received / total);
+        },
+      );
 
-    // 1. Download gói cập nhật
-    debugPrint('⬇️ Download Linux update: $archiveUrl');
-    final dio = Dio();
-    await dio.download(
-      archiveUrl,
-      archivePath,
-      onReceiveProgress: (received, total) {
-        if (total != -1) onProgress(received / total);
-      },
-    );
+      // 2. Đối chiếu SHA-256 trước khi giải nén hoặc cấp quyền root
+      await _verifySha256IfPresent(archivePath, expectedDigest);
 
-    final currentExe = Platform.resolvedExecutable;
-    final currentBundleDir = File(currentExe).parent.path;
-    final isSystemInstall = currentBundleDir.startsWith('/opt') ||
-        currentBundleDir.startsWith('/usr');
+      final currentExe = Platform.resolvedExecutable;
+      final currentBundleDir = File(currentExe).parent.path;
+      final isSystemInstall = currentBundleDir.startsWith('/opt') ||
+          currentBundleDir.startsWith('/usr');
 
-    // 2. Nếu là file .deb và app đang được cài ở hệ thống (/opt hoặc /usr):
-    // Dùng pkexec dpkg -i ngay khi app đang mở để hiện khung nhập mật khẩu Polkit chuẩn,
-    // sau đó khởi động lại app.
-    if (isDeb && isSystemInstall) {
-      debugPrint('📦 Cài đặt gói .deb hệ thống qua pkexec...');
-      final result = await Process.run('pkexec', [
-        'bash',
-        '-c',
-        'dpkg -i "$archivePath" || (apt-get install -f -y && dpkg -i "$archivePath")',
-      ]);
+      // 3. Gói .deb ở hệ thống (/opt hoặc /usr): dùng pkexec + positional arg ($1)
+      if (isDeb && isSystemInstall) {
+        debugPrint('📦 Cài đặt gói .deb hệ thống qua pkexec...');
+        final result = await Process.run('pkexec', [
+          'bash',
+          '-c',
+          'dpkg -i "\$1" || (apt-get install -f -y && dpkg -i "\$1")',
+          '_',
+          archivePath,
+        ]);
 
-      if (result.exitCode != 0) {
-        throw Exception(
-          'Không thể cài đặt bản cập nhật (mã ${result.exitCode}): ${result.stderr}',
+        if (result.exitCode != 0) {
+          throw Exception(
+            'Không thể cài đặt bản cập nhật (mã ${result.exitCode}): ${result.stderr}',
+          );
+        }
+
+        try {
+          await workDir.delete(recursive: true);
+        } catch (_) {}
+
+        final targetExe = await File('/opt/vie_lich/vie_lich').exists()
+            ? '/opt/vie_lich/vie_lich'
+            : currentExe;
+
+        await Process.start(
+          '/bin/bash',
+          ['-c', 'sleep 1 && nohup "\$1" >/dev/null 2>&1 &', '_', targetExe],
+          mode: ProcessStartMode.detached,
         );
+        await Future.delayed(const Duration(milliseconds: 300));
+        exit(0);
       }
 
-      try {
-        await File(archivePath).delete();
-      } catch (_) {}
+      // 4. Giải nén (.deb portable, .tar.gz, hoặc .zip)
+      debugPrint('📦 Extracting...');
+      ProcessResult extractResult;
+      if (isDeb) {
+        extractResult = await Process.run('dpkg-deb', [
+          '-x',
+          archivePath,
+          extractDir,
+        ]);
+      } else if (isTarGz) {
+        extractResult = await Process.run('tar', [
+          '-xzf',
+          archivePath,
+          '-C',
+          extractDir,
+        ]);
+      } else {
+        extractResult = await Process.run('unzip', [
+          '-q',
+          '-o',
+          archivePath,
+          '-d',
+          extractDir,
+        ]);
+      }
 
-      final targetExe =
-          await File('/opt/vie_lich/vie_lich').exists() ? '/opt/vie_lich/vie_lich' : currentExe;
+      if (extractResult.exitCode != 0) {
+        throw Exception('Giải nén thất bại: ${extractResult.stderr}');
+      }
 
+      // 5. Tìm thư mục bundle trong thư mục extract
+      final newBundleDir = await _findBundleDir(extractDir);
+      if (newBundleDir == null) {
+        throw Exception(
+            'Không tìm thấy bộ cài VIE Lịch hợp lệ trong gói tải về');
+      }
+      debugPrint('✅ Tìm thấy bundle mới: $newBundleDir');
+
+      // 6. Tạo shell script với tham số thoát chuỗi an toàn (không nội suy trực tiếp)
+      final scriptPath = '${workDir.path}/vie_lich_update.sh';
+      final script = _buildUpdateScript(
+        currentDir: currentBundleDir,
+        currentExe: currentExe,
+        newDir: newBundleDir,
+        workDirPath: workDir.path,
+      );
+
+      await File(scriptPath).writeAsString(script);
+      await Process.run('chmod', ['700', scriptPath]);
+
+      // 7. Spawn script detached
+      debugPrint('🚀 Chạy update script và thoát app...');
       await Process.start(
         '/bin/bash',
-        ['-c', 'sleep 1 && nohup "$targetExe" >/dev/null 2>&1 &'],
+        [scriptPath],
         mode: ProcessStartMode.detached,
       );
+
       await Future.delayed(const Duration(milliseconds: 300));
       exit(0);
+    } catch (e) {
+      try {
+        await workDir.delete(recursive: true);
+      } catch (_) {}
+      rethrow;
     }
-
-    // 3. Giải nén (.deb portable, .tar.gz, hoặc .zip)
-    debugPrint('📦 Extracting...');
-    ProcessResult extractResult;
-    if (isDeb) {
-      extractResult = await Process.run('dpkg-deb', [
-        '-x',
-        archivePath,
-        extractDir,
-      ]);
-    } else if (isTarGz) {
-      extractResult = await Process.run('tar', [
-        '-xzf',
-        archivePath,
-        '-C',
-        extractDir,
-      ]);
-    } else {
-      extractResult = await Process.run('unzip', [
-        '-q',
-        '-o',
-        archivePath,
-        '-d',
-        extractDir,
-      ]);
-    }
-
-    if (extractResult.exitCode != 0) {
-      throw Exception('Giải nén thất bại: ${extractResult.stderr}');
-    }
-
-    // 4. Tìm thư mục bundle trong thư mục extract
-    final newBundleDir = await _findBundleDir(extractDir);
-    if (newBundleDir == null) {
-      throw Exception('Không tìm thấy bộ cài VIE Lịch hợp lệ trong gói tải về');
-    }
-    debugPrint('✅ Tìm thấy bundle mới: $newBundleDir');
-    debugPrint('📍 Thư mục app hiện tại: $currentBundleDir');
-
-    // 5. Tạo shell script cập nhật và khởi chạy lại
-    final scriptPath = '${tempDir.path}/vie_lich_update.sh';
-    final script = _buildUpdateScript(
-      currentDir: currentBundleDir,
-      currentExe: currentExe,
-      newDir: newBundleDir,
-      archivePath: archivePath,
-      extractDir: extractDir,
-      scriptPath: scriptPath,
-    );
-
-    final scriptFile = File(scriptPath);
-    await scriptFile.writeAsString(script);
-    await Process.run('chmod', ['+x', scriptPath]);
-
-    // 6. Spawn script detached
-    debugPrint('🚀 Chạy update script và thoát app...');
-    await Process.start(
-      '/bin/bash',
-      [scriptPath],
-      mode: ProcessStartMode.detached,
-    );
-
-    // 7. Thoát app ngay
-    await Future.delayed(const Duration(milliseconds: 300));
-    exit(0);
   }
 
-  /// Tìm thư mục chứa executable `vie_lich` và thư mục `lib` / `data` (tối đa 3 cấp, bao gồm `opt/vie_lich`)
+  /// Tìm thư mục chứa executable `vie_lich` và thư mục `data` (tối đa 3 cấp)
   static Future<String?> _findBundleDir(String dir, {int depth = 0}) async {
     if (depth > 3) return null;
     final dirObj = Directory(dir);
@@ -173,48 +212,34 @@ class LinuxUpdateService {
     return await exe.exists() && await dataDir.exists();
   }
 
+  static String _shQuote(String s) => "'${s.replaceAll("'", "'\\''")}'";
+
   static String _buildUpdateScript({
     required String currentDir,
     required String currentExe,
     required String newDir,
-    required String archivePath,
-    required String extractDir,
-    required String scriptPath,
+    required String workDirPath,
   }) {
     final buffer = StringBuffer();
     buffer.writeln('#!/bin/bash');
-    buffer.writeln('# Auto-update script cho VIE Lịch (Linux)');
-    buffer.writeln('');
     buffer.writeln('sleep 2');
-    buffer.writeln('');
-    buffer.writeln('CURRENT_DIR="$currentDir"');
-    buffer.writeln('CURRENT_EXE="$currentExe"');
-    buffer.writeln('NEW_DIR="$newDir"');
-    buffer.writeln('ARCHIVE="$archivePath"');
-    buffer.writeln('EXTRACT="$extractDir"');
-    buffer.writeln('SCRIPT="$scriptPath"');
+    buffer.writeln('CURRENT_DIR=${_shQuote(currentDir)}');
+    buffer.writeln('CURRENT_EXE=${_shQuote(currentExe)}');
+    buffer.writeln('NEW_DIR=${_shQuote(newDir)}');
+    buffer.writeln('WORK_DIR=${_shQuote(workDirPath)}');
     buffer.writeln('');
     buffer.writeln('chmod +x "\$NEW_DIR/vie_lich" 2>/dev/null');
-    buffer.writeln('');
-    buffer.writeln('# Thử copy trực tiếp nếu user có quyền ghi');
-    buffer.writeln('if [ -w "\$CURRENT_DIR" ] && cp -rf "\$NEW_DIR"/* "\$CURRENT_DIR"/ 2>/dev/null; then');
+    buffer.writeln(
+        'if [ -w "\$CURRENT_DIR" ] && cp -rf "\$NEW_DIR"/* "\$CURRENT_DIR"/ 2>/dev/null; then');
     buffer.writeln('    chmod +x "\$CURRENT_EXE" 2>/dev/null');
-    buffer.writeln('    echo "✅ Update thành công (không cần root)"');
     buffer.writeln('else');
-    buffer.writeln('    echo "🔐 Cần quyền root để cập nhật ứng dụng..."');
     buffer.writeln('    if command -v pkexec >/dev/null 2>&1; then');
-    buffer.writeln('        pkexec bash -c "cp -rf \'\$NEW_DIR\'/* \'\$CURRENT_DIR\'/ && chmod +x \'\$CURRENT_EXE\'"');
+    buffer.writeln(
+        '        pkexec bash -c \'cp -rf "\$1"/* "\$2"/ && chmod +x "\$3"\' _ "\$NEW_DIR" "\$CURRENT_DIR" "\$CURRENT_EXE"');
     buffer.writeln('    fi');
     buffer.writeln('fi');
-    buffer.writeln('');
-    buffer.writeln('# Mở lại ứng dụng');
     buffer.writeln('nohup "\$CURRENT_EXE" >/dev/null 2>&1 &');
-    buffer.writeln('');
-    buffer.writeln('# Cleanup');
-    buffer.writeln('rm -rf "\$ARCHIVE" 2>/dev/null');
-    buffer.writeln('rm -rf "\$EXTRACT" 2>/dev/null');
-    buffer.writeln('rm -f "\$SCRIPT" 2>/dev/null');
-    buffer.writeln('');
+    buffer.writeln('rm -rf "\$WORK_DIR" 2>/dev/null');
     return buffer.toString();
   }
 }

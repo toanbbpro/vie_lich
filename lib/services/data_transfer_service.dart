@@ -41,11 +41,15 @@ class DataTransferService {
       if (result.isEmpty || result.first.path == null) return null;
 
       final file = File(result.first.path!);
+      if (await file.length() > 10 * 1024 * 1024) return null;
       final String jsonString = await file.readAsString();
 
-      final List<dynamic> decoded = jsonDecode(jsonString);
+      final decoded = jsonDecode(jsonString);
+      if (decoded is! List) return null;
       return decoded
-          .map((e) => SuKien.fromJson(e as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .take(1000)
+          .map(SuKien.fromJson)
           .toList();
     } catch (e) {
       debugPrint('Lỗi import: $e');

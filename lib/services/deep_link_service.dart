@@ -11,10 +11,31 @@ import '../providers/su_kien_provider.dart';
 import 'widget_service.dart';
 import '../main.dart';
 
+class _BoundedByteSink implements Sink<List<int>> {
+  final int maxBytes;
+  final List<int> bytes = [];
+  _BoundedByteSink(this.maxBytes);
+
+  @override
+  void add(List<int> data) {
+    if (bytes.length + data.length > maxBytes) {
+      throw const FormatException('Dữ liệu nén vượt quá giới hạn an toàn');
+    }
+    bytes.addAll(data);
+  }
+
+  @override
+  void close() {}
+}
+
 class DeepLinkService {
   static final _appLinks = AppLinks();
   static bool _isInitialized = false;
   static String? _lastHandledUri;
+
+  static const int _maxEncodedChars = 65536;
+  static const int _maxDecodedBytes = 262144; // 256 KB
+  static const int _maxSharedEvents = 100;
 
   static void init([List<String> args = const []]) {
     if (_isInitialized) return;
@@ -94,41 +115,72 @@ class DeepLinkService {
     return 'vielich://share?data=$base64Data';
   }
 
+  /// Giải mã an toàn chuỗi base64 (có nén gzip) dùng chung cho Deep Link và QR.
+  /// Giới hạn kích thước giải nén để chặn gzip bomb và luôn cấp UUID mới.
+  static List<SuKien> parseSharedEvents(
+    String base64Data, {
+    bool allowUncompressed = true,
+  }) {
+    if (base64Data.isEmpty || base64Data.length > _maxEncodedChars) {
+      throw const FormatException('Dữ liệu chia sẻ vượt quá giới hạn kích thước');
+    }
+
+    var normalized = base64Data;
+    while (normalized.length % 4 != 0) {
+      normalized += '=';
+    }
+
+    List<int> bytes;
+    try {
+      bytes = base64Url.decode(normalized);
+    } catch (_) {
+      bytes = base64.decode(normalized);
+    }
+
+    List<int> plainBytes;
+    final looksLikeGzip =
+        bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
+    if (looksLikeGzip || !allowUncompressed) {
+      final sink = _BoundedByteSink(_maxDecodedBytes);
+      final conv = gzip.decoder.startChunkedConversion(sink);
+      for (int i = 0; i < bytes.length; i += 256) {
+        final end = (i + 256 < bytes.length) ? i + 256 : bytes.length;
+        conv.add(bytes.sublist(i, end));
+      }
+      conv.close();
+      plainBytes = sink.bytes;
+    } else {
+      if (bytes.length > _maxDecodedBytes) {
+        throw const FormatException('Dữ liệu giải mã vượt quá giới hạn');
+      }
+      plainBytes = bytes;
+    }
+
+    final decoded = jsonDecode(utf8.decode(plainBytes));
+    const uuid = Uuid();
+    List<SuKien> result;
+    if (decoded is List) {
+      result = decoded
+          .whereType<Map<String, dynamic>>()
+          .take(_maxSharedEvents)
+          .map((e) {
+        final sk = SuKien.fromJson(e);
+        sk.id = uuid.v4();
+        return sk;
+      }).toList();
+    } else if (decoded is Map<String, dynamic>) {
+      final sk = SuKien.fromJson(decoded);
+      sk.id = uuid.v4();
+      result = [sk];
+    } else {
+      throw const FormatException('Định dạng JSON không hợp lệ');
+    }
+    return result;
+  }
+
   static void _xuLyDuLieuShare(String base64Data) {
     try {
-      String normalized = base64Data;
-      while (normalized.length % 4 != 0) {
-        normalized += '=';
-      }
-
-      List<int> bytes;
-      try {
-        bytes = base64Url.decode(normalized);
-      } catch (_) {
-        bytes = base64.decode(normalized);
-      }
-
-      String jsonString;
-      try {
-        final decompressed = gzip.decode(bytes);
-        jsonString = utf8.decode(decompressed);
-      } catch (_) {
-        jsonString = utf8.decode(bytes);
-      }
-
-      final decoded = jsonDecode(jsonString);
-
-      List<SuKien> dsSuKien;
-      if (decoded is List) {
-        dsSuKien = decoded
-            .map((e) => SuKien.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } else if (decoded is Map<String, dynamic>) {
-        dsSuKien = [SuKien.fromJson(decoded)];
-      } else {
-        throw Exception('Định dạng JSON không hợp lệ');
-      }
-
+      final dsSuKien = parseSharedEvents(base64Data);
       if (dsSuKien.isEmpty) return;
 
       debugPrint("✅ [DeepLink] Giải mã thành công ${dsSuKien.length} sự kiện");

@@ -1209,10 +1209,8 @@
             document.getElementById('dl-ipa').href = url;
           } else if (name.endsWith('.dmg')) {
             document.getElementById('dl-mac').href = url;
-          } else if (name.endsWith('.zip') || name.endsWith('.exe') || name.endsWith('.msi')) {
-            if (name.includes('win') || !name.includes('linux')) {
-              document.getElementById('dl-win').href = url;
-            }
+          } else if (name.includes('win') && (name.endsWith('.zip') || name.endsWith('.exe') || name.endsWith('.msi'))) {
+            document.getElementById('dl-win').href = url;
           } else if (name.endsWith('.deb') || name.endsWith('.appimage') || name.endsWith('.rpm') || name.endsWith('.tar.gz') || name.includes('linux')) {
             const linuxBtn = document.getElementById('dl-linux');
             if (linuxBtn) {

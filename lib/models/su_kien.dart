@@ -97,22 +97,46 @@ class SuKien extends HiveObject {
     };
   }
 
-  // Khôi phục Object từ file JSON
+  // Khôi phục Object từ file JSON với kiểm tra biên an toàn
   factory SuKien.fromJson(Map<String, dynamic> json) {
+    final rawId = (json['id'] as String?)?.trim() ?? '';
+    final id = rawId.isEmpty
+        ? DateTime.now().millisecondsSinceEpoch.toString()
+        : (rawId.length > 128 ? rawId.substring(0, 128) : rawId);
+
+    final rawTen = (json['ten'] as String?)?.trim() ?? '';
+    final ten = rawTen.isEmpty
+        ? 'Sự kiện không tên'
+        : (rawTen.length > 200 ? rawTen.substring(0, 200) : rawTen);
+
+    final rawGhiChu = (json['ghiChu'] as String?)?.trim();
+    final ghiChu = (rawGhiChu == null || rawGhiChu.isEmpty)
+        ? null
+        : (rawGhiChu.length > 1000 ? rawGhiChu.substring(0, 1000) : rawGhiChu);
+
+    final rawTag = (json['tag'] as String?)?.trim();
+    final tag = (rawTag == null || rawTag.isEmpty)
+        ? null
+        : (rawTag.length > 200 ? rawTag.substring(0, 200) : rawTag);
+
+    final rawNam = (json['namAm'] as num?)?.toInt();
+    final namAm = (rawNam != null && rawNam >= 1900 && rawNam <= 2100)
+        ? rawNam
+        : null;
+
     return SuKien(
-      id: json['id'] as String? ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      ten: json['ten'] as String? ?? 'Sự kiện không tên',
-      ngayAm: json['ngayAm'] as int? ?? 1,
-      thangAm: json['thangAm'] as int? ?? 1,
-      namAm: json['namAm'] as int?,
-      ghiChu: json['ghiChu'] as String?,
+      id: id,
+      ten: ten,
+      ngayAm: (json['ngayAm'] as num?)?.toInt().clamp(1, 30) ?? 1,
+      thangAm: (json['thangAm'] as num?)?.toInt().clamp(1, 12) ?? 1,
+      namAm: namAm,
+      ghiChu: ghiChu,
       duongDanAnh: null,
-      baoTruoc: json['baoTruoc'] as int? ?? 3,
+      baoTruoc: (json['baoTruoc'] as num?)?.toInt().clamp(0, 365) ?? 3,
       daXuatLich: false,
-      gioNhac: json['gioNhac'] as int? ?? 11,
-      phutNhac: json['phutNhac'] as int? ?? 30,
-      tag: json['tag'] as String?,
+      gioNhac: (json['gioNhac'] as num?)?.toInt().clamp(0, 23) ?? 11,
+      phutNhac: (json['phutNhac'] as num?)?.toInt().clamp(0, 59) ?? 30,
+      tag: tag,
       dsMedia: null, // Không import đường dẫn ảnh từ máy khác
     );
   }

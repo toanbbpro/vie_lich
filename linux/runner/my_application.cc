@@ -27,6 +27,7 @@ extern "C" __attribute__((visibility("default"))) int FcPatternGetString(
     real_fn = reinterpret_cast<FcPatternGetStringFn>(
         dlsym(RTLD_NEXT, "FcPatternGetString"));
   }
+  if (!real_fn) return 1;
   int res = real_fn(p, object, n, s);
   if (res == 1 /* FcResultNoMatch */ && n > 0) {
     return 3; /* FcResultNoId */
@@ -88,13 +89,22 @@ static void ensure_local_desktop_entry(const gchar* icon_path) {
       exe_path, icon_path, APPLICATION_ID);
   g_file_set_contents(desktop_file, content, -1, nullptr);
 
-  // Đăng ký scheme vielich:// cho user hiện tại
-  g_autofree gchar* cmd = g_strdup_printf(
-      "(update-desktop-database \"%s\" >/dev/null 2>&1; "
-      "xdg-mime default %s.desktop x-scheme-handler/vielich >/dev/null 2>&1) &",
-      apps_dir, APPLICATION_ID);
-  int rc = system(cmd);
-  (void)rc;
+  // Đăng ký scheme vielich:// cho user hiện tại (không dùng /bin/sh)
+  const gchar* update_argv[] = {"update-desktop-database", apps_dir, nullptr};
+  g_spawn_async(nullptr, const_cast<gchar**>(update_argv), nullptr,
+                static_cast<GSpawnFlags>(G_SPAWN_SEARCH_PATH |
+                                         G_SPAWN_STDOUT_TO_DEV_NULL |
+                                         G_SPAWN_STDERR_TO_DEV_NULL),
+                nullptr, nullptr, nullptr, nullptr);
+
+  g_autofree gchar* desktop_id = g_strdup_printf("%s.desktop", APPLICATION_ID);
+  const gchar* mime_argv[] = {"xdg-mime", "default", desktop_id,
+                              "x-scheme-handler/vielich", nullptr};
+  g_spawn_async(nullptr, const_cast<gchar**>(mime_argv), nullptr,
+                static_cast<GSpawnFlags>(G_SPAWN_SEARCH_PATH |
+                                         G_SPAWN_STDOUT_TO_DEV_NULL |
+                                         G_SPAWN_STDERR_TO_DEV_NULL),
+                nullptr, nullptr, nullptr, nullptr);
 }
 
 // Called when first Flutter frame received.
