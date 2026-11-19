@@ -7,6 +7,8 @@
   [![Author: ToanBB](https://img.shields.io/badge/Author-To%C3%A0nBB-orange.svg)](https://github.com/toanbbpro)
 [![Views](https://api.visitorbadge.io/api/visitors?path=toanbbpro%2Fvie_lich&label=Views&labelColor=%231e293b&countColor=%23e11d48&style=flat)](https://github.com/toanbbpro/vie_lich)
   [![GitHub stars](https://img.shields.io/github/stars/toanbbpro/vie_lich?style=flat&color=gold)](https://github.com/toanbbpro/vie_lich/stargazers)
+    <!-- Badges: SonarQube -->
+  [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=toanbbpro_vie_lich&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=toanbbpro_vie_lich)
   <br>
   <!-- Badges: Built With -->
   [![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=flat&logo=flutter&logoColor=white)](https://flutter.dev)
