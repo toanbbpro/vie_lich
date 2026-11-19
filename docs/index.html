@@ -379,18 +379,18 @@
         <!-- Hero Mockup với 3D Tilt & Camera trước Android -->
         <div class="reveal-scale delay-400 mt-6 md:mt-8 flex justify-center">
           <div class="animate-float py-2">
-            <div onclick="openLightbox(0)" data-tilt data-tilt-max="12" data-tilt-scale="1.04" title="Bấm để phóng to" class="tilt-element group cursor-pointer relative p-1.5 bg-slate-900 rounded-[2.2rem] shadow-2xl shadow-slate-900/25 border-3 border-slate-800 max-w-[175px] sm:max-w-[210px] hover:shadow-red-500/20">
-              <div class="tilt-glare"></div>
-              <div class="android-camera"></div>
+            <button type="button" onclick="openLightbox(0)" data-tilt data-tilt-max="12" data-tilt-scale="1.04" title="Bấm để phóng to" class="tilt-element group cursor-pointer relative block p-1.5 bg-slate-900 rounded-[2.2rem] shadow-2xl shadow-slate-900/25 border-3 border-slate-800 max-w-[175px] sm:max-w-[210px] hover:shadow-red-500/20">
+              <span class="tilt-glare"></span>
+              <span class="android-camera"></span>
               <img 
                 src="https://github.com/user-attachments/assets/d9775fd8-1259-4772-a7be-6c095d6457f5" 
                 alt="Giao diện chính Vie Lịch" 
                 class="rounded-[1.8rem] w-full object-cover block"
               />
-              <div class="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-slate-900/75 text-white flex items-center justify-center opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 pointer-events-none z-30">
+              <span class="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-slate-900/75 text-white flex items-center justify-center opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 pointer-events-none z-30">
                 <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
-              </div>
-            </div>
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -910,8 +910,8 @@
         const tiltElements = document.querySelectorAll('[data-tilt]');
 
         tiltElements.forEach(el => {
-          const maxTilt = parseFloat(el.dataset.tiltMax) || 10;
-          const scale = parseFloat(el.dataset.tiltScale) || 1.02;
+          const maxTilt = Number.parseFloat(el.dataset.tiltMax) || 10;
+          const scale = Number.parseFloat(el.dataset.tiltScale) || 1.02;
           const glare = el.querySelector('.tilt-glare');
 
           el.addEventListener('mouseenter', () => {
