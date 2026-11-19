@@ -49,6 +49,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:requestLegacyExternalStorage="true">
 
         <!-- TẮT IMPELLER KHI BUILD RELEASE -->
