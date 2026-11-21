@@ -30,6 +30,7 @@ constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme"
 
 // The number of Win32Window objects that currently exist.
 static int g_active_window_count = 0;
+constexpr UINT_PTR kTrimMemoryTimerId = 1;
 
 using EnableNonClientDpiScaling = BOOL __stdcall(HWND hwnd);
 
@@ -156,6 +157,7 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
+  SetTimer(window, kTrimMemoryTimerId, 3000, nullptr);
 
   return OnCreate();
 }
@@ -227,6 +229,22 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
+
+    case WM_TIMER:
+      if (wparam == kTrimMemoryTimerId) {
+        KillTimer(hwnd, kTrimMemoryTimerId);
+        SetProcessWorkingSetSize(GetCurrentProcess(),
+                                 static_cast<SIZE_T>(-1),
+                                 static_cast<SIZE_T>(-1));
+        return 0;
+      }
+      break;
+
+    case WM_SHOWWINDOW:
+      if (wparam == FALSE) {
+        SetTimer(hwnd, kTrimMemoryTimerId, 500, nullptr);
+      }
+      break;
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);

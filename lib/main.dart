@@ -226,6 +226,9 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  final bool isAutoStart =
+      isAutostart || args.contains(AutoStartService.startupArg);
+
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
     await windowManager.setPreventClose(true);
@@ -236,7 +239,6 @@ Future<void> main(List<String> args) async {
       title: 'VIE Lịch',
       titleBarStyle: TitleBarStyle.normal,
     );
-    final isAutoStart = args.contains(AutoStartService.startupArg);
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       if (isAutoStart) {
         debugPrint('🚀 [AutoStart] Launch từ shortcut → ẩn main window');
@@ -268,7 +270,7 @@ Future<void> main(List<String> args) async {
       titleBarStyle: TitleBarStyle.normal,
     );
     windowManager.waitUntilReadyToShow(windowOptions, () async {
-      if (!isAutostart) {
+      if (!isAutoStart) {
         await windowManager.show();
         await windowManager.focus();
       } else {
@@ -310,7 +312,7 @@ Future<void> main(List<String> args) async {
     }
   }
 
-  runApp(const MainApp());
+  runApp(MainApp(isAutoStart: isAutoStart));
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     const bool isPlayStore = bool.fromEnvironment('PLAY_STORE', defaultValue: false);
@@ -324,7 +326,8 @@ Future<void> main(List<String> args) async {
 // MAIN APP
 // ============================================================
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+  final bool isAutoStart;
+  const MainApp({super.key, this.isAutoStart = false});
 
   @override
   Widget build(BuildContext context) {
@@ -334,13 +337,14 @@ class MainApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SuKienProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: const _MainAppContent(),
+      child: _MainAppContent(isAutoStart: isAutoStart),
     );
   }
 }
 
 class _MainAppContent extends StatefulWidget {
-  const _MainAppContent();
+  final bool isAutoStart;
+  const _MainAppContent({this.isAutoStart = false});
 
   @override
   State<_MainAppContent> createState() => _MainAppContentState();
@@ -357,6 +361,7 @@ class _MainAppContentState extends State<_MainAppContent>
   bool _widgetEnabled = true;
   bool _widgetLocked = false;
   bool _autoStartEnabled = false;
+  late bool _mainWindowVisible = !Platform.isWindows || !widget.isAutoStart;
 
   double _savedWidgetX = 100.0;
   double _savedWidgetY = 100.0;
@@ -646,6 +651,9 @@ class _MainAppContentState extends State<_MainAppContent>
     if (!Platform.isWindows) return;
     debugPrint('🚪 Main window X → ẩn main');
     await windowManager.hide();
+    if (mounted) setState(() => _mainWindowVisible = false);
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
   }
 
   Future<void> _kiemTraFlexibleUpdateDaTai() async {
@@ -998,6 +1006,9 @@ class _MainAppContentState extends State<_MainAppContent>
   }
 
   Future<void> _openMainWindow() async {
+    if (!_mainWindowVisible && mounted) {
+      setState(() => _mainWindowVisible = true);
+    }
     await windowManager.setSkipTaskbar(false);
     await windowManager.show();
     await windowManager.focus();
@@ -1032,7 +1043,7 @@ class _MainAppContentState extends State<_MainAppContent>
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: const MainScreen(),
+          home: _mainWindowVisible ? const MainScreen() : const SizedBox.shrink(),
           debugShowCheckedModeBanner: false,
         );
       },
@@ -1277,6 +1288,8 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   bool _isVisible = true;
   Timer? _snapTimer;
   Timer? _pollTimer;
+  Timer? _watchDebounce;
+  StreamSubscription<dynamic>? _dirWatchSub;
   bool _snapping = false;
   bool _initializingWindow = true;
 
@@ -1304,9 +1317,23 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   }
 
   void _startPolling() {
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 300), (_) async {
-      await _pollState();
-      await _pollEvents();
+    _pollState();
+    _pollEvents();
+    final dir = _getDataDir();
+    if (dir != null) {
+      try {
+        final dirObj = Directory(dir);
+        if (!dirObj.existsSync()) dirObj.createSync(recursive: true);
+        _dirWatchSub = dirObj.watch().listen((_) {
+          _watchDebounce?.cancel();
+          _watchDebounce = Timer(const Duration(milliseconds: 50), () {
+            _pollState();
+            _pollEvents();
+          });
+        });
+      } catch (_) {}
+    }
+    _pollTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _checkDayChange();
     });
   }
@@ -1377,6 +1404,8 @@ class _WidgetWindowAppState extends State<WidgetWindowApp>
   void dispose() {
     _snapTimer?.cancel();
     _pollTimer?.cancel();
+    _watchDebounce?.cancel();
+    _dirWatchSub?.cancel();
     if (Platform.isWindows) {
       windowManager.removeListener(this);
     }
