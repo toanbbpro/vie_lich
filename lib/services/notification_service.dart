@@ -76,7 +76,7 @@ class NotificationService {
   static Future<void> lenLichSuKien(SuKien sk) async {
     final now = DateTime.now();
     final amHienTai = AmLichHelper.duongSangAm(now);
-    final namAmHienTai = amHienTai != null ? amHienTai.year : now.year;
+    final namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
     final todayOnly = DateTime(now.year, now.month, now.day);
 
     int namAmTinhToan = sk.namAm ?? namAmHienTai;

@@ -811,7 +811,7 @@ class DesktopWidgetScreen extends StatelessWidget {
 
         final amHienTai = AmLichHelper.duongSangAm(now);
         final int namAmHienTai =
-            amHienTai != null ? amHienTai.year : now.year;
+            amHienTai != null ? amHienTai.getYear() : now.year;
 
         for (var sk in danhSachSuKien) {
           int namAmTinhToan = sk.namAm ?? namAmHienTai;

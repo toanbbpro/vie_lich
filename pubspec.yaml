@@ -17,8 +17,8 @@ dependencies:
   # Quản lý trạng thái
   provider: ^6.1.2
 
-  # Tính toán âm lịch Việt Nam (UTC+7)
-  full_calender: ^1.2.86
+  # Tính toán âm lịch
+  tyme: ^1.5.0
 
   # Lưu trữ cục bộ
   hive_ce: ^2.5.0+1

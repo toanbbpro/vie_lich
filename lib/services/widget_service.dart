@@ -188,8 +188,8 @@ class WidgetService {
     String thoiGianSuKienGanNhat = "";
     String loaiSuKienGanNhat = "event";
 
-    LunarDateTime? amHienTai = AmLichHelper.duongSangAm(now);
-    int namAmHienTai = amHienTai != null ? amHienTai.year : now.year;
+    LunarDay? amHienTai = AmLichHelper.duongSangAm(now);
+    int namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
 
     List<Map<String, dynamic>> dsDaChuyenDoi = [];
     for (var sk in danhSachSuKien) {
@@ -264,12 +264,12 @@ class WidgetService {
 
       dsO.add({
         'ngayDuong': ngay.day,
-        'ngayAm': lunar?.day ?? 0,
-        'thangAm': lunar?.month ?? 0,
+        'ngayAm': lunar?.getDay() ?? 0,
+        'thangAm': lunar?.getMonth() ?? 0,
         'laChuNhat': ngay.weekday == 7,
         'laHomNay': ngay.year == targetDay.year && ngay.month == targetDay.month && ngay.day == targetDay.day,
         'coSuKien': laTrongThang && ngayCoSuKien.contains(ngay.day),
-        'laDauThangAm': lunar?.day == 1,
+        'laDauThangAm': lunar?.getDay() == 1,
         'laTrongThang': laTrongThang,
       });
     }
@@ -279,9 +279,9 @@ class WidgetService {
       'namDuong': targetDay.year,
       'ngayDuong': targetDay.day,
       'thu': _thuNames[targetDay.weekday - 1],
-      'ngayAm': amHienTai?.day ?? 0,
-      'thangAm': amHienTai?.month ?? 0,
-      'namAm': amHienTai?.year ?? targetDay.year,
+      'ngayAm': amHienTai?.getDay() ?? 0,
+      'thangAm': amHienTai?.getMonth() ?? 0,
+      'namAm': amHienTai?.getYear() ?? targetDay.year,
       'canChiNam': amHienTai != null ? AmLichHelper.layCanChiNam(amHienTai) : '',
       'dsO': dsO,
       'tenSuKien': dayInfo['tenSuKien'],

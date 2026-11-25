@@ -79,7 +79,7 @@ class SuKienProvider extends ChangeNotifier {
     Set<DateTime> dsMoi = {};
 
     final amHienTai = AmLichHelper.duongSangAm(now);
-    final namAmHienTai = amHienTai != null ? amHienTai.year : now.year;
+    final namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
 
     final danhSach = _box.values.toList();
 
