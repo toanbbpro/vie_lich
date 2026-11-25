@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:full_calender/models/lunar_date_time.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -398,17 +399,17 @@ class _NavButtonState extends State<_NavButton> {
 
 class _NgayContent extends StatelessWidget {
   final DateTime ngay;
-  final dynamic lunar;
+  final LunarDateTime? lunar;
   const _NgayContent({required this.ngay, required this.lunar});
 
   @override
   Widget build(BuildContext context) {
-    final ngayAm = lunar?.getDay() as int? ?? 0;
-    final thangAm = lunar?.getMonth() as int? ?? 0;
-    final canChiNam = lunar != null ? AmLichHelper.layCanChiNam(lunar) : '';
+    final ngayAm = lunar?.day ?? 0;
+    final thangAm = lunar?.month ?? 0;
+    final canChiNam = lunar != null ? AmLichHelper.layCanChiNam(lunar!) : '';
     final thu = DateFormat('EEEE', 'vi').format(ngay);
     final dsLe =
-        lunar != null ? AmLichHelper.layNgayLe(ngay, lunar) : <String>[];
+        lunar != null ? AmLichHelper.layNgayLe(ngay, lunar!) : <String>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -771,7 +772,7 @@ class _NgayLeCompact extends StatelessWidget {
 
 class _NutXemTietKhiSao extends StatelessWidget {
   final DateTime ngay;
-  final dynamic lunar;
+  final LunarDateTime? lunar;
   const _NutXemTietKhiSao({required this.ngay, required this.lunar});
 
   @override
@@ -788,17 +789,21 @@ class _NutXemTietKhiSao extends StatelessWidget {
           onTap: () => _hienDialogTietKhiSao(context),
           borderRadius: BorderRadius.circular(12.5),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.wb_sunny_outlined, size: 18, color: textColor),
                 const SizedBox(width: 8),
-                Text('Xem tiết khí & sao tốt xấu',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: textColor)),
+                Flexible(
+                  child: Text('Xem tiết khí & ngày giờ hoàng đạo',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: textColor)),
+                ),
               ],
             ),
           ),
@@ -809,8 +814,9 @@ class _NutXemTietKhiSao extends StatelessWidget {
 
   void _hienDialogTietKhiSao(BuildContext context) {
     final tietKhi = AmLichHelper.layTietKhi(ngay);
-    final tot = lunar != null ? AmLichHelper.laySaoTot(lunar) : <String>[];
-    final xau = lunar != null ? AmLichHelper.laySaoXau(lunar) : <String>[];
+    final laHoangDao = lunar != null && AmLichHelper.laNgayHoangDao(lunar!);
+    final gioHoangDao =
+        lunar != null ? AmLichHelper.layGioHoangDao(lunar!) : <String>[];
 
     showDialog(
       context: context,
@@ -834,7 +840,7 @@ class _NutXemTietKhiSao extends StatelessWidget {
                           color: theme.colorScheme.primary, size: 20),
                       const SizedBox(width: 8),
                       const Expanded(
-                          child: Text('Tiết khí & Sao',
+                          child: Text('Tiết khí & Ngày giờ Hoàng đạo',
                               style: TextStyle(
                                   fontSize: 17, fontWeight: FontWeight.bold))),
                       IconButton(
@@ -863,16 +869,64 @@ class _NutXemTietKhiSao extends StatelessWidget {
                                     fontSize: 15, fontWeight: FontWeight.w600)),
                           ],
                         ),
-                        if (tot.isNotEmpty) ...[
+                        if (lunar != null) ...[
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Icon(
+                                laHoangDao
+                                    ? Icons.verified_outlined
+                                    : Icons.info_outline,
+                                size: 18,
+                                color: laHoangDao
+                                    ? Colors.green.shade700
+                                    : Colors.red.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Text('Loại ngày: ',
+                                  style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 15)),
+                              Chip(
+                                label: Text(
+                                  laHoangDao
+                                      ? 'Ngày Hoàng Đạo'
+                                      : 'Ngày Hắc Đạo',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: laHoangDao
+                                        ? Colors.green.shade800
+                                        : Colors.red.shade800,
+                                  ),
+                                ),
+                                backgroundColor: laHoangDao
+                                    ? Colors.green.shade50
+                                    : Colors.red.shade50,
+                                side: BorderSide(
+                                  color: laHoangDao
+                                      ? Colors.green.shade200
+                                      : Colors.red.shade200,
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (gioHoangDao.isNotEmpty) ...[
                           const SizedBox(height: 20),
                           Row(
                             children: [
-                              Icon(Icons.thumb_up_alt_outlined,
-                                  size: 18, color: Colors.green.shade700),
+                              Icon(Icons.access_time,
+                                  size: 18, color: Colors.amber.shade800),
                               const SizedBox(width: 8),
-                              Text('Sao tốt',
+                              Text('Giờ Hoàng Đạo',
                                   style: TextStyle(
-                                      color: Colors.green.shade700,
+                                      color: Colors.amber.shade900,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15)),
                             ],
@@ -881,13 +935,13 @@ class _NutXemTietKhiSao extends StatelessWidget {
                           Wrap(
                             spacing: 6,
                             runSpacing: 6,
-                            children: tot
-                                .map((s) => Chip(
-                                    label: Text(s,
+                            children: gioHoangDao
+                                .map((g) => Chip(
+                                    label: Text(g,
                                         style: const TextStyle(fontSize: 12)),
-                                    backgroundColor: Colors.green.shade50,
+                                    backgroundColor: Colors.amber.shade50,
                                     side: BorderSide(
-                                        color: Colors.green.shade200),
+                                        color: Colors.amber.shade200),
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 4),
                                     materialTapTargetSize:
@@ -895,43 +949,9 @@ class _NutXemTietKhiSao extends StatelessWidget {
                                     visualDensity: VisualDensity.compact))
                                 .toList(),
                           ),
-                        ],
-                        if (xau.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Icon(Icons.thumb_down_alt_outlined,
-                                  size: 18, color: Colors.red.shade700),
-                              const SizedBox(width: 8),
-                              Text('Sao xấu',
-                                  style: TextStyle(
-                                      color: Colors.red.shade700,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15)),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: xau
-                                .map((s) => Chip(
-                                    label: Text(s,
-                                        style: const TextStyle(fontSize: 12)),
-                                    backgroundColor: Colors.red.shade50,
-                                    side:
-                                        BorderSide(color: Colors.red.shade200),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4),
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact))
-                                .toList(),
-                          ),
-                        ],
-                        if (tot.isEmpty && xau.isEmpty) ...[
+                        ] else ...[
                           const SizedBox(height: 12),
-                          Text('Không có dữ liệu sao.',
+                          Text('Không có dữ liệu giờ hoàng đạo.',
                               style: TextStyle(
                                   color: Colors.grey.shade600, fontSize: 13)),
                         ],

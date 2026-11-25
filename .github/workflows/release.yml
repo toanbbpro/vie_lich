@@ -76,7 +76,7 @@ jobs:
 
       - name: Build APK (No Store)
         run: |
-          flutter pub get --enforce-lockfile
+          flutter pub get
           flutter build apk --release --dart-define=PLAY_STORE=false
           cp build/app/outputs/flutter-apk/app-release.apk "vie_lich-${{ steps.tag.outputs.TAG }}.apk"
 
@@ -129,7 +129,7 @@ jobs:
 
       - name: Build Linux Release Bundle
         run: |
-          flutter pub get --enforce-lockfile
+          flutter pub get
           flutter build linux --release
 
       - name: Package .deb with full dependencies & desktop integration
@@ -246,7 +246,7 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: flutter pub get --enforce-lockfile
+        run: flutter pub get
 
       # --- 3A. Build iOS IPA (Unsigned cho AltStore / SideStore / Sideloadly) ---
       - name: Build iOS IPA
