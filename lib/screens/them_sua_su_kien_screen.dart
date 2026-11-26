@@ -237,23 +237,53 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
     }
   }
 
+  void _apDungMau({
+    required String tienToTen,
+    required String tag,
+    required int baoTruoc,
+    required int gio,
+    required int phut,
+  }) {
+    final hienTai = _tenController.text.trim();
+    if (hienTai.isEmpty ||
+        hienTai == 'Giỗ' ||
+        hienTai == 'Sinh nhật' ||
+        hienTai == 'Lễ') {
+      _tenController.text = tienToTen;
+      _tenController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _tenController.text.length),
+      );
+    }
+    setState(() {
+      if (!_tags.contains(tag)) {
+        _tags.add(tag);
+      }
+      _baoTruoc = baoTruoc;
+      _gioNhac = gio;
+      _phutNhac = phut;
+    });
+  }
+
   Future<void> _xuatLich() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    _addTag();
     final tam = SuKien(
-      id: widget.suKien?.id ?? 'tmp',
+      id: widget.suKien?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       ten: _tenController.text.trim(),
       ngayAm: _ngayAm,
       thangAm: _thangAm,
+      namAm: widget.suKien?.namAm,
       ghiChu: _ghiChuController.text.trim().isEmpty
           ? null
           : _ghiChuController.text.trim(),
       baoTruoc: _baoTruoc,
       gioNhac: _gioNhac,
       phutNhac: _phutNhac,
+      tag: _tags.isEmpty ? null : _tags.join(', '),
     );
-    final ok = await CalendarExport.xuatSuKien(tam);
+    final ok = await CalendarExport.hienDialogXuatLich(context, [tam]);
     if (!mounted) {
       return;
     }
@@ -266,18 +296,20 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xuất lịch hệ thống thành công')));
+          const SnackBar(content: Text('Đã xuất lịch thành công')));
     }
   }
 
   String _previewNgayDuong() {
     try {
-      final now = DateTime.now();
-      var ngay = LunarSolarConverter.lunarToSolar(_ngayAm, _thangAm, now.year);
-      if (ngay.isBefore(DateTime(now.year, now.month, now.day))) {
-        ngay =
-            LunarSolarConverter.lunarToSolar(_ngayAm, _thangAm, now.year + 1);
-      }
+      final tam = SuKien(
+        id: 'preview',
+        ten: 'preview',
+        ngayAm: _ngayAm,
+        thangAm: _thangAm,
+      );
+      final ngay = CalendarExport.tinhNgaySuKien(tam);
+      if (ngay == null) return 'Ngày âm không hợp lệ';
       return DateFormat('EEEE, dd/MM/yyyy', 'vi').format(ngay);
     } catch (_) {
       return 'Ngày âm không hợp lệ';
@@ -342,6 +374,54 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!_isEditing) ...[
+                    Text('Tạo nhanh theo mẫu:',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        ActionChip(
+                          avatar: const Text('🕯️'),
+                          label: const Text('Ngày giỗ'),
+                          onPressed: () => _apDungMau(
+                            tienToTen: 'Giỗ ',
+                            tag: 'Giỗ',
+                            baoTruoc: 3,
+                            gio: 11,
+                            phut: 30,
+                          ),
+                        ),
+                        ActionChip(
+                          avatar: const Text('🎂'),
+                          label: const Text('Sinh nhật âm'),
+                          onPressed: () => _apDungMau(
+                            tienToTen: 'Sinh nhật ',
+                            tag: 'Cá nhân',
+                            baoTruoc: 1,
+                            gio: 8,
+                            phut: 0,
+                          ),
+                        ),
+                        ActionChip(
+                          avatar: const Text('🙏'),
+                          label: const Text('Lễ / Cúng'),
+                          onPressed: () => _apDungMau(
+                            tienToTen: 'Lễ ',
+                            tag: 'Lễ Tết',
+                            baoTruoc: 1,
+                            gio: 7,
+                            phut: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   TextFormField(
                     controller: _tenController,
                     decoration: const InputDecoration(
@@ -596,11 +676,13 @@ class _ThemSuaSuKienScreenState extends State<ThemSuaSuKienScreen> {
                   OutlinedButton.icon(
                     onPressed: _xuatLich,
                     icon: Icon(
-                        _daXuatLich ? Icons.event_available : Icons.event,
+                        _daXuatLich
+                            ? Icons.event_available
+                            : Icons.calendar_month_outlined,
                         color: _daXuatLich ? Colors.green : null),
                     label: Text(_daXuatLich
-                        ? 'Đã xuất lịch hệ thống (Xuất lại)'
-                        : 'Xuất sang lịch hệ thống'),
+                        ? 'Đã xuất lịch hệ thống / .ics (Xuất lại)'
+                        : 'Xuất sang lịch hệ thống (.ics / nhiều năm)'),
                   ),
                   if (_isEditing) ...[
                     const SizedBox(height: 16),

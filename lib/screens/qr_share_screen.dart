@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/su_kien.dart';
+import '../services/calendar_export.dart';
 
 class QrShareScreen extends StatelessWidget {
   final String qrData;
@@ -72,6 +73,25 @@ class QrShareScreen extends StatelessWidget {
                         style: FilledButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final ok = await CalendarExport.hienDialogXuatLich(
+                        context, dsSuKien);
+                    if (ok && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Đã xuất file lịch (.ics)')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                  label:
+                      const Text('Xuất file lịch (.ics) cho máy không cài app'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
                 const SizedBox(height: 16),

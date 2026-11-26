@@ -16,7 +16,9 @@ import '../providers/su_kien_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/app_update_service.dart';
 import '../services/backup_service.dart';
+import '../services/calendar_export.dart';
 import '../services/github_update_service.dart';
+import '../services/ics_service.dart';
 import '../services/notification_service.dart';
 import '../services/sound_settings.dart';
 
@@ -337,6 +339,7 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
   Future<void> _khoiPhucDuLieu() async {
     final data = await BackupService.khoiPhucSaoLuu();
     if (data == null) return;
+    await NotificationService.lenLichRamMung1();
     final rawEvents = data['events'];
     if (rawEvents is List && mounted) {
       final provider = Provider.of<SuKienProvider>(context, listen: false);
@@ -352,19 +355,92 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
     }
   }
 
+  Future<void> _xuatTatCaIcs() async {
+    final provider = Provider.of<SuKienProvider>(context, listen: false);
+    if (provider.danhSachSuKien.isEmpty) {
+      _thongBao('Chưa có sự kiện nào để xuất');
+      return;
+    }
+    final ok = await CalendarExport.hienDialogXuatLich(
+        context, provider.danhSachSuKien);
+    if (ok && mounted) {
+      _thongBao('Đã xuất file lịch (.ics)');
+    }
+  }
+
+  Future<void> _nhapTuFileIcs() async {
+    try {
+      final dsMoi = await IcsService.chonVaDocFileIcs();
+      if (dsMoi == null || !mounted) return;
+      if (dsMoi.isEmpty) {
+        _thongBao('Không tìm thấy sự kiện hợp lệ trong file .ics');
+        return;
+      }
+
+      final xacNhan = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Nhập lịch từ file .ics',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'Tìm thấy ${dsMoi.length} sự kiện (đã quy đổi sang Âm lịch). Bạn có muốn lưu vào ứng dụng không?'),
+                const SizedBox(height: 8),
+                ...dsMoi.take(5).map(
+                      (sk) => Text(
+                        '• ${sk.ten} (${sk.ngayAm}/${sk.thangAm} âm)',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                if (dsMoi.length > 5)
+                  Text('... và ${dsMoi.length - 5} sự kiện khác',
+                      style: const TextStyle(
+                          fontSize: 12, fontStyle: FontStyle.italic)),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Hủy')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Nhập ngay')),
+          ],
+        ),
+      );
+
+      if (xacNhan == true && mounted) {
+        final provider = Provider.of<SuKienProvider>(context, listen: false);
+        for (final sk in dsMoi) {
+          await provider.themSuKien(sk);
+        }
+        if (mounted) {
+          _thongBao('Đã nhập ${dsMoi.length} sự kiện từ file .ics');
+        }
+      }
+    } catch (e) {
+      _thongBao('Không đọc được file .ics: $e');
+    }
+  }
+
   void _hienThiDialogSaoLuuKhoiPhuc() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sao lưu & Khôi phục'),
+        title: const Text('Sao lưu & Xuất/Nhập Lịch'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading:
                   const Icon(Icons.cloud_upload_outlined, color: Colors.blue),
-              title: const Text('Sao lưu dữ liệu'),
-              subtitle: const Text('Xuất file lưu trữ ra ngoài'),
+              title: const Text('Sao lưu toàn bộ (.json)'),
+              subtitle: const Text('Lưu sự kiện & cấu hình ứng dụng'),
               onTap: () {
                 Navigator.pop(ctx);
                 _saoLuuDuLieu();
@@ -374,11 +450,34 @@ class _CaiDatScreenState extends State<CaiDatScreen> {
             ListTile(
               leading: const Icon(Icons.cloud_download_outlined,
                   color: Colors.green),
-              title: const Text('Khôi phục dữ liệu'),
-              subtitle: const Text('Nhập dữ liệu từ file đã lưu'),
+              title: const Text('Khôi phục bản sao lưu (.json)'),
+              subtitle: const Text('Nhập dữ liệu từ file sao lưu VIE Lịch'),
               onTap: () {
                 Navigator.pop(ctx);
                 _khoiPhucDuLieu();
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined,
+                  color: Colors.deepOrange),
+              title: const Text('Xuất sang lịch chuẩn (.ics)'),
+              subtitle:
+                  const Text('Dùng cho Google/Apple Calendar (1–10 năm)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _xuatTatCaIcs();
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading:
+                  const Icon(Icons.file_open_outlined, color: Colors.purple),
+              title: const Text('Nhập lịch từ file (.ics)'),
+              subtitle: const Text('Tự động quy đổi sự kiện sang Âm lịch'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _nhapTuFileIcs();
               },
             ),
           ],
