@@ -18,6 +18,13 @@ class BackupService {
     'linux_widget_size_mode',
     'linux_widget_pos_x',
     'linux_widget_pos_y',
+    'ram_mung1_enabled',
+    'ram_mung1_before_1day',
+    'ram_mung1_before_hour',
+    'ram_mung1_before_minute',
+    'ram_mung1_on_day',
+    'ram_mung1_on_day_hour',
+    'ram_mung1_on_day_minute',
   };
 
   static const Set<String> _allowedSizeModes = {

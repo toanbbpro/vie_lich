@@ -8,6 +8,8 @@ import '../models/su_kien.dart';
 import '../providers/su_kien_provider.dart';
 import '../services/calendar_export.dart';
 import '../services/deep_link_service.dart';
+import '../services/notification_service.dart';
+import '../services/ram_mung1_settings.dart';
 import 'them_sua_su_kien_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'qr_share_screen.dart';
@@ -20,8 +22,211 @@ class NhacSuKienScreen extends StatefulWidget {
 
 class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
   final Set<String> _selectedTags = {};
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   bool _isSelecting = false;
   final Set<String> _selectedIds = {};
+  RamMung1Config _ramConfig = const RamMung1Config();
+
+  @override
+  void initState() {
+    super.initState();
+    _taiCauHinhRamMung1();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _taiCauHinhRamMung1() async {
+    final cfg = await RamMung1Settings.load();
+    if (!mounted) return;
+    setState(() => _ramConfig = cfg);
+  }
+
+  Future<void> _toggleNhanhRamMung1(bool val) async {
+    var next = _ramConfig.copyWith(enabled: val);
+    if (val && !next.before1Day && !next.onDay) {
+      next = next.copyWith(before1Day: true, onDay: true);
+    }
+    setState(() => _ramConfig = next);
+    await RamMung1Settings.save(next);
+    await NotificationService.lenLichRamMung1(next);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          val
+              ? 'Đã bật nhắc Mùng 1 & Rằm âm lịch hằng tháng'
+              : 'Đã tắt nhắc Mùng 1 & Rằm âm lịch',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _moCaiDatRamMung1() async {
+    RamMung1Config draft = _ramConfig;
+
+    final saved = await showDialog<RamMung1Config>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            Future<void> chonGio({required bool laTruoc1Ngay}) async {
+              final initTime = laTruoc1Ngay
+                  ? TimeOfDay(
+                      hour: draft.beforeHour, minute: draft.beforeMinute)
+                  : TimeOfDay(hour: draft.onDayHour, minute: draft.onDayMinute);
+              final picked = await showTimePicker(
+                context: ctx,
+                initialTime: initTime,
+                builder: (c, child) => MediaQuery(
+                  data:
+                      MediaQuery.of(c).copyWith(alwaysUse24HourFormat: true),
+                  child: child!,
+                ),
+              );
+              if (picked != null) {
+                setModalState(() {
+                  draft = laTruoc1Ngay
+                      ? draft.copyWith(
+                          beforeHour: picked.hour, beforeMinute: picked.minute)
+                      : draft.copyWith(
+                          onDayHour: picked.hour, onDayMinute: picked.minute);
+                });
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.brightness_3, color: Colors.amber),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Nhắc Mùng 1 & Rằm',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Tự động nhắc mỗi tháng âm lịch',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14)),
+                      subtitle: const Text(
+                          'Áp dụng cho cả tháng thiếu (29 ngày) và tháng nhuận',
+                          style: TextStyle(fontSize: 12)),
+                      value: draft.enabled,
+                      onChanged: (v) {
+                        setModalState(() {
+                          draft = draft.copyWith(enabled: v);
+                          if (v && !draft.before1Day && !draft.onDay) {
+                            draft =
+                                draft.copyWith(before1Day: true, onDay: true);
+                          }
+                        });
+                      },
+                    ),
+                    const Divider(),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: draft.before1Day,
+                      onChanged: draft.enabled
+                          ? (v) => setModalState(
+                              () => draft = draft.copyWith(before1Day: v ?? false))
+                          : null,
+                      title: const Text('Nhắc trước 1 ngày',
+                          style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Chiều ngày 14 & cuối tháng âm',
+                          style: TextStyle(fontSize: 12)),
+                      secondary: OutlinedButton(
+                        onPressed: draft.enabled && draft.before1Day
+                            ? () => chonGio(laTruoc1Ngay: true)
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: const Size(64, 34),
+                        ),
+                        child: Text(RamMung1Config.fmtGio(
+                            draft.beforeHour, draft.beforeMinute)),
+                      ),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: draft.onDay,
+                      onChanged: draft.enabled
+                          ? (v) => setModalState(
+                              () => draft = draft.copyWith(onDay: v ?? false))
+                          : null,
+                      title: const Text('Nhắc sáng đúng ngày',
+                          style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Sáng Mùng 1 & ngày Rằm (15 âm)',
+                          style: TextStyle(fontSize: 12)),
+                      secondary: OutlinedButton(
+                        onPressed: draft.enabled && draft.onDay
+                            ? () => chonGio(laTruoc1Ngay: false)
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: const Size(64, 34),
+                        ),
+                        child: Text(RamMung1Config.fmtGio(
+                            draft.onDayHour, draft.onDayMinute)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    var finalCfg = draft;
+                    if (finalCfg.enabled &&
+                        !finalCfg.before1Day &&
+                        !finalCfg.onDay) {
+                      finalCfg = finalCfg.copyWith(enabled: false);
+                    }
+                    Navigator.pop(ctx, finalCfg);
+                  },
+                  child: const Text('Lưu cấu hình'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved == null || !mounted) return;
+    setState(() => _ramConfig = saved);
+    await RamMung1Settings.save(saved);
+    await NotificationService.lenLichRamMung1(saved);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã lưu cấu hình nhắc Mùng 1 & Rằm'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
   List<String> _layDanhSachTagDong(List<SuKien> ds) {
     final Set<String> tags = {};
@@ -99,6 +304,18 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
     _tatCheDoChon();
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('Đã xóa $soLuong lịch')));
+  }
+
+  Future<void> _xuatIcsDaChon(List<SuKien> dsGoc) async {
+    final dsChon = dsGoc.where((e) => _selectedIds.contains(e.id)).toList();
+    if (dsChon.isEmpty) return;
+    final ok = await CalendarExport.hienDialogXuatLich(context, dsChon);
+    if (ok && mounted) {
+      _tatCheDoChon();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã xuất ${dsChon.length} sự kiện ra file .ics')),
+      );
+    }
   }
 
   Future<void> _chiaSeQuaQR(List<SuKien> dsGoc) async {
@@ -244,6 +461,17 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
           }).toList();
         }
 
+        final q = _searchQuery.trim().toLowerCase();
+        if (q.isNotEmpty) {
+          ds = ds.where((sk) {
+            final matchTen = sk.ten.toLowerCase().contains(q);
+            final matchGhiChu = (sk.ghiChu ?? '').toLowerCase().contains(q);
+            final matchTag = (sk.tag ?? '').toLowerCase().contains(q);
+            final matchNgay = '${sk.ngayAm}/${sk.thangAm}'.contains(q);
+            return matchTen || matchGhiChu || matchTag || matchNgay;
+          }).toList();
+        }
+
         final dsSapXep = List<SuKien>.from(ds);
         dsSapXep.sort((a, b) {
           final na = CalendarExport.tinhNgaySuKien(a);
@@ -292,8 +520,15 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                           onPressed: _xoaCacSuKienDaChon),
                     IconButton(
                         iconSize: isTablet ? 32 : 24,
+                        icon: const Icon(Icons.calendar_month_outlined),
+                        tooltip: 'Xuất file lịch (.ics)',
+                        onPressed: _selectedIds.isEmpty
+                            ? null
+                            : () => _xuatIcsDaChon(dsGoc)),
+                    IconButton(
+                        iconSize: isTablet ? 32 : 24,
                         icon: const Icon(Icons.share),
-                        tooltip: 'Chia sẻ lịch',
+                        tooltip: 'Chia sẻ mã QR',
                         onPressed: _selectedIds.isEmpty
                             ? null
                             : () => _chiaSeQuaQR(dsGoc)),
@@ -316,84 +551,114 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
                           onPressed: () => _batCheDoChon()),
                   ],
                 ),
-          body: dsGoc.isEmpty
-              ? _EmptyState()
-              : Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          child: Row(
-                            children: dsTag.map((tag) {
-                              final bool isSelected = tag == 'Tất cả'
-                                  ? _selectedTags.isEmpty
-                                  : _selectedTags.contains(tag);
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: FilterChip(
-                                  label: Text(tag,
-                                      style: TextStyle(
-                                          fontSize: isTablet ? 16 : 14)),
-                                  selected: isSelected,
-                                  showCheckmark: tag != 'Tất cả',
-                                  onSelected: (val) {
-                                    setState(() {
-                                      if (tag == 'Tất cả') {
-                                        _selectedTags.clear();
-                                      } else {
-                                        if (val) {
-                                          _selectedTags.add(tag);
-                                        } else {
-                                          _selectedTags.remove(tag);
-                                        }
-                                      }
-                                    });
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _CardRamMung1(
+                    config: _ramConfig,
+                    onToggle: _toggleNhanhRamMung1,
+                    onTap: _moCaiDatRamMung1,
+                  ),
+                  if (dsGoc.isEmpty)
+                    Expanded(child: _EmptyState())
+                  else ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                        decoration: InputDecoration(
+                          hintText: 'Tìm tên sự kiện, ghi chú, thẻ...',
+                          isDense: true,
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
                                   },
-                                ),
-                              );
-                            }).toList(),
+                                )
+                              : null,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        if (dsSapXep.isEmpty)
-                          const Expanded(
-                              child: Center(
-                                  child: Text(
-                                      'Không tìm thấy lịch phù hợp bộ lọc.')))
-                        else
-                          Expanded(
-                            child: ListView.builder(
-                              padding:
-                                  const EdgeInsets.only(bottom: 88, top: 8),
-                              itemCount: dsSapXep.length,
-                              itemBuilder: (context, index) {
-                                final item = dsSapXep[index];
-                                final isChecked =
-                                    _selectedIds.contains(item.id);
-                                return _ItemSuKien(
-                                  suKien: item,
-                                  isSelecting: _isSelecting,
-                                  isSelected: isChecked,
-                                  isTablet: isTablet,
-                                  onToggleSelect: () =>
-                                      _toggleChonItem(item.id),
-                                  onLongPress: () {
-                                    if (!_isSelecting) {
-                                      _batCheDoChon(item.id);
+                      ),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      child: Row(
+                        children: dsTag.map((tag) {
+                          final bool isSelected = tag == 'Tất cả'
+                              ? _selectedTags.isEmpty
+                              : _selectedTags.contains(tag);
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text(tag,
+                                  style:
+                                      TextStyle(fontSize: isTablet ? 16 : 13)),
+                              selected: isSelected,
+                              showCheckmark: tag != 'Tất cả',
+                              onSelected: (val) {
+                                setState(() {
+                                  if (tag == 'Tất cả') {
+                                    _selectedTags.clear();
+                                  } else {
+                                    if (val) {
+                                      _selectedTags.add(tag);
+                                    } else {
+                                      _selectedTags.remove(tag);
                                     }
-                                  },
-                                );
+                                  }
+                                });
                               },
                             ),
-                          ),
-                      ],
+                          );
+                        }).toList(),
+                      ),
                     ),
-                  ),
-                ),
+                    if (dsSapXep.isEmpty)
+                      const Expanded(
+                          child: Center(
+                              child:
+                                  Text('Không tìm thấy lịch phù hợp bộ lọc.')))
+                    else
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 88, top: 4),
+                          itemCount: dsSapXep.length,
+                          itemBuilder: (context, index) {
+                            final item = dsSapXep[index];
+                            final isChecked = _selectedIds.contains(item.id);
+                            return _ItemSuKien(
+                              suKien: item,
+                              isSelecting: _isSelecting,
+                              isSelected: isChecked,
+                              isTablet: isTablet,
+                              onToggleSelect: () => _toggleChonItem(item.id),
+                              onLongPress: () {
+                                if (!_isSelecting) {
+                                  _batCheDoChon(item.id);
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
           floatingActionButton: _isSelecting
               ? null
               : FloatingActionButton.extended(
@@ -416,6 +681,79 @@ class _NhacSuKienScreenState extends State<NhacSuKienScreen> {
   }
 }
 
+class _CardRamMung1 extends StatelessWidget {
+  final RamMung1Config config;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onTap;
+
+  const _CardRamMung1({
+    required this.config,
+    required this.onToggle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: config.enabled
+                    ? Colors.amber.shade100
+                    : theme.colorScheme.surfaceContainerHighest,
+                child: Icon(
+                  Icons.brightness_3,
+                  color: config.enabled
+                      ? Colors.amber.shade800
+                      : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Nhắc Mùng 1 & Rằm hằng tháng',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      config.moTaNgan,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: config.enabled
+                            ? theme.colorScheme.primary
+                            : Colors.grey.shade600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: config.enabled,
+                onChanged: onToggle,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -430,14 +768,14 @@ class _EmptyState extends StatelessWidget {
                 size: 80,
                 color: theme.colorScheme.primary.withValues(alpha: 0.4)),
             const SizedBox(height: 16),
-            Text('Chưa có lịch nào',
+            Text('Chưa có lịch riêng nào',
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary)),
             const SizedBox(height: 8),
             Text(
-                'Nhấn nút "Thêm lịch" bên dưới để tạo lịch nhắc ngày giỗ, lễ theo âm lịch.',
+                'Nhấn nút "Thêm lịch" bên dưới để tạo lịch nhắc ngày giỗ, sinh nhật, lễ theo âm lịch.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey.shade600)),
           ],

@@ -120,7 +120,10 @@ class LunarDate {
       '1/1': 'Mùng 1 Tết Nguyên Đán',
       '2/1': 'Mùng 2 Tết Nguyên Đán',
       '3/1': 'Mùng 3 Tết Nguyên Đán',
-      '15/1': 'Tết Nguyên Tiêu',
+      '4/1': 'Lễ hóa vàng',
+      '7/1': 'Lễ Khai Hạ',
+      '10/1': 'Ngày vía Thần Tài',
+      '15/1': 'Tết Nguyên Tiêu (Rằm tháng Giêng)',
       '3/3': 'Tết Hàn Thực',
       '10/3': 'Giỗ Tổ Hùng Vương',
       '15/4': 'Lễ Phật Đản',
@@ -128,9 +131,7 @@ class LunarDate {
       '7/7': 'Lễ Thất Tịch',
       '15/7': 'Lễ Vu Lan (Rằm tháng Bảy)',
       '15/8': 'Tết Trung Thu',
-      '9/9': 'Tết Trùng Cửu',
-      '10/10': 'Tết Trùng Thập',
-      '15/10': 'Tết Hạ Nguyên',
+      '20/8': 'Hội Kiếp Bạc - Giỗ Đức Thánh Trần',
       '23/12': 'Ông Công Ông Táo',
     };
 
@@ -142,7 +143,7 @@ class LunarDate {
       final totalDays =
           LunarSolarConverter.getDaysInLunarMonth(month, year, isLeap);
       if (day == totalDays) {
-        return 'Đêm Giao Thừa';
+        return 'Lễ Tất Niên & Giao Thừa';
       }
     }
 

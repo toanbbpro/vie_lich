@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tyme/tyme.dart';
+import 'package:full_calender/models/lunar_date_time.dart';
 import '../utils/am_lich_helper.dart';
 
 class HomeScreenWidgetUI extends StatelessWidget {
@@ -74,12 +74,12 @@ class HomeScreenWidgetUI extends StatelessWidget {
     final hasEvent = ngayCoSuKien.contains(day);
 
     DateTime ngayDuongLich = DateTime(namDuyet, thangDuyet, day);
-    LunarDay? amLich = AmLichHelper.duongSangAm(ngayDuongLich);
+    LunarDateTime? amLich = AmLichHelper.duongSangAm(ngayDuongLich);
 
     String chuoiAmLich = '';
     if (amLich != null) {
-      int lDay = amLich.getDay();
-      int lMonth = amLich.getMonth();
+      int lDay = amLich.day;
+      int lMonth = amLich.month;
       chuoiAmLich = (lDay == 1) ? '$lDay/$lMonth' : '$lDay';
     }
 

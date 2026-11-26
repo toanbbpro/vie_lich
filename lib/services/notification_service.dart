@@ -9,6 +9,8 @@ import 'package:hive_ce/hive.dart';
 import '../models/su_kien.dart';
 import '../utils/am_lich_helper.dart';
 import '../utils/app_constants.dart';
+import 'ics_service.dart';
+import 'ram_mung1_settings.dart';
 import 'sound_settings.dart';
 
 class NotificationService {
@@ -16,6 +18,9 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static final Map<int, Timer> _linuxTimers = {};
   static AudioPlayer? _linuxAudioPlayer;
+
+  static const int _ramMung1BaseId = 2000000;
+  static const int _ramMung1MaxSlots = 60;
 
   static Future<void> init() async {
     tz.initializeTimeZones();
@@ -29,7 +34,6 @@ class NotificationService {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
-      // ĐÃ THÊM: Ép buộc macOS phải hiện Popup kể cả khi app đang mở
       defaultPresentAlert: true,
       defaultPresentBadge: true,
       defaultPresentSound: true,
@@ -68,33 +72,93 @@ class NotificationService {
     }
   }
 
-  /// Tránh xung đột bằng cách dùng một hàm tạo ID duy nhất từ UUID hoặc string
+  /// Tránh xung đột với dải ID dành riêng cho Mùng 1 / Rằm (_ramMung1BaseId.._ramMung1BaseId+99)
   static int _generateNotificationId(String id) {
-    return id.hashCode.abs() % 2147483647;
+    final raw = id.hashCode.abs() % 1900000;
+    return raw + 1000;
+  }
+
+  static Future<void> _datMotThongBao({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime thoiGianBaoThuc,
+    required DateTime now,
+    String? payload,
+  }) async {
+    if (!thoiGianBaoThuc.isAfter(now)) return;
+
+    if (Platform.isLinux) {
+      _linuxTimers[id]?.cancel();
+      final delay = thoiGianBaoThuc.difference(now);
+      _linuxTimers[id] = Timer(delay, () async {
+        _linuxTimers.remove(id);
+        await _showLinuxNotification(
+          id: id,
+          title: title,
+          body: body,
+          payload: payload,
+        );
+      });
+      return;
+    }
+
+    final tzTime = tz.TZDateTime.from(thoiGianBaoThuc, tz.local);
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'vie_lich_channel',
+      'Nhắc Lịch Sự Kiện',
+      channelDescription: 'Thông báo ngày giỗ, lễ tết, Mùng 1 & Rằm, nhắc việc',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+      macOS: darwinDetails,
+    );
+
+    await _notificationsPlugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tzTime,
+      notificationDetails: platformDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
+    );
   }
 
   static Future<void> lenLichSuKien(SuKien sk) async {
     final now = DateTime.now();
     final amHienTai = AmLichHelper.duongSangAm(now);
-    final namAmHienTai = amHienTai != null ? amHienTai.getYear() : now.year;
+    final namAmHienTai = amHienTai != null ? amHienTai.year : now.year;
     final todayOnly = DateTime(now.year, now.month, now.day);
 
-    int namAmTinhToan = sk.namAm ?? namAmHienTai;
+    final int namAmTinhToan = sk.namAm ?? namAmHienTai;
     DateTime? ngayDuong =
-        AmLichHelper.amSangDuong(namAmTinhToan, sk.thangAm, sk.ngayAm);
+        IcsService.tinhNgayDuongTheoNamAm(namAmTinhToan, sk.thangAm, sk.ngayAm);
 
     if (sk.namAm == null && ngayDuong != null) {
-      DateTime dateOnly =
+      final dateOnly =
           DateTime(ngayDuong.year, ngayDuong.month, ngayDuong.day);
       if (dateOnly.isBefore(todayOnly)) {
-        ngayDuong =
-            AmLichHelper.amSangDuong(namAmHienTai + 1, sk.thangAm, sk.ngayAm);
+        ngayDuong = IcsService.tinhNgayDuongTheoNamAm(
+            namAmHienTai + 1, sk.thangAm, sk.ngayAm);
       }
     }
 
     if (ngayDuong == null) return;
 
-    DateTime thoiGianBaoThuc = DateTime(
+    final thoiGianBaoThuc = DateTime(
       ngayDuong.year,
       ngayDuong.month,
       ngayDuong.day,
@@ -102,60 +166,45 @@ class NotificationService {
       sk.phutNhac,
     ).subtract(Duration(days: sk.baoTruoc));
 
-    if (thoiGianBaoThuc.isAfter(now)) {
-      final notificationId = _generateNotificationId(sk.id);
-      final title = 'Sắp đến: ${sk.ten}';
-      final body =
-          'Sự kiện diễn ra vào ${ngayDuong.day}/${ngayDuong.month}/${ngayDuong.year}';
+    await _datMotThongBao(
+      id: _generateNotificationId(sk.id),
+      title: 'Sắp đến: ${sk.ten}',
+      body:
+          'Sự kiện diễn ra vào ${ngayDuong.day}/${ngayDuong.month}/${ngayDuong.year}',
+      thoiGianBaoThuc: thoiGianBaoThuc,
+      now: now,
+      payload: sk.id,
+    );
+  }
 
+  /// Hủy toàn bộ các mốc thông báo Mùng 1 & Rằm đã đặt trước đó.
+  static Future<void> huyLichRamMung1() async {
+    for (int i = 0; i < _ramMung1MaxSlots; i++) {
+      final id = _ramMung1BaseId + i;
       if (Platform.isLinux) {
-        _linuxTimers[notificationId]?.cancel();
-        final delay = thoiGianBaoThuc.difference(now);
-        // Timer tối đa khoảng ~24 ngày nếu quá lớn trên 32-bit, nhưng trên 64-bit thoải mái;
-        // tuy nhiên vẫn đảm bảo an toàn khi đặt timer trong phiên chạy.
-        _linuxTimers[notificationId] = Timer(delay, () async {
-          _linuxTimers.remove(notificationId);
-          await _showLinuxNotification(
-            id: notificationId,
-            title: title,
-            body: body,
-            payload: sk.id,
-          );
-        });
-        return;
+        _linuxTimers.remove(id)?.cancel();
       }
+      await _notificationsPlugin.cancel(id: id);
+    }
+  }
 
-      final tzTime = tz.TZDateTime.from(thoiGianBaoThuc, tz.local);
+  /// Đặt lại thông báo cho 12 kỳ Mùng 1 & Rằm tiếp theo dựa trên cấu hình hiện tại.
+  static Future<void> lenLichRamMung1([RamMung1Config? customConfig]) async {
+    await huyLichRamMung1();
+    final config = customConfig ?? await RamMung1Settings.load();
+    if (!config.enabled) return;
 
-      const AndroidNotificationDetails androidDetails =
-          AndroidNotificationDetails(
-        'vie_lich_channel',
-        'Nhắc Lịch Sự Kiện',
-        channelDescription: 'Thông báo ngày giỗ, lễ tết, nhắc việc',
-        importance: Importance.max,
-        priority: Priority.high,
-      );
-
-      const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
-
-      const NotificationDetails platformDetails = NotificationDetails(
-        android: androidDetails,
-        iOS: darwinDetails,
-        macOS: darwinDetails,
-      );
-
-      await _notificationsPlugin.zonedSchedule(
-        id: notificationId,
-        title: title,
-        body: body,
-        scheduledDate: tzTime,
-        notificationDetails: platformDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: sk.id,
+    final now = DateTime.now();
+    final dsMoc = RamMung1Settings.tinhCacMocNhacTiepTheo(config, now, soKy: 12);
+    for (int i = 0; i < dsMoc.length && i < _ramMung1MaxSlots; i++) {
+      final moc = dsMoc[i];
+      await _datMotThongBao(
+        id: _ramMung1BaseId + i,
+        title: moc.title,
+        body: moc.body,
+        thoiGianBaoThuc: moc.thoiGianBao,
+        now: now,
+        payload: 'ram_mung1_${moc.ngayAm}_${moc.thangAm}',
       );
     }
   }
@@ -216,6 +265,7 @@ class NotificationService {
     for (var sk in dsSuKien) {
       await lenLichSuKien(sk);
     }
+    await lenLichRamMung1();
   }
 
   static Future<void> khoiPhucSauDoiAm([dynamic argument]) async {
